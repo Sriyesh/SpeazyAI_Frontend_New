@@ -6,7 +6,7 @@ import { LoadingAssessment } from "./loadingAssessment";
 import { SpeechAssessmentResults } from "./SpeechAssessmentResults";
 
 
-export function AudioRecorder({ expectedText = "I like apples", lessonColor = "from-blue-500 to-cyan-400" }) {
+export function AudioRecorder({ expectedText = "I Like Apples and Oranges. But can't taste any.", lessonColor = "from-blue-500 to-cyan-400" }) {
   const [isRecording, setIsRecording] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);

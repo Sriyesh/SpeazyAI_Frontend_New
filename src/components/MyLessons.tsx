@@ -40,7 +40,7 @@ const lessons = [
     illustration: "castle", // castle
     color: "from-[#3B82F6] to-[#00B9FC]",
     completed: true,
-    content: `Once upon a time, in a land far away, there lived a young explorer named Alex. Alex had always dreamed of going on a great adventure to discover magical treasures hidden in the enchanted forest.`,
+    content: `I Like Apples and Oranges. But can't taste any.`,
     practiceWords: ["adventure", "explorer", "magical", "friendship", "treasure", "courage"],
   },
   {
