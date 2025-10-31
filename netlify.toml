@@ -4,3 +4,9 @@
 
 [functions]
   directory = "netlify/functions"
+
+# 👇 Add this block
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
