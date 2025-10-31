@@ -1,8 +1,9 @@
-import fetch from "node-fetch";
+const fetch = require("node-fetch");
 
-export async function handler(event) {
-  const allowedOrigin = "https://speazyai.netlify.app"; // change if your domain differs
+exports.handler = async (event) => {
+  const allowedOrigin = "https://speazyai.netlify.app";
 
+  // Handle preflight
   if (event.httpMethod === "OPTIONS") {
     return {
       statusCode: 200,
@@ -17,6 +18,7 @@ export async function handler(event) {
 
   try {
     const body = JSON.parse(event.body);
+
     const response = await fetch(
       "https://apis.languageconfidence.ai/speech-assessment/scripted/uk",
       {
@@ -28,7 +30,8 @@ export async function handler(event) {
         body: JSON.stringify(body),
       }
     );
-    const result = await response.json();
+
+    const data = await response.json();
 
     return {
       statusCode: 200,
@@ -36,7 +39,7 @@ export async function handler(event) {
         "Access-Control-Allow-Origin": allowedOrigin,
         "Access-Control-Allow-Headers": "Content-Type",
       },
-      body: JSON.stringify(result),
+      body: JSON.stringify(data),
     };
   } catch (error) {
     console.error("Proxy error:", error);
@@ -46,4 +49,4 @@ export async function handler(event) {
       body: JSON.stringify({ error: error.message }),
     };
   }
-}
+};
