@@ -1,9 +1,7 @@
-const fetch = require("node-fetch");
-
 exports.handler = async (event) => {
   const allowedOrigin = "https://speazyai.netlify.app";
 
-  // Handle preflight
+  // Handle CORS preflight
   if (event.httpMethod === "OPTIONS") {
     return {
       statusCode: 200,
