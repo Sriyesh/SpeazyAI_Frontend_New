@@ -3,7 +3,8 @@ import { Button } from "./ui/button";
 import { Mic, Square, Play, Pause } from "lucide-react";
 import { RecordingWaveform } from "./recordingWaveform";
 import { LoadingAssessment } from "./loadingAssessment";
-import { SpeechAssessmentResults } from "./SpeechAssessmentResults";
+// in audioRecorder.tsx
+import {SpeechAssessmentResults} from "./SpeechAssessmentResults";
 
 
 export function AudioRecorder({ expectedText = "I Like Apples and Oranges. But can't taste any.", lessonColor = "from-blue-500 to-cyan-400" }) {
@@ -99,9 +100,11 @@ export function AudioRecorder({ expectedText = "I Like Apples and Oranges. But c
     console.log("Calling LanguageConfidence API through CORS proxy...");
     const apiUrl = "https://apis.languageconfidence.ai/speech-assessment/scripted/uk";
     const proxyUrl = "https://cors-anywhere.herokuapp.com/"; // temporary public proxy
+    const localserver = 'http://localhost:4000/speechProxy';
+    const netlifyProxy ='/.netlify/functions/speechProxy';
     setIsLoading(true);
     try {
-      const response = await fetch('/.netlify/functions/speechProxy', {
+      const response = await fetch(localserver, {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
