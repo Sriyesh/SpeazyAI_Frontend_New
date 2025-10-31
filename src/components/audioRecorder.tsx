@@ -101,12 +101,10 @@ export function AudioRecorder({ expectedText = "I like apples", lessonColor = "f
     const proxyUrl = "https://cors-anywhere.herokuapp.com/"; // temporary public proxy
     setIsLoading(true);
     try {
-      const response = await fetch(apiUrl, {
+      const response = await fetch('/.netlify/functions/speechProxy', {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
-          "api-key": "QWhUOdxHvKXQJ8wwTGqJuc6NeltIGbyB",
-          "lc-beta-features": "false",
+          "Content-Type": "application/json"
         },
         body: JSON.stringify({
           audio_base64: base64Audio,
