@@ -336,9 +336,9 @@ export function MyLessons() {
                 <div
                   className={`w-20 h-20 bg-gradient-to-br ${lesson.color} rounded-3xl flex items-center justify-center mb-6 group-hover:scale-125 group-hover:rotate-6 transition-all duration-500 shadow-lg glow-blue animated-star mx-auto text-4xl`}
                 >
-                  {lesson.illustration === "castle" && "castle"}
-                  {lesson.illustration === "rocket" && "rocket"}
-                  {lesson.illustration === "wave" && "wave"}
+                  {lesson.illustration === "castle" && "🏰"}
+                  {lesson.illustration === "rocket" && "🚀"}
+                  {lesson.illustration === "wave" && "🌊"}
                 </div>
                 <CardTitle
                   className="text-xl text-center group-hover:text-[#3B82F6] transition-colors"

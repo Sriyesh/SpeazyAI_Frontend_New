@@ -47,57 +47,63 @@ export function SpeechAssessmentResults({ data }) {
     window.speechSynthesis.speak(utterance)
   }
 
-  const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+const startRecording = async () => {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
 
-      const options = {
-        mimeType: "audio/webm;codecs=opus",
-        audioBitsPerSecond: 16000,
-      }
-
-      const mediaRecorder = new MediaRecorder(stream, options)
-      mediaRecorderRef.current = mediaRecorder
-      audioChunksRef.current = []
-      setRecordingTime(0)
-
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data)
-        }
-      }
-
-      mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" })
-        const audioUrl = URL.createObjectURL(audioBlob)
-        setRecordedAudio(audioUrl)
-        stream.getTracks().forEach((track) => track.stop())
-
-        const randomScore = Math.floor(Math.random() * 30) + 60
-        setPracticeScore(randomScore)
-
-        if (recordingTimerRef.current) {
-          clearInterval(recordingTimerRef.current)
-          recordingTimerRef.current = null
-        }
-      }
-
-      mediaRecorder.start()
-      setIsRecording(true)
-
-      recordingTimerRef.current = setInterval(() => {
-        setRecordingTime((prev) => {
-          const newTime = prev + 1
-          if (newTime >= 5) {
-            stopRecording()
-          }
-          return newTime
-        })
-      }, 1000)
-    } catch (error) {
-      console.error("Error accessing microphone:", error)
+    const options = {
+      mimeType: "audio/webm;codecs=opus",
+      audioBitsPerSecond: 16000,
     }
+
+    const mediaRecorder = new MediaRecorder(stream, options)
+    mediaRecorderRef.current = mediaRecorder
+    audioChunksRef.current = []
+    setRecordingTime(0)
+    setIsRecording(true)
+
+    mediaRecorder.ondataavailable = (event) => {
+      if (event.data.size > 0) {
+        audioChunksRef.current.push(event.data)
+      }
+    }
+
+    mediaRecorder.onstop = () => {
+      const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" })
+      const audioUrl = URL.createObjectURL(audioBlob)
+      setRecordedAudio(audioUrl)
+      stream.getTracks().forEach((track) => track.stop())
+
+      const randomScore = Math.floor(Math.random() * 30) + 60
+      setPracticeScore(randomScore)
+    }
+
+    mediaRecorder.start()
+
+    // === FIXED: Auto-stop at exactly 5 seconds ===
+    recordingTimerRef.current = setInterval(() => {
+      setRecordingTime((prev) => {
+        const newTime = prev + 1
+        if (newTime >= 5) {
+          stopRecording() // This will trigger onstop
+          return 5 // Cap at 5
+        }
+        return newTime
+      })
+    }, 1000)
+
+    // === Safety: Force stop after 5.1s in case interval fails ===
+    setTimeout(() => {
+      if (isRecording) {
+        stopRecording()
+      }
+    }, 5100)
+
+  } catch (error) {
+    console.error("Error accessing microphone:", error)
+    setIsRecording(false)
   }
+}
 
   const stopRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
@@ -403,7 +409,7 @@ export function SpeechAssessmentResults({ data }) {
                     <div className="w-full bg-gray-200 rounded-full h-2">
                       <div
                         className="bg-red-500 h-2 rounded-full transition-all duration-300"
-                        style={{ width: `${(recordingTime / 5) * 100}%` }}
+                        style={{ width: `${Math.min((recordingTime / 5) * 100, 100)}%` }}
                       ></div>
                     </div>
                   </div>

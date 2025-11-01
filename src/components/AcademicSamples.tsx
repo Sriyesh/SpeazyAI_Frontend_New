@@ -34,48 +34,48 @@ type PronunciationScore =
   | null;
 
 const classes = [
-  {
-    id: "ukg",
-    title: "UKG",
-    description: "First words with animated pictures",
-    ageGroup: "3-5 years",
-    icon: "🎈",
-    color: "from-amber-500 to-orange-600",
-    isNew: true,
-    words: [
-      {
-        word: "Apple",
-        encouragement: "Yay! Apple is red and yummy! 🍎",
-        hasAnimation: false,
-      },
-      {
-        word: "Ball",
-        encouragement: "Woohoo! Ball bounces up and down! ⚽",
-        hasAnimation: false,
-      },
-      {
-        word: "Car",
-        encouragement: "Vroom vroom! Cars go fast! 🚗",
-        hasAnimation: false,
-      },
-      {
-        word: "Duck",
-        encouragement: "Quack quack! Ducks swim in water! 🦆",
-        hasAnimation: false,
-      },
-      {
-        word: "Fish",
-        encouragement: "Splash! Fish swim in the sea! 🐠",
-        hasAnimation: true,
-      },
-      {
-        word: "Sun",
-        encouragement:
-          "Bright and shiny! Sun gives us light! ☀️",
-        hasAnimation: true,
-      },
-    ],
-  },
+  // {
+  //   id: "ukg",
+  //   title: "Class 1-2",
+  //   description: "First words with animated pictures",
+  //   ageGroup: "3-5 years",
+  //   // icon: "🎈",
+  //   color: "from-amber-500 to-orange-600",
+  //   isNew: true,
+  //   words: [
+  //     {
+  //       word: "Apple",
+  //       encouragement: "Yay! Apple is red and yummy! 🍎",
+  //       hasAnimation: false,
+  //     },
+  //     {
+  //       word: "Ball",
+  //       encouragement: "Woohoo! Ball bounces up and down! ⚽",
+  //       hasAnimation: false,
+  //     },
+  //     {
+  //       word: "Car",
+  //       encouragement: "Vroom vroom! Cars go fast! 🚗",
+  //       hasAnimation: false,
+  //     },
+  //     {
+  //       word: "Duck",
+  //       encouragement: "Quack quack! Ducks swim in water! 🦆",
+  //       hasAnimation: false,
+  //     },
+  //     {
+  //       word: "Fish",
+  //       encouragement: "Splash! Fish swim in the sea! 🐠",
+  //       hasAnimation: true,
+  //     },
+  //     {
+  //       word: "Sun",
+  //       encouragement:
+  //         "Bright and shiny! Sun gives us light! ☀️",
+  //       hasAnimation: true,
+  //     },
+  //   ],
+  // },
   {
     id: "class-1-2",
     title: "Class 1-2",
@@ -111,8 +111,8 @@ const classes = [
     ],
   },
   {
-    id: "class-3-4",
-    title: "Class 3-4",
+    id: "class-3-5",
+    title: "Class 3-5",
     description: "Building vocabulary skills",
     ageGroup: "8-10 years",
     icon: "🌟",
@@ -145,8 +145,8 @@ const classes = [
     ],
   },
   {
-    id: "class-5-6",
-    title: "Class 5-6",
+    id: "class-5-7",
+    title: "Class 5-7",
     description: "Advanced speaking practice",
     ageGroup: "11-13 years",
     icon: "🚀",
@@ -179,6 +179,42 @@ const classes = [
       },
     ],
   },
+  {
+    id: "class-8-12",
+    title: "Class 8-12",
+    description: "Advanced speaking practice",
+    ageGroup: "12-15 years",
+    icon: "🚀",
+    color: "from-red-600 to-purple-700",
+    words: [
+      {
+        word: "Once upon a time, there was a pencil and an eraser kept together in a pencil box. The pencil was proud of its work because it helped people write and draw. The eraser, however, stayed quietly beside it, waiting to correct its mistakes. One day, the pencil said to the eraser, 'Everyone loves me because I create beautiful things, but you just clean up my errors.' The eraser smiled and replied, 'That’s true, but every time I erase your mistakes, I lose a small part of myself. Still, I am happy because it means you are learning and improving.' The pencil suddenly felt sorry and realized how important the eraser was. From that day, the pencil wrote more carefully—not because it was afraid to make mistakes, but because it respected the one who helped it grow.",
+
+        encouragement:
+          "Excellent! You're speaking with confidence!",
+      },
+      {
+        word: "Discovery",
+        encouragement: "Amazing! Science helps us discover!",
+      },
+      {
+        word: "Creativity",
+        encouragement: "Wonderful! Art shows creativity!",
+      },
+      {
+        word: "Perseverance",
+        encouragement: "Outstanding! Never give up!",
+      },
+      {
+        word: "Leadership",
+        encouragement: "Fantastic! Be a great leader!",
+      },
+      {
+        word: "Innovation",
+        encouragement: "Brilliant! New ideas change the world!",
+      },
+    ],
+  }
 ];
 
 export function AcademicSamples({
