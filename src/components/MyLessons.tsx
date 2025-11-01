@@ -45,7 +45,7 @@ const lessons = [
   },
   {
     id: "space-journey",
-    title: "Journey to the Stars",
+    title: "stars to the Stars",
     description: "An exciting trip through space and planets",
     difficulty: "Intermediate",
     duration: "7 min",
