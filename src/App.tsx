@@ -15,6 +15,7 @@ import { ChatWithAI } from "./components/ChatWithAI"
 import { IELTSModule } from "./components/IELTSModule"
 import { Profile } from "./components/Profile"
 import { ThemeProvider } from "./components/ThemeProvider"
+import { ContentLibrary } from "./components/ContentLibrary"
 
 export default function App() {
   return (
@@ -38,6 +39,7 @@ export default function App() {
             <Route path="/ielts" element={<IELTSModule />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="*" element={<Navigate to="/" replace />} />
+            <Route path="/content-library" element={<ContentLibrary />} />
           </Routes>
         </div>
       </BrowserRouter>

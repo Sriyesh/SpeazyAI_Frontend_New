@@ -20,6 +20,7 @@ import {
   Award,
   LogOut,
   Sparkles,
+  Library,
 } from "lucide-react"
 
 // export function Dashboard({ onLogout }: DashboardProps) {
@@ -29,11 +30,11 @@ export function Dashboard() {
   const [showMelloMessage, setShowMelloMessage] = useState(true)
 
   useEffect(() => {
-    setTimeout(() => setIsLoaded(true), 100)
-  }, [])
+    setTimeout(() => setIsLoaded(true), 100);
+  }, []);
 
-  const TEXT_LIGHT = "#F2F6FF"
-  const TEXT_MUTED = "rgba(242,246,255,0.78)"
+  const TEXT_LIGHT = "#F2F6FF";
+  const TEXT_MUTED = "rgba(242,246,255,0.78)";
 
   // Dark blue background
   const BLUE_BG: React.CSSProperties = {
@@ -41,7 +42,7 @@ export function Dashboard() {
     backgroundAttachment: "fixed",
     backgroundRepeat: "no-repeat",
     backgroundSize: "cover",
-  }
+  };
 
   const modules = [
     {
@@ -90,7 +91,17 @@ export function Dashboard() {
       lessons: 0,
       isNew: true,
     },
-  ]
+    {
+      id: "content-library",
+      title: "Content Library",
+      description: "Manage your uploaded materials",
+      icon: Library,
+      color: "from-[#246BCF] to-[#00B9FC]",
+      progress: 0,
+      lessons: 0,
+      isNew: true,
+    },
+  ];
 
   const stats = [
     {
@@ -117,7 +128,7 @@ export function Dashboard() {
       icon: TrendingUp,
       color: "#246BCF",
     },
-  ]
+  ];
 
   return (
     <div className="min-h-screen relative overflow-x-hidden">
@@ -290,5 +301,5 @@ export function Dashboard() {
         position="bottom-right"
       />
     </div>
-  )
+  );
 }
