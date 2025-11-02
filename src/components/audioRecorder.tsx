@@ -104,7 +104,7 @@ export function AudioRecorder({ expectedText = "I Like Apples and Oranges. But c
     const netlifyProxy ='/.netlify/functions/speechProxy';
     setIsLoading(true);
     try {
-      const response = await fetch(localserver, {
+      const response = await fetch(netlifyProxy, {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
