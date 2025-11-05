@@ -9,6 +9,7 @@ import { Dashboard } from "./components/Dashboard"
 import { ApplicationLanding } from "./components/ApplicationLanding"
 import { FamousSpeeches } from "./components/FamousSpeeches"
 import { AcademicSamples } from "./components/AcademicSamples"
+import { ChapterView } from "./components/ChapterView"
 import { MyLessons } from "./components/MyLessons"
 import { CustomContent } from "./components/CustomContent"
 import { ChatWithAI } from "./components/ChatWithAI"
@@ -33,6 +34,7 @@ export default function App() {
             <Route path="/application" element={<ApplicationLanding />} />
             <Route path="/famous-speeches" element={<FamousSpeeches />} />
             <Route path="/academic-samples" element={<AcademicSamples />} />
+            <Route path="/academic-samples/chapter/:chapterId" element={<ChapterView />} />
             <Route path="/my-lessons" element={<MyLessons />} />
             <Route path="/custom-content" element={<CustomContent />} />
             <Route path="/chat" element={<ChatWithAI />} />
