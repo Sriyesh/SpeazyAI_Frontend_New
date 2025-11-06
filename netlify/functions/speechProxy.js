@@ -15,24 +15,27 @@ exports.handler = async (event) => {
   }
 
   try {
-    const body = JSON.parse(event.body);
+    const incoming = event.body ? JSON.parse(event.body) : {};
+    const { endpoint: _ignored, ...apiBody } = incoming; // strip endpoint if present in body
 
-    const response = await fetch(
-      "https://apis.languageconfidence.ai/speech-assessment/scripted/uk",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "api-key": process.env.LC_API_KEY,
-        },
-        body: JSON.stringify(body),
-      }
-    );
+    // Choose endpoint via query param; default to unscripted
+    const qsEndpoint = event.queryStringParameters?.endpoint;
+    const targetEndpoint =
+      qsEndpoint || "https://apis.languageconfidence.ai/speech-assessment/unscripted/uk";
+
+    const response = await fetch(targetEndpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "api-key": process.env.LC_API_KEY,
+      },
+      body: JSON.stringify(apiBody),
+    });
 
     const data = await response.json();
 
     return {
-      statusCode: 200,
+      statusCode: response.status,
       headers: {
         "Access-Control-Allow-Origin": allowedOrigin,
         "Access-Control-Allow-Headers": "Content-Type",

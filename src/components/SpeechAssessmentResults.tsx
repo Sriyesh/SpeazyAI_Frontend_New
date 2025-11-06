@@ -1,6 +1,6 @@
 "use client"
 
-import type React from "react"
+import React from "react"
 
 //@ts-ignore
 import { useState, useRef, useEffect } from "react"
@@ -25,14 +25,58 @@ export function SpeechAssessmentResults({ data }) {
   const fluency = data?.fluency || {}
   const overall = data?.overall || {}
   const reading = data?.reading || {}
+  const vocabulary = data?.vocabulary || {}
+  const grammar = data?.grammar || {}
   const warnings = data?.warnings || {}
   const metadata = data?.metadata || {}
 
   const wordScores = (pronunciation.words || []).map((w: { word_text: any; word_score: any; phonemes?: any[] }) => ({
     name: w.word_text,
     score: w.word_score,
-    phonemes: w.phonemes || [],
+    phonemes: w.phonemes || [], // API-returned phonemes for this word
   }))
+
+  const getScoreColor = (score: number) => {
+    if (score >= 70) {
+      return {
+        bg: "#dcfce7", // green-100
+        border: "#22c55e", // green-500
+        text: "#166534", // green-700
+      }
+    }
+    if (score >= 60) {
+      return {
+        bg: "#fef3c7", // yellow-100
+        border: "#eab308", // yellow-500
+        text: "#854d0e", // yellow-700
+      }
+    }
+    return {
+      bg: "#fee2e2", // red-100
+      border: "#ef4444", // red-500
+      text: "#991b1b", // red-700
+    }
+  }
+
+  const getPredictedTextArray = () => {
+    const predicted = (metadata.predicted_text || "").toLowerCase().trim()
+    return predicted.split(/\s+/).filter((w) => w.length > 0)
+  }
+
+  const getUniqueFilteredWords = () => {
+    const predictedWords = getPredictedTextArray()
+    const seen = new Set<string>()
+    return wordScores.filter((word) => {
+      const lowerWord = word.name.toLowerCase()
+      if (predictedWords.includes(lowerWord) && !seen.has(lowerWord)) {
+        seen.add(lowerWord)
+        return true
+      }
+      return false
+    })
+  }
+
+  const uniqueFilteredWords = getUniqueFilteredWords()
 
   const playPhonemeSound = (phoneme: string) => {
     const utterance = new SpeechSynthesisUtterance(phoneme)
@@ -47,63 +91,62 @@ export function SpeechAssessmentResults({ data }) {
     window.speechSynthesis.speak(utterance)
   }
 
-const startRecording = async () => {
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
 
-    const options = {
-      mimeType: "audio/webm;codecs=opus",
-      audioBitsPerSecond: 16000,
-    }
-
-    const mediaRecorder = new MediaRecorder(stream, options)
-    mediaRecorderRef.current = mediaRecorder
-    audioChunksRef.current = []
-    setRecordingTime(0)
-    setIsRecording(true)
-
-    mediaRecorder.ondataavailable = (event) => {
-      if (event.data.size > 0) {
-        audioChunksRef.current.push(event.data)
+      const options = {
+        mimeType: "audio/webm;codecs=opus",
+        audioBitsPerSecond: 16000,
       }
-    }
 
-    mediaRecorder.onstop = () => {
-      const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" })
-      const audioUrl = URL.createObjectURL(audioBlob)
-      setRecordedAudio(audioUrl)
-      stream.getTracks().forEach((track) => track.stop())
+      const mediaRecorder = new MediaRecorder(stream, options)
+      mediaRecorderRef.current = mediaRecorder
+      audioChunksRef.current = []
+      setRecordingTime(0)
+      setIsRecording(true)
 
-      const randomScore = Math.floor(Math.random() * 30) + 60
-      setPracticeScore(randomScore)
-    }
-
-    mediaRecorder.start()
-
-    // === FIXED: Auto-stop at exactly 5 seconds ===
-    recordingTimerRef.current = setInterval(() => {
-      setRecordingTime((prev) => {
-        const newTime = prev + 1
-        if (newTime >= 5) {
-          stopRecording() // This will trigger onstop
-          return 5 // Cap at 5
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data)
         }
-        return newTime
-      })
-    }, 1000)
-
-    // === Safety: Force stop after 5.1s in case interval fails ===
-    setTimeout(() => {
-      if (isRecording) {
-        stopRecording()
       }
-    }, 5100)
 
-  } catch (error) {
-    console.error("Error accessing microphone:", error)
-    setIsRecording(false)
+      mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" })
+        const audioUrl = URL.createObjectURL(audioBlob)
+        setRecordedAudio(audioUrl)
+        stream.getTracks().forEach((track) => track.stop())
+
+        const randomScore = Math.floor(Math.random() * 30) + 60
+        setPracticeScore(randomScore)
+      }
+
+      mediaRecorder.start()
+
+      // === FIXED: Auto-stop at exactly 5 seconds ===
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingTime((prev) => {
+          const newTime = prev + 1
+          if (newTime >= 5) {
+            stopRecording() // This will trigger onstop
+            return 5 // Cap at 5
+          }
+          return newTime
+        })
+      }, 1000)
+
+      // === Safety: Force stop after 5.1s in case interval fails ===
+      setTimeout(() => {
+        if (isRecording) {
+          stopRecording()
+        }
+      }, 5100)
+    } catch (error) {
+      console.error("Error accessing microphone:", error)
+      setIsRecording(false)
+    }
   }
-}
 
   const stopRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
@@ -229,23 +272,35 @@ const startRecording = async () => {
           <div className="mb-6">
             <p className="text-sm text-gray-600 mb-3">Click on any word to see detailed pronunciation breakdown:</p>
             <div className="flex flex-wrap gap-2">
-              {wordScores.map((word, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => setSelectedWord(selectedWord === word.name ? null : word.name)}
-                  className={`px-4 py-2 rounded-lg border-2 transition-all ${selectedWord === word.name
-                      ? "border-blue-500 bg-blue-50 text-blue-700 font-semibold"
-                      : word.score >= 80
-                        ? "border-green-300 bg-green-50 text-green-700 hover:border-green-400"
-                        : word.score >= 60
-                          ? "border-yellow-300 bg-yellow-50 text-yellow-700 hover:border-yellow-400"
-                          : "border-red-300 bg-red-50 text-red-700 hover:border-red-400"
-                    }`}
-                >
-                  {word.name}
-                  <span className="ml-2 text-xs font-semibold">({word.score})</span>
-                </button>
-              ))}
+              {uniqueFilteredWords.map((word, idx) => {
+                const colors = getScoreColor(word.score)
+                return (
+                  <button
+                    key={idx}
+                    onClick={() => setSelectedWord(selectedWord === word.name ? null : word.name)}
+                    style={{
+                      backgroundColor: selectedWord === word.name ? "#dbeafe" : colors.bg,
+                      borderColor: selectedWord === word.name ? "#3b82f6" : colors.border,
+                      color: selectedWord === word.name ? "#1e40af" : colors.text,
+                      borderWidth: "2px",
+                      padding: "8px 16px",
+                      borderRadius: "8px",
+                      fontWeight: "600",
+                      cursor: "pointer",
+                      transition: "all 0.3s ease",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.opacity = "0.8"
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.opacity = "1"
+                    }}
+                  >
+                    {word.name}
+                    <span style={{ marginLeft: "8px", fontSize: "12px", fontWeight: "600" }}>({word.score})</span>
+                  </button>
+                )
+              })}
             </div>
           </div>
 
@@ -262,7 +317,17 @@ const startRecording = async () => {
                     <Volume2 className="w-5 h-5 text-blue-600" />
                   </button>
                 </div>
-                <div className="text-2xl font-semibold text-blue-600">
+                <div
+                  style={{
+                    backgroundColor: getScoreColor(wordScores.find((w) => w.name === selectedWord)?.score || 0).bg,
+                    borderColor: getScoreColor(wordScores.find((w) => w.name === selectedWord)?.score || 0).border,
+                    color: getScoreColor(wordScores.find((w) => w.name === selectedWord)?.score || 0).text,
+                    padding: "8px 16px",
+                    borderRadius: "8px",
+                    borderWidth: "2px",
+                    fontWeight: "600",
+                  }}
+                >
                   Score: {wordScores.find((w) => w.name === selectedWord)?.score}
                 </div>
               </div>
@@ -270,29 +335,30 @@ const startRecording = async () => {
               <div className="mb-4">
                 <h4 className="text-sm font-semibold text-gray-700 mb-2">Phonemes:</h4>
                 <div className="flex flex-wrap gap-2">
-                  {(pronunciation.lowest_scoring_phonemes || [])
-                    .filter((p: any) => selectedWord.toLowerCase().includes(p.ipa_label?.toLowerCase()))
-                    .map((p: { ipa_label: any; phoneme_score: any }, idx: any) => (
-                      <div
-                        key={idx}
-                        className="flex items-center gap-2 border border-blue-300 bg-white px-3 py-2 rounded-lg"
-                      >
-                        <span className="font-mono text-blue-700">{p.ipa_label}</span>
-                        <span className="text-sm text-gray-600">({p.phoneme_score})</span>
-                        <button
-                          onClick={() => playPhonemeSound(p.ipa_label)}
-                          className="p-1 hover:bg-blue-100 rounded transition-colors"
-                          title="Play sound"
+                  {wordScores.find((w) => w.name === selectedWord)?.phonemes?.length > 0 ? (
+                    wordScores
+                      .find((w) => w.name === selectedWord)
+                      ?.phonemes?.map((p: any, idx: any) => (
+                        <div
+                          key={idx}
+                          className="flex items-center gap-2 border border-blue-300 bg-white px-3 py-2 rounded-lg"
                         >
-                          <Volume2 className="w-4 h-4 text-blue-600" />
-                        </button>
-                      </div>
-                    ))}
-                  {(pronunciation.lowest_scoring_phonemes || []).filter((p: any) =>
-                    selectedWord.toLowerCase().includes(p.ipa_label?.toLowerCase()),
-                  ).length === 0 && (
-                      <p className="text-sm text-gray-500">No specific phoneme data available for this word.</p>
-                    )}
+                          <span className="font-mono text-blue-700">{p.ipa_label || p}</span>
+                          {p.phoneme_score !== undefined && (
+                            <span className="text-sm text-gray-600">({p.phoneme_score})</span>
+                          )}
+                          <button
+                            onClick={() => playPhonemeSound(p.ipa_label || p)}
+                            className="p-1 hover:bg-blue-100 rounded transition-colors"
+                            title="Play sound"
+                          >
+                            <Volume2 className="w-4 h-4 text-blue-600" />
+                          </button>
+                        </div>
+                      ))
+                  ) : (
+                    <p className="text-sm text-gray-500">No phoneme data available for this word.</p>
+                  )}
                 </div>
               </div>
 
@@ -315,12 +381,12 @@ const startRecording = async () => {
                         transition: "all 0.3s ease",
                       }}
                       onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = isRecording ? "#2563EB" : "#4A98F8"; // hover colors
-                        e.currentTarget.style.transform = "scale(1.05)";
+                        e.currentTarget.style.backgroundColor = isRecording ? "#2563EB" : "#4A98F8" // hover colors
+                        e.currentTarget.style.transform = "scale(1.05)"
                       }}
                       onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = isRecording ? "#EF4444" : "#4A98F8"; // reset color
-                        e.currentTarget.style.transform = "scale(1)";
+                        e.currentTarget.style.backgroundColor = isRecording ? "#EF4444" : "#4A98F8" // reset color
+                        e.currentTarget.style.transform = "scale(1)"
                       }}
                     >
                       {isRecording ? (
@@ -475,7 +541,7 @@ const startRecording = async () => {
               key !== "tagged_transcript" ? (
                 <div key={key} className="bg-white border border-gray-200 p-3 rounded-lg shadow-sm">
                   <p className="text-sm font-semibold text-emerald-700 capitalize">{key.replace(/_/g, " ")}</p>
-                  <p className="text-gray-700 text-sm">{value.feedback_text}</p>
+                  <p className="text-gray-700 text-sm">{(value as any)?.feedback_text ?? "-"}</p>
                 </div>
               ) : null,
             )}
@@ -484,32 +550,129 @@ const startRecording = async () => {
       </Card>
 
       <Card className={cardBase}>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-purple-700">
-            <BookOpen className="w-5 h-5 text-purple-500" />
-            Reading Metrics
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="text-center bg-purple-50 border border-purple-200 rounded-xl p-4">
-              <p className="text-sm text-gray-600">Accuracy</p>
-              <p className="text-2xl font-semibold text-purple-600">{(reading.accuracy * 100).toFixed(0)}%</p>
-            </div>
-            <div className="text-center bg-purple-50 border border-purple-200 rounded-xl p-4">
-              <p className="text-sm text-gray-600">Completion</p>
-              <p className="text-2xl font-semibold text-purple-600">{(reading.completion * 100).toFixed(0)}%</p>
-            </div>
-            <div className="text-center bg-purple-50 border border-purple-200 rounded-xl p-4">
-              <p className="text-sm text-gray-600">Speed (WPM)</p>
-              <p className="text-2xl font-semibold text-purple-600">{reading.speed_wpm.toFixed(1)}</p>
-            </div>
-            <div className="text-center bg-purple-50 border border-purple-200 rounded-xl p-4">
-              <p className="text-sm text-gray-600">Words Read</p>
-              <p className="text-2xl font-semibold text-purple-600">{reading.words_read}</p>
-            </div>
-          </div>
-        </CardContent>
+        {reading && Object.keys(reading).length > 0 ? (
+          <>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-purple-700">
+                <BookOpen className="w-5 h-5 text-purple-500" />
+                Reading Metrics
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="text-center bg-purple-50 border border-purple-200 rounded-xl p-4">
+                  <p className="text-sm text-gray-600">Accuracy</p>
+                  <p className="text-2xl font-semibold text-purple-600">{Number.isFinite(reading.accuracy) ? (reading.accuracy * 100).toFixed(0) : "-"}%</p>
+                </div>
+                <div className="text-center bg-purple-50 border border-purple-200 rounded-xl p-4">
+                  <p className="text-sm text-gray-600">Completion</p>
+                  <p className="text-2xl font-semibold text-purple-600">{Number.isFinite(reading.completion) ? (reading.completion * 100).toFixed(0) : "-"}%</p>
+                </div>
+                <div className="text-center bg-purple-50 border border-purple-200 rounded-xl p-4">
+                  <p className="text-sm text-gray-600">Speed (WPM)</p>
+                  <p className="text-2xl font-semibold text-purple-600">{Number.isFinite(reading.speed_wpm) ? reading.speed_wpm.toFixed(1) : "-"}</p>
+                </div>
+                <div className="text-center bg-purple-50 border border-purple-200 rounded-xl p-4">
+                  <p className="text-sm text-gray-600">Words Read</p>
+                  <p className="text-2xl font-semibold text-purple-600">{reading.words_read ?? "-"}</p>
+                </div>
+              </div>
+            </CardContent>
+          </>
+        ) : (
+          <>
+            {(vocabulary && Object.keys(vocabulary).length > 0) || (grammar && Object.keys(grammar).length > 0) ? (
+              <CardContent className="space-y-6">
+                {vocabulary && Object.keys(vocabulary).length > 0 && (
+                  <div>
+                    <CardTitle className="flex items-center gap-2 text-purple-700 mb-3">
+                      <BookOpen className="w-5 h-5 text-purple-500" />
+                      Vocabulary
+                    </CardTitle>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="text-center bg-purple-50 border border-purple-200 rounded-xl p-4">
+                        <p className="text-sm text-gray-600">Overall</p>
+                        <p className="text-2xl font-semibold text-purple-600">{vocabulary.overall_score ?? "-"}</p>
+                      </div>
+                      <div className="text-center bg-purple-50 border border-purple-200 rounded-xl p-4">
+                        <p className="text-sm text-gray-600">Complexity</p>
+                        <p className="text-2xl font-semibold text-purple-600">{vocabulary.metrics?.vocabulary_complexity ?? "-"}</p>
+                      </div>
+                      <div className="text-center bg-purple-50 border border-purple-200 rounded-xl p-4">
+                        <p className="text-sm text-gray-600">Idioms</p>
+                        <p className="text-2xl font-semibold text-purple-600">{vocabulary.metrics?.idiom_details?.length ?? 0}</p>
+                      </div>
+                      <div className="text-center bg-purple-50 border border-purple-200 rounded-xl p-4">
+                        <p className="text-sm text-gray-600">IELTS</p>
+                        <p className="text-2xl font-semibold text-purple-600">{vocabulary.english_proficiency_scores?.mock_ielts?.prediction ?? "-"}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {grammar && Object.keys(grammar).length > 0 && (
+                  <div>
+                    <CardTitle className="flex items-center gap-2 text-emerald-700 mb-3">
+                      <Brain className="w-5 h-5 text-emerald-500" />
+                      Grammar
+                    </CardTitle>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="text-center bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+                        <p className="text-sm text-gray-600">Overall</p>
+                        <p className="text-2xl font-semibold text-emerald-600">{grammar.overall_score ?? "-"}</p>
+                      </div>
+                      <div className="text-center bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+                        <p className="text-sm text-gray-600">Mistakes</p>
+                        <p className="text-2xl font-semibold text-emerald-600">{grammar.metrics?.mistake_count ?? 0}</p>
+                      </div>
+                      <div className="text-center bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+                        <p className="text-sm text-gray-600">Complexity</p>
+                        <p className="text-2xl font-semibold text-emerald-600">{grammar.metrics?.grammatical_complexity ?? "-"}</p>
+                      </div>
+                      <div className="text-center bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+                        <p className="text-sm text-gray-600">IELTS</p>
+                        <p className="text-2xl font-semibold text-emerald-600">{grammar.english_proficiency_scores?.mock_ielts?.prediction ?? "-"}</p>
+                      </div>
+                    </div>
+                    {(grammar.feedback?.corrected_text || (grammar.metrics?.grammar_errors || []).length > 0) && (
+                      <div className="mt-4 bg-white border border-emerald-200 p-3 rounded-lg">
+                        {grammar.feedback?.corrected_text && (
+                          <p className="text-sm text-gray-700"><strong>Corrected:</strong> {grammar.feedback.corrected_text}</p>
+                        )}
+                        {(grammar.metrics?.grammar_errors || []).length > 0 && (
+                          <ul className="list-disc pl-5 text-sm text-gray-700 mt-2">
+                            {grammar.metrics.grammar_errors.map((err: any, i: number) => {
+                              if (typeof err === "string") {
+                                return <li key={i}>{err}</li>
+                              }
+                              const mistake = err?.mistake ?? "Unknown"
+                              const correction = err?.correction ?? "-"
+                              const start = err?.start_index
+                              const end = err?.end_index
+                              return (
+                                <li key={i}>
+                                  <span className="font-semibold">{mistake}</span>
+                                  {" → "}
+                                  <span className="text-green-700">{correction}</span>
+                                  {Number.isFinite(start) && Number.isFinite(end) && (
+                                    <span className="text-gray-500"> {` (at ${start}-${end})`}</span>
+                                  )}
+                                </li>
+                              )
+                            })}
+                          </ul>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            ) : (
+              <CardContent>
+                <p className="text-sm text-gray-600">No reading, vocabulary, or grammar metrics available.</p>
+              </CardContent>
+            )}
+          </>
+        )}
       </Card>
 
       {(Object.keys(warnings).length > 0 || metadata.predicted_text) && (
@@ -524,7 +687,7 @@ const startRecording = async () => {
             {Object.entries(warnings).map(([key, value]) => (
               <div key={key}>
                 <strong>{key}: </strong>
-                {value}
+                {typeof value === "string" ? value : JSON.stringify(value)}
               </div>
             ))}
             {metadata.predicted_text && (

@@ -30,11 +30,11 @@ export function Dashboard() {
   const [showMelloMessage, setShowMelloMessage] = useState(true)
 
   useEffect(() => {
-    setTimeout(() => setIsLoaded(true), 100);
-  }, []);
+    setTimeout(() => setIsLoaded(true), 100)
+  }, [])
 
-  const TEXT_LIGHT = "#F2F6FF";
-  const TEXT_MUTED = "rgba(242,246,255,0.78)";
+  const TEXT_LIGHT = "#F2F6FF"
+  const TEXT_MUTED = "rgba(242,246,255,0.78)"
 
   // Dark blue background
   const BLUE_BG: React.CSSProperties = {
@@ -42,7 +42,7 @@ export function Dashboard() {
     backgroundAttachment: "fixed",
     backgroundRepeat: "no-repeat",
     backgroundSize: "cover",
-  };
+  }
 
   const modules = [
     {
@@ -101,7 +101,17 @@ export function Dashboard() {
       lessons: 0,
       isNew: true,
     },
-  ];
+    {
+      id: "quick-practice",
+      title: "Learn on your own",
+      description: "Take a 5-minute speaking challenge",
+      icon: Sparkles,
+      color: "from-[#3B82F6] to-[#00B9FC]",
+      progress: 0,
+      lessons: 0,
+      isNew: true,
+    },
+  ]
 
   const stats = [
     {
@@ -128,7 +138,7 @@ export function Dashboard() {
       icon: TrendingUp,
       color: "#246BCF",
     },
-  ];
+  ]
 
   return (
     <div className="min-h-screen relative overflow-x-hidden">
@@ -220,7 +230,13 @@ export function Dashboard() {
             <Card
               key={module.id}
               className="group bg-white border-0 cursor-pointer transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl relative overflow-hidden"
-              onClick={() => navigate(`/${module.id}`)}
+              onClick={() => {
+                if (module.id === "quick-practice") {
+                  navigate("/quick-practice")
+                } else {
+                  navigate(`/${module.id}`)
+                }
+              }}
             >
               {module.isNew && (
                 <div className="absolute top-4 right-4 z-10">
@@ -270,27 +286,6 @@ export function Dashboard() {
             </Card>
           ))}
         </div>
-
-        {/* Quick Practice CTA */}
-        <Card className="mt-8 bg-gradient-to-br from-[#3B82F6] to-[#00B9FC] border-0 shadow-2xl overflow-hidden">
-          <CardContent className="p-6">
-            <div className="flex flex-col md:flex-row items-center justify-between">
-              <div className="mb-4 md:mb-0">
-                <div className="flex items-center gap-2 mb-2">
-                  <Sparkles className="w-6 h-6 text-[#FFD600]" />
-                  <h3 className="text-2xl text-white">Quick Practice Session</h3>
-                </div>
-                <p className="text-white/90">Take a 5-minute speaking challenge and boost your confidence</p>
-              </div>
-              <Button
-                size="lg"
-                className="bg-white text-[#3B82F6] hover:bg-white/90 rounded-2xl px-6 shadow-xl hover:shadow-2xl transition-all duration-200 hover:scale-105"
-              >
-                Start Practice
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
       <MelloAssistant
@@ -301,5 +296,5 @@ export function Dashboard() {
         position="bottom-right"
       />
     </div>
-  );
+  )
 }

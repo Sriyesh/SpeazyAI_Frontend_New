@@ -107,7 +107,7 @@ export function ChapterView() {
           >
             <div className="bg-white/95 rounded-2xl shadow-2xl p-8 border-0">
               <h2 className="text-2xl font-bold text-[#1E3A8A] mb-6">Practice Your Speaking</h2>
-              <AudioRecorder expectedText={chapter.content} lessonColor={classData.gradient} />
+              <AudioRecorder expectedText={chapter.content} lessonColor={classData.gradient} endpoint="https://apis.languageconfidence.ai/speech-assessment/scripted/uk"/>
             </div>
           </motion.div>
         </div>

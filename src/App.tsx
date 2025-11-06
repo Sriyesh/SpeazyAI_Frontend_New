@@ -17,6 +17,7 @@ import { IELTSModule } from "./components/IELTSModule"
 import { Profile } from "./components/Profile"
 import { ThemeProvider } from "./components/ThemeProvider"
 import { ContentLibrary } from "./components/ContentLibrary"
+import { QuickPractice } from "./components/QuickPractice"
 
 export default function App() {
   return (
@@ -31,6 +32,7 @@ export default function App() {
             <Route path="/signup" element={<SignUpPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/quick-practice" element={<QuickPractice />} />
             <Route path="/application" element={<ApplicationLanding />} />
             <Route path="/famous-speeches" element={<FamousSpeeches />} />
             <Route path="/academic-samples" element={<AcademicSamples />} />

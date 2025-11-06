@@ -8,21 +8,25 @@ dotenv.config();
 const app = express();
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
 app.post("/speechProxy", async (req, res) => {
   try {
-    const response = await fetch(
-      "https://apis.languageconfidence.ai/speech-assessment/scripted/uk",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "api-key": process.env.LC_API_KEY,
-        },
-        body: JSON.stringify(req.body),
-      }
-    );
+    // Get endpoint from query parameter, default to unscripted
+    const targetEndpoint = req.query.endpoint || "https://apis.languageconfidence.ai/speech-assessment/unscripted/uk";
+    
+    // Forward only the fields the API expects (remove endpoint if it was in body)
+    const { endpoint: _, ...apiBody } = req.body;
+    
+    const response = await fetch(targetEndpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "api-key": process.env.LC_API_KEY,
+      },
+      body: JSON.stringify(apiBody),
+    });
 
     const data = await response.json();
     res.set("Access-Control-Allow-Origin", "*");
