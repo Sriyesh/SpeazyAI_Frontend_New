@@ -1,0 +1,3876 @@
+{
+    "pronunciation": {
+        "words": [
+            {
+                "word_text": "Throughout",
+                "phonemes": [
+                    {
+                        "ipa_label": "θ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "r",
+                        "phoneme_score": 100
+                    },
+                    {
+                        "ipa_label": "uː",
+                        "phoneme_score": 100
+                    },
+                    {
+                        "ipa_label": "aʊ",
+                        "phoneme_score": 100
+                    },
+                    {
+                        "ipa_label": "t",
+                        "phoneme_score": 100
+                    }
+                ],
+                "word_score": 80
+            },
+            {
+                "word_text": "human",
+                "phonemes": [
+                    {
+                        "ipa_label": "h",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "j",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "uː",
+                        "phoneme_score": 100
+                    },
+                    {
+                        "ipa_label": "m",
+                        "phoneme_score": 100
+                    },
+                    {
+                        "ipa_label": "ə",
+                        "phoneme_score": 100
+                    },
+                    {
+                        "ipa_label": "n",
+                        "phoneme_score": 100
+                    }
+                ],
+                "word_score": 66
+            },
+            {
+                "word_text": "history",
+                "phonemes": [
+                    {
+                        "ipa_label": "h",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "s",
+                        "phoneme_score": 40
+                    },
+                    {
+                        "ipa_label": "t",
+                        "phoneme_score": 100
+                    },
+                    {
+                        "ipa_label": "ə",
+                        "phoneme_score": 100
+                    },
+                    {
+                        "ipa_label": "r",
+                        "phoneme_score": 100
+                    },
+                    {
+                        "ipa_label": "i",
+                        "phoneme_score": 100
+                    }
+                ],
+                "word_score": 62
+            },
+            {
+                "word_text": "ancient",
+                "phonemes": [
+                    {
+                        "ipa_label": "eɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "n",
+                        "phoneme_score": 100
+                    },
+                    {
+                        "ipa_label": "ʃ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ə",
+                        "phoneme_score": 100
+                    },
+                    {
+                        "ipa_label": "n",
+                        "phoneme_score": 100
+                    },
+                    {
+                        "ipa_label": "t",
+                        "phoneme_score": 40
+                    }
+                ],
+                "word_score": 56
+            },
+            {
+                "word_text": "civilizations",
+                "phonemes": [
+                    {
+                        "ipa_label": "s",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "v",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ə",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "l",
+                        "phoneme_score": 100
+                    },
+                    {
+                        "ipa_label": "ʌɪ",
+                        "phoneme_score": 42
+                    },
+                    {
+                        "ipa_label": "z",
+                        "phoneme_score": 100
+                    },
+                    {
+                        "ipa_label": "eɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ʃ",
+                        "phoneme_score": 100
+                    },
+                    {
+                        "ipa_label": "n",
+                        "phoneme_score": 100
+                    },
+                    {
+                        "ipa_label": "z",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "have",
+                "phonemes": [
+                    {
+                        "ipa_label": "h",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "a",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "v",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "shaped",
+                "phonemes": [
+                    {
+                        "ipa_label": "ʃ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "eɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "p",
+                        "phoneme_score": 40
+                    },
+                    {
+                        "ipa_label": "t",
+                        "phoneme_score": 100
+                    }
+                ],
+                "word_score": 35
+            },
+            {
+                "word_text": "the",
+                "phonemes": [
+                    {
+                        "ipa_label": "ð",
+                        "phoneme_score": 100
+                    },
+                    {
+                        "ipa_label": "ə",
+                        "phoneme_score": 100
+                    }
+                ],
+                "word_score": 100
+            },
+            {
+                "word_text": "world",
+                "phonemes": [
+                    {
+                        "ipa_label": "w",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "əː",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "l",
+                        "phoneme_score": 3
+                    },
+                    {
+                        "ipa_label": "d",
+                        "phoneme_score": 100
+                    }
+                ],
+                "word_score": 25
+            },
+            {
+                "word_text": "we",
+                "phonemes": [
+                    {
+                        "ipa_label": "w",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "iː",
+                        "phoneme_score": 45
+                    }
+                ],
+                "word_score": 22
+            },
+            {
+                "word_text": "live",
+                "phonemes": [
+                    {
+                        "ipa_label": "l",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "v",
+                        "phoneme_score": 100
+                    }
+                ],
+                "word_score": 33
+            },
+            {
+                "word_text": "in",
+                "phonemes": [
+                    {
+                        "ipa_label": "ɪ",
+                        "phoneme_score": 100
+                    },
+                    {
+                        "ipa_label": "n",
+                        "phoneme_score": 100
+                    }
+                ],
+                "word_score": 100
+            },
+            {
+                "word_text": "today",
+                "phonemes": [
+                    {
+                        "ipa_label": "t",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ə",
+                        "phoneme_score": 89
+                    },
+                    {
+                        "ipa_label": "d",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "eɪ",
+                        "phoneme_score": 100
+                    }
+                ],
+                "word_score": 47
+            },
+            {
+                "word_text": "The",
+                "phonemes": [
+                    {
+                        "ipa_label": "ð",
+                        "phoneme_score": 40
+                    },
+                    {
+                        "ipa_label": "ə",
+                        "phoneme_score": 51
+                    }
+                ],
+                "word_score": 45
+            },
+            {
+                "word_text": "Egyptians",
+                "phonemes": [
+                    {
+                        "ipa_label": "ɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "d",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ʒ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɪ",
+                        "phoneme_score": 100
+                    },
+                    {
+                        "ipa_label": "p",
+                        "phoneme_score": 40
+                    },
+                    {
+                        "ipa_label": "ʃ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "n",
+                        "phoneme_score": 100
+                    },
+                    {
+                        "ipa_label": "z",
+                        "phoneme_score": 40
+                    }
+                ],
+                "word_score": 35
+            },
+            {
+                "word_text": "built",
+                "phonemes": [
+                    {
+                        "ipa_label": "b",
+                        "phoneme_score": 5
+                    },
+                    {
+                        "ipa_label": "ɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "l",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "t",
+                        "phoneme_score": 100
+                    }
+                ],
+                "word_score": 26
+            },
+            {
+                "word_text": "magnificent",
+                "phonemes": [
+                    {
+                        "ipa_label": "m",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "a",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "g",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "n",
+                        "phoneme_score": 48
+                    },
+                    {
+                        "ipa_label": "ɪ",
+                        "phoneme_score": 44
+                    },
+                    {
+                        "ipa_label": "f",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɪ",
+                        "phoneme_score": 100
+                    },
+                    {
+                        "ipa_label": "s",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ə",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "n",
+                        "phoneme_score": 88
+                    },
+                    {
+                        "ipa_label": "t",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 25
+            },
+            {
+                "word_text": "pyramids",
+                "phonemes": [
+                    {
+                        "ipa_label": "p",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɪ",
+                        "phoneme_score": 100
+                    },
+                    {
+                        "ipa_label": "r",
+                        "phoneme_score": 100
+                    },
+                    {
+                        "ipa_label": "ə",
+                        "phoneme_score": 100
+                    },
+                    {
+                        "ipa_label": "m",
+                        "phoneme_score": 100
+                    },
+                    {
+                        "ipa_label": "ɪ",
+                        "phoneme_score": 100
+                    },
+                    {
+                        "ipa_label": "d",
+                        "phoneme_score": 100
+                    },
+                    {
+                        "ipa_label": "z",
+                        "phoneme_score": 100
+                    }
+                ],
+                "word_score": 87
+            },
+            {
+                "word_text": "that",
+                "phonemes": [
+                    {
+                        "ipa_label": "ð",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "a",
+                        "phoneme_score": 100
+                    },
+                    {
+                        "ipa_label": "t",
+                        "phoneme_score": 100
+                    }
+                ],
+                "word_score": 66
+            },
+            {
+                "word_text": "still",
+                "phonemes": [
+                    {
+                        "ipa_label": "s",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "t",
+                        "phoneme_score": 100
+                    },
+                    {
+                        "ipa_label": "ɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "l",
+                        "phoneme_score": 89
+                    }
+                ],
+                "word_score": 47
+            },
+            {
+                "word_text": "stand",
+                "phonemes": [
+                    {
+                        "ipa_label": "s",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "t",
+                        "phoneme_score": 100
+                    },
+                    {
+                        "ipa_label": "a",
+                        "phoneme_score": 48
+                    },
+                    {
+                        "ipa_label": "n",
+                        "phoneme_score": 100
+                    },
+                    {
+                        "ipa_label": "d",
+                        "phoneme_score": 100
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "after",
+                "phonemes": [
+                    {
+                        "ipa_label": "ɑː",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "f",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "t",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ə",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "thousands",
+                "phonemes": [
+                    {
+                        "ipa_label": "θ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "aʊ",
+                        "phoneme_score": 40
+                    },
+                    {
+                        "ipa_label": "z",
+                        "phoneme_score": 100
+                    },
+                    {
+                        "ipa_label": "n",
+                        "phoneme_score": 100
+                    },
+                    {
+                        "ipa_label": "d",
+                        "phoneme_score": 100
+                    },
+                    {
+                        "ipa_label": "z",
+                        "phoneme_score": 4
+                    }
+                ],
+                "word_score": 57
+            },
+            {
+                "word_text": "of",
+                "phonemes": [
+                    {
+                        "ipa_label": "ɒ",
+                        "phoneme_score": 100
+                    },
+                    {
+                        "ipa_label": "v",
+                        "phoneme_score": 100
+                    }
+                ],
+                "word_score": 100
+            },
+            {
+                "word_text": "years",
+                "phonemes": [
+                    {
+                        "ipa_label": "j",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɪə",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "z",
+                        "phoneme_score": 100
+                    }
+                ],
+                "word_score": 33
+            },
+            {
+                "word_text": "demonstrating",
+                "phonemes": [
+                    {
+                        "ipa_label": "d",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "m",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɒ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "n",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "s",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "t",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "r",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "eɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "t",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ŋ",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "their",
+                "phonemes": [
+                    {
+                        "ipa_label": "ð",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɛː",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "advanced",
+                "phonemes": [
+                    {
+                        "ipa_label": "ə",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "d",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "v",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɑː",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "n",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "s",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "t",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "understanding",
+                "phonemes": [
+                    {
+                        "ipa_label": "ʌ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "n",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "d",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ə",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "s",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "t",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "a",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "n",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "d",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ŋ",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "of",
+                "phonemes": [
+                    {
+                        "ipa_label": "ɒ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "v",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "mathematics",
+                "phonemes": [
+                    {
+                        "ipa_label": "m",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "a",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "θ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ə",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "m",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "a",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "t",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "k",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "s",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "and",
+                "phonemes": [
+                    {
+                        "ipa_label": "a",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "n",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "d",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "engineering",
+                "phonemes": [
+                    {
+                        "ipa_label": "ɛ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "n",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "d",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ʒ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "n",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɪə",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "r",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ŋ",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "The",
+                "phonemes": [
+                    {
+                        "ipa_label": "ð",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ə",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "Romans",
+                "phonemes": [
+                    {
+                        "ipa_label": "r",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "əʊ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "m",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ə",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "n",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "z",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "developed",
+                "phonemes": [
+                    {
+                        "ipa_label": "d",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "v",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɛ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "l",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ə",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "p",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "t",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "sophisticated",
+                "phonemes": [
+                    {
+                        "ipa_label": "s",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ə",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "f",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "s",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "t",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "k",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "eɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "t",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "d",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "systems",
+                "phonemes": [
+                    {
+                        "ipa_label": "s",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "s",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "t",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "m",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "z",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "of",
+                "phonemes": [
+                    {
+                        "ipa_label": "ɒ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "v",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "government",
+                "phonemes": [
+                    {
+                        "ipa_label": "g",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ʌ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "v",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "n",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "m",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ə",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "n",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "t",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "and",
+                "phonemes": [
+                    {
+                        "ipa_label": "a",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "n",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "d",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "law",
+                "phonemes": [
+                    {
+                        "ipa_label": "l",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɔː",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "that",
+                "phonemes": [
+                    {
+                        "ipa_label": "ð",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "a",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "t",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "influence",
+                "phonemes": [
+                    {
+                        "ipa_label": "ɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "n",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "f",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "l",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ʊə",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "n",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "s",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "modern",
+                "phonemes": [
+                    {
+                        "ipa_label": "m",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɒ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "d",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "n",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "democracy",
+                "phonemes": [
+                    {
+                        "ipa_label": "d",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "m",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɒ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "k",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "r",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ə",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "s",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "i",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "In",
+                "phonemes": [
+                    {
+                        "ipa_label": "ɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "n",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "Asia",
+                "phonemes": [
+                    {
+                        "ipa_label": "eɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ʃ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ə",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "Chinese",
+                "phonemes": [
+                    {
+                        "ipa_label": "t",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ʃ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ʌɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "n",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "iː",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "z",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "dynasties",
+                "phonemes": [
+                    {
+                        "ipa_label": "d",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ʌɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "n",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "a",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "s",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "t",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "z",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "made",
+                "phonemes": [
+                    {
+                        "ipa_label": "m",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "eɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "d",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "groundbreaking",
+                "phonemes": [
+                    {
+                        "ipa_label": "g",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "r",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "aʊ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "n",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "d",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "b",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "r",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "eɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "k",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ŋ",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "inventions",
+                "phonemes": [
+                    {
+                        "ipa_label": "ɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "n",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "v",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɛ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "n",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ʃ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "n",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "z",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "like",
+                "phonemes": [
+                    {
+                        "ipa_label": "l",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ʌɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "k",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "paper",
+                "phonemes": [
+                    {
+                        "ipa_label": "p",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "eɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "p",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ə",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "printing",
+                "phonemes": [
+                    {
+                        "ipa_label": "p",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "r",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "n",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "t",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ŋ",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "and",
+                "phonemes": [
+                    {
+                        "ipa_label": "a",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "n",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "d",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "gunpowder",
+                "phonemes": [
+                    {
+                        "ipa_label": "g",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ʌ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "n",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "p",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "aʊ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "d",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ə",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "The",
+                "phonemes": [
+                    {
+                        "ipa_label": "ð",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ə",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "Mayan",
+                "phonemes": [
+                    {
+                        "ipa_label": "m",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ʌɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ə",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "n",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "civilization",
+                "phonemes": [
+                    {
+                        "ipa_label": "s",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "v",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ə",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "l",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ʌɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "z",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "eɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ʃ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "n",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "created",
+                "phonemes": [
+                    {
+                        "ipa_label": "k",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "r",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "eɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "t",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "d",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "accurate",
+                "phonemes": [
+                    {
+                        "ipa_label": "a",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "k",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "j",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ʊ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "r",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ə",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "t",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "calendars",
+                "phonemes": [
+                    {
+                        "ipa_label": "k",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "a",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "l",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "n",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "d",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɑː",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "z",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "and",
+                "phonemes": [
+                    {
+                        "ipa_label": "a",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "n",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "d",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "built",
+                "phonemes": [
+                    {
+                        "ipa_label": "b",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "l",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "t",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "impressive",
+                "phonemes": [
+                    {
+                        "ipa_label": "ɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "m",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "p",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "r",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɛ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "s",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "v",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "cities",
+                "phonemes": [
+                    {
+                        "ipa_label": "s",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "t",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "iː",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "z",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "in",
+                "phonemes": [
+                    {
+                        "ipa_label": "ɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "n",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "the",
+                "phonemes": [
+                    {
+                        "ipa_label": "ð",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ə",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "jungles",
+                "phonemes": [
+                    {
+                        "ipa_label": "d",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ʒ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ʌ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ŋ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "g",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "l",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "z",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "of",
+                "phonemes": [
+                    {
+                        "ipa_label": "ɒ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "v",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "Central",
+                "phonemes": [
+                    {
+                        "ipa_label": "s",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɛ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "n",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "t",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "r",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ə",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "l",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "America",
+                "phonemes": [
+                    {
+                        "ipa_label": "ə",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "m",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɛ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "r",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "k",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ə",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "By",
+                "phonemes": [
+                    {
+                        "ipa_label": "b",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ʌɪ",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "studying",
+                "phonemes": [
+                    {
+                        "ipa_label": "s",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "t",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ʌ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "d",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ŋ",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "these",
+                "phonemes": [
+                    {
+                        "ipa_label": "ð",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "iː",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "z",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "ancient",
+                "phonemes": [
+                    {
+                        "ipa_label": "eɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "n",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ʃ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ə",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "n",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "t",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "cultures",
+                "phonemes": [
+                    {
+                        "ipa_label": "k",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ʌ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "l",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "t",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ʃ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ə",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "z",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "we",
+                "phonemes": [
+                    {
+                        "ipa_label": "w",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "iː",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "learn",
+                "phonemes": [
+                    {
+                        "ipa_label": "l",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "əː",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "n",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "valuable",
+                "phonemes": [
+                    {
+                        "ipa_label": "v",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "a",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "l",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "j",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ʊ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "b",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "l",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "lessons",
+                "phonemes": [
+                    {
+                        "ipa_label": "l",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɛ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "s",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "n",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "z",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "about",
+                "phonemes": [
+                    {
+                        "ipa_label": "ə",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "b",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "aʊ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "t",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "innovation",
+                "phonemes": [
+                    {
+                        "ipa_label": "ɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "n",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ə",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "v",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "eɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ʃ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "n",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "organization",
+                "phonemes": [
+                    {
+                        "ipa_label": "ɔː",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "g",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ə",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "n",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ʌɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "z",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "eɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ʃ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "n",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "and",
+                "phonemes": [
+                    {
+                        "ipa_label": "a",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "n",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "d",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "the",
+                "phonemes": [
+                    {
+                        "ipa_label": "ð",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ə",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "resilience",
+                "phonemes": [
+                    {
+                        "ipa_label": "r",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "z",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "l",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɪə",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "n",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "s",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "of",
+                "phonemes": [
+                    {
+                        "ipa_label": "ɒ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "v",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "human",
+                "phonemes": [
+                    {
+                        "ipa_label": "h",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "j",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "uː",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "m",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ə",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "n",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "societies",
+                "phonemes": [
+                    {
+                        "ipa_label": "s",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "əʊ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ʃ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "iː",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "t",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "z",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "Each",
+                "phonemes": [
+                    {
+                        "ipa_label": "iː",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "t",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ʃ",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "civilization",
+                "phonemes": [
+                    {
+                        "ipa_label": "s",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "v",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ə",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "l",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ʌɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "z",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "eɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ʃ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "n",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "faced",
+                "phonemes": [
+                    {
+                        "ipa_label": "f",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "eɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "s",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "t",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "unique",
+                "phonemes": [
+                    {
+                        "ipa_label": "j",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "uː",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "n",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "iː",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "k",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "challenges",
+                "phonemes": [
+                    {
+                        "ipa_label": "t",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ʃ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "a",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "l",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "n",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "d",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ʒ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "iː",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "z",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "based",
+                "phonemes": [
+                    {
+                        "ipa_label": "b",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "eɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "s",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "t",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "on",
+                "phonemes": [
+                    {
+                        "ipa_label": "ɒ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "n",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "their",
+                "phonemes": [
+                    {
+                        "ipa_label": "ð",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɛː",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "geography",
+                "phonemes": [
+                    {
+                        "ipa_label": "d",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ʒ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɒ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "g",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "r",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ə",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "f",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "i",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "and",
+                "phonemes": [
+                    {
+                        "ipa_label": "a",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "n",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "d",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "resources",
+                "phonemes": [
+                    {
+                        "ipa_label": "r",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "z",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɔː",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "s",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "iː",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "z",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "yet",
+                "phonemes": [
+                    {
+                        "ipa_label": "j",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɛ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "t",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "they",
+                "phonemes": [
+                    {
+                        "ipa_label": "ð",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "eɪ",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "all",
+                "phonemes": [
+                    {
+                        "ipa_label": "ɔː",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "l",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "found",
+                "phonemes": [
+                    {
+                        "ipa_label": "f",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "aʊ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "n",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "d",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "creative",
+                "phonemes": [
+                    {
+                        "ipa_label": "k",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "r",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "eɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "t",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "v",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "solutions",
+                "phonemes": [
+                    {
+                        "ipa_label": "s",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ə",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "l",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "j",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "uː",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ʃ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "n",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "z",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "that",
+                "phonemes": [
+                    {
+                        "ipa_label": "ð",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "a",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "t",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "allowed",
+                "phonemes": [
+                    {
+                        "ipa_label": "ə",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "l",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "aʊ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "d",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "them",
+                "phonemes": [
+                    {
+                        "ipa_label": "ð",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɛ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "m",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "to",
+                "phonemes": [
+                    {
+                        "ipa_label": "t",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "uː",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "thrive",
+                "phonemes": [
+                    {
+                        "ipa_label": "θ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "r",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ʌɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "v",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "Understanding",
+                "phonemes": [
+                    {
+                        "ipa_label": "ʌ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "n",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "d",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ə",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "s",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "t",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "a",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "n",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "d",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ŋ",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "our",
+                "phonemes": [
+                    {
+                        "ipa_label": "aʊ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ə",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "shared",
+                "phonemes": [
+                    {
+                        "ipa_label": "ʃ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɛː",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "d",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "past",
+                "phonemes": [
+                    {
+                        "ipa_label": "p",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɑː",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "s",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "t",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "helps",
+                "phonemes": [
+                    {
+                        "ipa_label": "h",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɛ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "l",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "p",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "s",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "us",
+                "phonemes": [
+                    {
+                        "ipa_label": "ʌ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "s",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "appreciate",
+                "phonemes": [
+                    {
+                        "ipa_label": "ə",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "p",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "r",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "iː",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ʃ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "eɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "t",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "the",
+                "phonemes": [
+                    {
+                        "ipa_label": "ð",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ə",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "diverse",
+                "phonemes": [
+                    {
+                        "ipa_label": "d",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ʌɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "v",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "əː",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "s",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "contributions",
+                "phonemes": [
+                    {
+                        "ipa_label": "k",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɒ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "n",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "t",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "r",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "b",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "j",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "uː",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ʃ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "n",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ə",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "s",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "of",
+                "phonemes": [
+                    {
+                        "ipa_label": "ɒ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "v",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "different",
+                "phonemes": [
+                    {
+                        "ipa_label": "d",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "f",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ə",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "r",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ə",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "n",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "t",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "cultures",
+                "phonemes": [
+                    {
+                        "ipa_label": "k",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ʌ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "l",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "t",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ʃ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ə",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "z",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "and",
+                "phonemes": [
+                    {
+                        "ipa_label": "a",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "n",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "d",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "reminds",
+                "phonemes": [
+                    {
+                        "ipa_label": "r",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "m",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ʌɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "n",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "d",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "z",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "us",
+                "phonemes": [
+                    {
+                        "ipa_label": "ʌ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "s",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "that",
+                "phonemes": [
+                    {
+                        "ipa_label": "ð",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "a",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "t",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "progress",
+                "phonemes": [
+                    {
+                        "ipa_label": "p",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "r",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "əʊ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "g",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "r",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɛ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "s",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "builds",
+                "phonemes": [
+                    {
+                        "ipa_label": "b",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "l",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "d",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "z",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "upon",
+                "phonemes": [
+                    {
+                        "ipa_label": "ə",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "p",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɒ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "n",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "the",
+                "phonemes": [
+                    {
+                        "ipa_label": "ð",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ə",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "achievements",
+                "phonemes": [
+                    {
+                        "ipa_label": "ə",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "t",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ʃ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "iː",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "v",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "m",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ə",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "n",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "t",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "s",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "of",
+                "phonemes": [
+                    {
+                        "ipa_label": "ɒ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "v",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "those",
+                "phonemes": [
+                    {
+                        "ipa_label": "ð",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "əʊ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "z",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "who",
+                "phonemes": [
+                    {
+                        "ipa_label": "h",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "uː",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "came",
+                "phonemes": [
+                    {
+                        "ipa_label": "k",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "eɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "m",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "before",
+                "phonemes": [
+                    {
+                        "ipa_label": "b",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɪ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "f",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "ɔː",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            },
+            {
+                "word_text": "us",
+                "phonemes": [
+                    {
+                        "ipa_label": "ʌ",
+                        "phoneme_score": 0
+                    },
+                    {
+                        "ipa_label": "s",
+                        "phoneme_score": 0
+                    }
+                ],
+                "word_score": 0
+            }
+        ],
+        "overall_score": 8.077464788732394,
+        "expected_text": "Throughout human history, ancient civilizations have shaped the world we live in today. The Egyptians built magnificent pyramids that still stand after thousands of years, demonstrating their advanced understanding of mathematics and engineering. The Romans developed sophisticated systems of government and law that influence modern democracy. In Asia, Chinese dynasties made groundbreaking inventions like paper, printing, and gunpowder. The Mayan civilization created accurate calendars and built impressive cities in the jungles of Central America. By studying these ancient cultures, we learn valuable lessons about innovation, organization, and the resilience of human societies. Each civilization faced unique challenges based on their geography and resources, yet they all found creative solutions that allowed them to thrive. Understanding our shared past helps us appreciate the diverse contributions of different cultures and reminds us that progress builds upon the achievements of those who came before us.",
+        "english_proficiency_scores": {
+            "mock_ielts": {
+                "prediction": 6
+            },
+            "mock_cefr": {
+                "prediction": "B2"
+            },
+            "mock_pte": {
+                "prediction": 56
+            }
+        },
+        "warnings": {},
+        "lowest_scoring_phonemes": [
+            {
+                "ipa_label": "j",
+                "phoneme_score": 0
+            },
+            {
+                "ipa_label": "w",
+                "phoneme_score": 0
+            },
+            {
+                "ipa_label": "əː",
+                "phoneme_score": 0
+            }
+        ]
+    },
+    "fluency": {
+        "overall_score": 76,
+        "metrics": {
+            "speech_rate": 102,
+            "speech_rate_over_time": [
+                80,
+                180,
+                80,
+                40,
+                80,
+                145
+            ],
+            "pauses": 1,
+            "filler_words": 0,
+            "discourse_markers": [],
+            "filler_words_per_min": 0,
+            "pause_details": [
+                {
+                    "start_index": 132,
+                    "end_index": 132,
+                    "duration": 2
+                }
+            ],
+            "repetitions": [
+                {
+                    "text": "magnificent magnificent",
+                    "start_index": 120,
+                    "end_index": 143
+                }
+            ],
+            "filler_words_details": []
+        },
+        "english_proficiency_scores": {
+            "mock_ielts": {
+                "prediction": 7.5
+            },
+            "mock_cefr": {
+                "prediction": "C1"
+            },
+            "mock_pte": {
+                "prediction": 76
+            }
+        },
+        "warnings": {},
+        "feedback": {
+            "speech_rate": {
+                "feedback_code": "NORMAL",
+                "feedback_text": "You are speaking at a normal pace."
+            },
+            "pauses": {
+                "feedback_code": "SOME_PAUSES",
+                "feedback_text": "You are making some long pauses when you speak. Try to make shorter pauses in between your sentences."
+            },
+            "filler_words": {
+                "feedback_code": "NORMAL",
+                "feedback_text": "You are speaking without using any filler words."
+            },
+            "tagged_transcript": "Throughout human history, ancient civilization has shaped the world we live in today. The Egyptians built magnets magni <word-repetition>magnificent <speech-pause duration_seconds=\"2.0\"></speech-pause>magnificent</word-repetition> pyramids that still stands around thousands of years."
+        }
+    },
+    "overall": {
+        "english_proficiency_scores": {
+            "mock_ielts": {
+                "prediction": 7
+            },
+            "mock_cefr": {
+                "prediction": "C1"
+            },
+            "mock_pte": {
+                "prediction": 66
+            }
+        },
+        "overall_score": 42
+    },
+    "warnings": {
+        "NotEnoughWordsSpokenWarning": "Not enough words were spoken. Accuracy of English proficiency scores may be impacted."
+    },
+    "reading": {
+        "total_time": 16.51,
+        "words_read": 28,
+        "unique_words_read": 26,
+        "speed_wpm_correct": 76.34,
+        "completion": 0.2,
+        "reading_time": 16.51,
+        "non_reading_time": 5.84,
+        "words_assigned": 142,
+        "unique_words_assigned": 110,
+        "correct_words_read": 21,
+        "words_added": 3,
+        "words_missed": 117,
+        "words_replaced": 4,
+        "speed_wpm": 101.79,
+        "accuracy": 0.15
+    },
+    "metadata": {
+        "predicted_text": "Throughout human history, ancient civilization has shaped the world we live in today. The Egyptians built magnets magni magnificent magnificent pyramids that still stands around thousands of years.",
+        "content_relevance": 27
+    }
+}

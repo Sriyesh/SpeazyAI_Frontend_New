@@ -12,13 +12,17 @@ export function SpeechAssessmentResults({ data }) {
   const [isRecording, setIsRecording] = useState(false)
   const [recordedAudio, setRecordedAudio] = useState<string | null>(null)
   const [practiceScore, setPracticeScore] = useState<number | null>(null)
+  const [currentWordScore, setCurrentWordScore] = useState<number | null>(null)
+  const [isLoadingPractice, setIsLoadingPractice] = useState(false)
   const [recordingTime, setRecordingTime] = useState(0)
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
+  const [updatedWordScores, setUpdatedWordScores] = useState<Map<string, number>>(new Map())
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
   const recordingTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const stopTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
 
   const pronunciation = data?.pronunciation || {}
@@ -58,25 +62,114 @@ export function SpeechAssessmentResults({ data }) {
     }
   }
 
+  // Normalize word for comparison (lowercase, remove punctuation)
+  const normalizeWord = (word: string): string => {
+    return word.toLowerCase().trim().replace(/[.,!?;:"']/g, "")
+  }
+
+
   const getPredictedTextArray = () => {
-    const predicted = (metadata.predicted_text || "").toLowerCase().trim()
-    return predicted.split(/\s+/).filter((w) => w.length > 0)
+    const predicted = (metadata.predicted_text || "").trim()
+    if (!predicted) return []
+    return predicted.split(/\s+/).filter((w) => w.trim().length > 0)
   }
 
   const getUniqueFilteredWords = () => {
     const predictedWords = getPredictedTextArray()
-    const seen = new Set<string>()
-    return wordScores.filter((word) => {
-      const lowerWord = word.name.toLowerCase()
-      if (predictedWords.includes(lowerWord) && !seen.has(lowerWord)) {
-        seen.add(lowerWord)
-        return true
+    
+    // If no predicted text or no wordScores, return empty array (don't show anything)
+    if (predictedWords.length === 0 || wordScores.length === 0) {
+      return []
+    }
+
+    // Simple approach: Find where predicted_text starts in wordScores
+    // Then take exactly predictedWords.length words from that starting point
+    // This ensures we show ALL words in sequence without skipping any
+    
+    const firstPredictedWord = normalizeWord(predictedWords[0])
+    
+    if (firstPredictedWord.length === 0) {
+      return []
+    }
+
+    // Find the first occurrence of the first word from predicted_text in wordScores
+    let startIndex = -1
+    for (let i = 0; i < wordScores.length; i++) {
+      const word = wordScores[i]
+      if (!word?.name) continue
+      
+      const normalized = normalizeWord(word.name)
+      if (normalized === firstPredictedWord) {
+        startIndex = i
+        break
       }
-      return false
-    })
+    }
+
+    // If we didn't find the start, return empty array
+    if (startIndex === -1) {
+      return []
+    }
+
+    // Take exactly predictedWords.length words from the start index
+    // This shows ALL words in sequence without skipping any, but limits to predicted_text word count
+    // This prevents showing words from expected_text that weren't spoken
+    const baseWords = wordScores.slice(startIndex, startIndex + predictedWords.length)
+
+    // Check if the last 5 words from wordScores (as a sequence) match the last 5 words of predicted_text
+    // If they match exactly in sequence, add them as extra words
+    const extraCount = 5
+    if (predictedWords.length >= extraCount && wordScores.length >= extraCount) {
+      // Get the last 5 words from predicted_text (normalized)
+      const lastFivePredictedWords = predictedWords.slice(-extraCount).map(w => normalizeWord(w))
+
+      // Get the last 5 words from wordScores (the actual last 5 words in the array)
+      const lastFiveWordScores = wordScores.slice(-extraCount)
+
+      // Check if they match exactly in sequence with the last 5 words of predicted_text
+      if (lastFiveWordScores.length === lastFivePredictedWords.length) {
+        let matchesExactly = true
+        for (let i = 0; i < lastFiveWordScores.length; i++) {
+          const word = lastFiveWordScores[i]
+          if (!word?.name) {
+            matchesExactly = false
+            break
+          }
+          
+          const normalizedWordScore = normalizeWord(word.name)
+          const normalizedPredicted = lastFivePredictedWords[i]
+
+          if (normalizedWordScore !== normalizedPredicted) {
+            matchesExactly = false
+            break
+          }
+        }
+
+        // If they match exactly in sequence, check if they're already in baseWords
+        if (matchesExactly) {
+          // Check if the last 5 words are already at the end of baseWords
+          const baseWordsEnd = baseWords.slice(-extraCount)
+          const lastWordsAlreadyShown = baseWordsEnd.length === lastFiveWordScores.length &&
+            baseWordsEnd.every((word, idx) =>
+              normalizeWord(word.name) === normalizeWord(lastFiveWordScores[idx].name)
+            )
+
+          // Only add if they're NOT already shown at the end of baseWords
+          if (!lastWordsAlreadyShown) {
+            return [...baseWords, ...lastFiveWordScores]
+          }
+        }
+      }
+    }
+
+    return baseWords
   }
 
   const uniqueFilteredWords = getUniqueFilteredWords()
+
+  // Get the display score for a word (use updated score if available, otherwise use original score)
+  const getWordDisplayScore = (wordName: string, originalScore: number): number => {
+    return updatedWordScores.get(wordName) ?? originalScore
+  }
 
   const playPhonemeSound = (phoneme: string) => {
     const utterance = new SpeechSynthesisUtterance(phoneme)
@@ -91,8 +184,90 @@ export function SpeechAssessmentResults({ data }) {
     window.speechSynthesis.speak(utterance)
   }
 
+  // Convert audio blob to base64
+  const blobToBase64 = (blob: Blob): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        const base64String = (reader.result as string).split(",")[1] // Remove data:audio/webm;base64, prefix
+        resolve(base64String)
+      }
+      reader.onerror = reject
+      reader.readAsDataURL(blob)
+    })
+  }
+
+  // Call API for practice pronunciation
+  const callPracticeAPI = async (audioBlob: Blob) => {
+    if (!selectedWord) return
+
+    setIsLoadingPractice(true)
+    try {
+      // Convert blob to base64
+      const base64Audio = await blobToBase64(audioBlob)
+      
+      // Determine endpoint - use scripted endpoint for word practice
+      const endpoint = "https://apis.languageconfidence.ai/speech-assessment/scripted/uk"
+      const proxyUrl = process.env.NODE_ENV === "production" 
+        ? "/.netlify/functions/speechProxy"
+        : "http://localhost:4000/speechProxy"
+
+      const payload = JSON.stringify({
+        audio_base64: base64Audio,
+        audio_format: "webm",
+        expected_text: selectedWord, // Use the selected word as expected text
+      })
+
+      const response = await fetch(`${proxyUrl}?endpoint=${encodeURIComponent(endpoint)}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: payload,
+      })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(`API Error (${response.status}): ${errorText}`)
+      }
+
+      const apiData = await response.json()
+      console.log("Practice API Response:", apiData)
+
+      // Extract overall_score from pronunciation
+      const pronunciationScore = apiData?.pronunciation?.overall_score
+      if (pronunciationScore !== undefined && pronunciationScore !== null) {
+        const roundedScore = Math.round(pronunciationScore)
+        setPracticeScore(roundedScore)
+        
+        // Update the word score in the breakdown when practice score is received
+        if (selectedWord) {
+          setUpdatedWordScores((prev) => {
+            const newMap = new Map(prev)
+            newMap.set(selectedWord, roundedScore)
+            return newMap
+          })
+        }
+      } else {
+        console.warn("No pronunciation overall_score found in API response")
+      }
+    } catch (error) {
+      console.error("Error calling practice API:", error)
+      // Don't show alert, just log the error
+    } finally {
+      setIsLoadingPractice(false)
+    }
+  }
+
   const startRecording = async () => {
     try {
+      // When starting a new recording, move practice score to current score
+      if (practiceScore !== null && selectedWord) {
+        setCurrentWordScore(practiceScore)
+        // Reset practice score for new recording
+        setPracticeScore(null)
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
 
       const options = {
@@ -112,50 +287,83 @@ export function SpeechAssessmentResults({ data }) {
         }
       }
 
-      mediaRecorder.onstop = () => {
+      mediaRecorder.onstop = async () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" })
         const audioUrl = URL.createObjectURL(audioBlob)
         setRecordedAudio(audioUrl)
         stream.getTracks().forEach((track) => track.stop())
+        setIsRecording(false)
 
-        const randomScore = Math.floor(Math.random() * 30) + 60
-        setPracticeScore(randomScore)
+        // Clear the timers if they're still running
+        if (recordingTimerRef.current) {
+          clearInterval(recordingTimerRef.current)
+          recordingTimerRef.current = null
+        }
+        if (stopTimeoutRef.current) {
+          clearTimeout(stopTimeoutRef.current)
+          stopTimeoutRef.current = null
+        }
+
+        // Call API after recording stops (after 5 seconds)
+        await callPracticeAPI(audioBlob)
       }
 
       mediaRecorder.start()
 
-      // === FIXED: Auto-stop at exactly 5 seconds ===
+      // Update recording time every second for UI
       recordingTimerRef.current = setInterval(() => {
         setRecordingTime((prev) => {
           const newTime = prev + 1
           if (newTime >= 5) {
-            stopRecording() // This will trigger onstop
-            return 5 // Cap at 5
+            // Clear the interval when we reach 5 seconds
+            if (recordingTimerRef.current) {
+              clearInterval(recordingTimerRef.current)
+              recordingTimerRef.current = null
+            }
+            return 5
           }
           return newTime
         })
       }, 1000)
 
-      // === Safety: Force stop after 5.1s in case interval fails ===
-      setTimeout(() => {
-        if (isRecording) {
-          stopRecording()
+      // === Auto-stop at exactly 5 seconds ===
+      // Use a timeout to stop recording after 5 seconds
+      stopTimeoutRef.current = setTimeout(() => {
+        // Check if recorder is still recording (state can be 'recording' or 'inactive')
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+          setRecordingTime(5) // Set to 5 to show completion
+          mediaRecorderRef.current.stop() // This will trigger onstop handler
         }
-      }, 5100)
+      }, 5000)
     } catch (error) {
       console.error("Error accessing microphone:", error)
-      setIsRecording(false)
-    }
-  }
-
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop()
       setIsRecording(false)
       if (recordingTimerRef.current) {
         clearInterval(recordingTimerRef.current)
         recordingTimerRef.current = null
       }
+      if (stopTimeoutRef.current) {
+        clearTimeout(stopTimeoutRef.current)
+        stopTimeoutRef.current = null
+      }
+    }
+  }
+
+  const stopRecording = () => {
+    // Check mediaRecorder state directly instead of React state
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop() // This will trigger onstop handler which sets isRecording to false
+      // Don't set isRecording here - let onstop handler do it to avoid race conditions
+    }
+    
+    // Clear the timers
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current)
+      recordingTimerRef.current = null
+    }
+    if (stopTimeoutRef.current) {
+      clearTimeout(stopTimeoutRef.current)
+      stopTimeoutRef.current = null
     }
   }
 
@@ -213,6 +421,9 @@ export function SpeechAssessmentResults({ data }) {
       if (recordingTimerRef.current) {
         clearInterval(recordingTimerRef.current)
       }
+      if (stopTimeoutRef.current) {
+        clearTimeout(stopTimeoutRef.current)
+      }
     }
   }, [])
 
@@ -239,7 +450,7 @@ export function SpeechAssessmentResults({ data }) {
         <Card className={cardBase}>
           <CardContent className="p-6 text-center">
             <Mic className="w-6 h-6 text-cyan-500 mx-auto mb-2" />
-            <div className="text-5xl font-bold text-cyan-600 mb-1">{pronunciation.overall_score}</div>
+            <div className="text-5xl font-bold text-cyan-600 mb-1">{Math.round(pronunciation.overall_score)}</div>
             <p className="text-sm text-gray-700">Pronunciation Accuracy</p>
             <p className="text-xs text-gray-500 mt-1">
               IELTS {pronunciation.english_proficiency_scores?.mock_ielts?.prediction} • CEFR{" "}
@@ -273,11 +484,22 @@ export function SpeechAssessmentResults({ data }) {
             <p className="text-sm text-gray-600 mb-3">Click on any word to see detailed pronunciation breakdown:</p>
             <div className="flex flex-wrap gap-2">
               {uniqueFilteredWords.map((word, idx) => {
-                const colors = getScoreColor(word.score)
+                // Get the display score (updated score if available, otherwise original)
+                const displayScore = getWordDisplayScore(word.name, word.score)
+                const colors = getScoreColor(displayScore)
                 return (
                   <button
                     key={idx}
-                    onClick={() => setSelectedWord(selectedWord === word.name ? null : word.name)}
+                    onClick={() => {
+                      const newSelectedWord = selectedWord === word.name ? null : word.name
+                      setSelectedWord(newSelectedWord)
+                      // Reset scores when selecting a new word
+                      if (newSelectedWord !== selectedWord) {
+                        setPracticeScore(null)
+                        setCurrentWordScore(null)
+                        setRecordedAudio(null)
+                      }
+                    }}
                     style={{
                       backgroundColor: selectedWord === word.name ? "#dbeafe" : colors.bg,
                       borderColor: selectedWord === word.name ? "#3b82f6" : colors.border,
@@ -297,7 +519,7 @@ export function SpeechAssessmentResults({ data }) {
                     }}
                   >
                     {word.name}
-                    <span style={{ marginLeft: "8px", fontSize: "12px", fontWeight: "600" }}>({word.score})</span>
+                    <span style={{ marginLeft: "8px", fontSize: "12px", fontWeight: "600" }}>({displayScore})</span>
                   </button>
                 )
               })}
@@ -319,16 +541,16 @@ export function SpeechAssessmentResults({ data }) {
                 </div>
                 <div
                   style={{
-                    backgroundColor: getScoreColor(wordScores.find((w) => w.name === selectedWord)?.score || 0).bg,
-                    borderColor: getScoreColor(wordScores.find((w) => w.name === selectedWord)?.score || 0).border,
-                    color: getScoreColor(wordScores.find((w) => w.name === selectedWord)?.score || 0).text,
+                    backgroundColor: getScoreColor(getWordDisplayScore(selectedWord, wordScores.find((w) => w.name === selectedWord)?.score || 0)).bg,
+                    borderColor: getScoreColor(getWordDisplayScore(selectedWord, wordScores.find((w) => w.name === selectedWord)?.score || 0)).border,
+                    color: getScoreColor(getWordDisplayScore(selectedWord, wordScores.find((w) => w.name === selectedWord)?.score || 0)).text,
                     padding: "8px 16px",
                     borderRadius: "8px",
                     borderWidth: "2px",
                     fontWeight: "600",
                   }}
                 >
-                  Score: {wordScores.find((w) => w.name === selectedWord)?.score}
+                  Score: {getWordDisplayScore(selectedWord, wordScores.find((w) => w.name === selectedWord)?.score || 0)}
                 </div>
               </div>
 
@@ -450,13 +672,17 @@ export function SpeechAssessmentResults({ data }) {
                     <div className="px-4 py-2 bg-orange-100 border-2 border-orange-400 rounded-lg text-center min-w-[100px]">
                       <p className="text-xs text-gray-600 mb-1">Current</p>
                       <p className="text-xl font-bold text-orange-600">
-                        {wordScores.find((w) => w.name === selectedWord)?.score}
+                        {currentWordScore !== null 
+                          ? currentWordScore 
+                          : getWordDisplayScore(selectedWord, wordScores.find((w) => w.name === selectedWord)?.score || 0)}
                       </p>
                     </div>
-                    {/* Practice Score (Green) - initially empty */}
+                    {/* Practice Score (Green) - shows API result */}
                     <div className="px-4 py-2 bg-green-100 border-2 border-green-400 rounded-lg text-center min-w-[100px]">
                       <p className="text-xs text-gray-600 mb-1">Practice</p>
-                      {practiceScore !== null ? (
+                      {isLoadingPractice ? (
+                        <p className="text-xl font-bold text-gray-400">...</p>
+                      ) : practiceScore !== null ? (
                         <p className="text-xl font-bold text-green-600">{practiceScore}</p>
                       ) : (
                         <p className="text-xl font-bold text-gray-400">-</p>
@@ -481,19 +707,37 @@ export function SpeechAssessmentResults({ data }) {
                   </div>
                 )}
 
-                {/* Improvement message */}
-                {practiceScore !== null && (
+                {/* Loading indicator when API is processing */}
+                {isLoadingPractice && (
                   <div className="mt-4">
-                    {practiceScore > (wordScores.find((w) => w.name === selectedWord)?.score || 0) ? (
-                      <div className="flex items-center justify-center gap-2 text-green-600 font-semibold">
-                        <Award className="w-5 h-5" />
-                        <span>Great improvement! Keep practicing!</span>
-                      </div>
-                    ) : (
-                      <div className="text-center text-gray-600">
-                        <span>Keep practicing to improve your score!</span>
-                      </div>
-                    )}
+                    <p className="text-sm text-blue-600 flex items-center justify-center gap-2">
+                      <span className="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></span>
+                      Processing pronunciation assessment...
+                    </p>
+                  </div>
+                )}
+
+                {/* Improvement message */}
+                {practiceScore !== null && !isLoadingPractice && (
+                  <div className="mt-4">
+                    {(() => {
+                      const originalScore = wordScores.find((w) => w.name === selectedWord)?.score || 0
+                      const currentScore = currentWordScore !== null ? currentWordScore : originalScore
+                      if (practiceScore > currentScore) {
+                        return (
+                          <div className="flex items-center justify-center gap-2 text-green-600 font-semibold">
+                            <Award className="w-5 h-5" />
+                            <span>Great improvement! Keep practicing!</span>
+                          </div>
+                        )
+                      } else {
+                        return (
+                          <div className="text-center text-gray-600">
+                            <span>Keep practicing to improve your score!</span>
+                          </div>
+                        )
+                      }
+                    })()}
                   </div>
                 )}
               </div>
