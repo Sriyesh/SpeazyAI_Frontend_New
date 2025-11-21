@@ -102,8 +102,8 @@ export function AudioRecorder({
   // 🔥 API Integration
   const callSpeechAssessmentAPI = async (base64Audio, format) => {
     console.log("Calling LanguageConfidence API through CORS proxy...")
-    //const proxyUrl = "/.netlify/functions/speechProxy"
-    const proxyUrl = "http://localhost:4000/speechProxy"
+    const proxyUrl = "/.netlify/functions/speechProxy"
+    //const proxyUrl = "http://localhost:4000/speechProxy"
     setIsLoading(true)
 
     const isScripted = typeof endpoint === "string" && endpoint.includes("speech-assessment/scripted")
