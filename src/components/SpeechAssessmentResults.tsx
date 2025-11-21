@@ -5,9 +5,12 @@ import React from "react"
 //@ts-ignore
 import { useState, useRef, useEffect } from "react"
 import { Card, CardHeader, CardContent, CardTitle } from "./ui/card"
-import { Mic, BookOpen, AlertTriangle, Volume2, Award, Brain, Square, Play, Pause } from "lucide-react"
+import { Mic, BookOpen, AlertTriangle, Volume2, Award, Brain, Square, Play, Pause, LayoutDashboard, ChevronDown } from "lucide-react"
+
+type NavigationItem = "pronunciation" | "fluency" | "vocabulary" | "grammar"
 
 export function SpeechAssessmentResults({ data }) {
+  const [activeSection, setActiveSection] = useState<NavigationItem>("pronunciation")
   const [selectedWord, setSelectedWord] = useState<string | null>(null)
   const [isRecording, setIsRecording] = useState(false)
   const [recordedAudio, setRecordedAudio] = useState<string | null>(null)
@@ -427,60 +430,290 @@ export function SpeechAssessmentResults({ data }) {
     }
   }, [])
 
-  const cardBase = "rounded-2xl shadow-md border border-gray-200 bg-white/60 backdrop-blur text-gray-800"
+  const cardBase = "rounded-2xl text-gray-800"
 
   if (!data) return null
 
+  const navigationItems = [
+    { id: "pronunciation" as NavigationItem, label: "Pronunciation", icon: Mic, score: Math.round(pronunciation.overall_score || 0) },
+    { id: "fluency" as NavigationItem, label: "Fluency", icon: Brain, score: fluency.overall_score || 0 },
+    { id: "vocabulary" as NavigationItem, label: "Vocabulary", icon: BookOpen, score: vocabulary.overall_score || 0 },
+    { id: "grammar" as NavigationItem, label: "Grammar", icon: Award, score: grammar.overall_score || 0 },
+  ]
+
+  const overallScore = overall.overall_score || 0
+  const [animatedScore, setAnimatedScore] = useState(0)
+
+  // Animate the gauge on mount or when score changes
+  useEffect(() => {
+    const duration = 1500 // 1.5 seconds
+    const steps = 60
+    const increment = overallScore / steps
+    const stepDuration = duration / steps
+    let currentStep = 0
+
+    const timer = setInterval(() => {
+      currentStep++
+      if (currentStep <= steps) {
+        setAnimatedScore(Math.min(increment * currentStep, overallScore))
+      } else {
+        clearInterval(timer)
+        setAnimatedScore(overallScore)
+      }
+    }, stepDuration)
+
+    return () => clearInterval(timer)
+  }, [overallScore])
+
+  // Get gauge gradient colors - vibrant gradient matching screenshot
+  const getGaugeGradient = (score: number) => {
+    // Use vibrant gradient similar to screenshot: pink → orange → yellow → green
+    // But adapt based on score for better visual feedback
+    if (score >= 70) {
+      // Vibrant green-yellow gradient for high scores
+      return {
+        start: "#f472b6", // pink
+        mid1: "#fb923c",  // orange
+        mid2: "#fbbf24",  // yellow
+        end: "#84cc16"    // lime green
+      }
+    }
+    if (score >= 60) {
+      // Orange-yellow gradient for medium scores
+      return {
+        start: "#f87171", // red-pink
+        mid1: "#fb923c",  // orange
+        mid2: "#fbbf24",  // yellow
+        end: "#facc15"    // yellow
+      }
+    }
+    // Red-orange gradient for low scores
+    return {
+      start: "#ef4444", // red
+      mid1: "#f97316",  // orange
+      mid2: "#fb923c",  // orange
+      end: "#f59e0b"    // amber
+    }
+  }
+
+  const gradientColors = getGaugeGradient(overallScore)
+
   return (
-    <div className="w-full space-y-8 mt-8">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className={cardBase}>
-          <CardContent className="p-6 text-center">
-            <Award className="w-6 h-6 text-blue-500 mx-auto mb-2" />
-            <div className="text-5xl font-bold text-blue-600 mb-1">{overall.overall_score}</div>
-            <p className="text-sm text-gray-700">Overall Score</p>
-            <p className="text-xs text-gray-500 mt-1">
-              IELTS {overall.english_proficiency_scores?.mock_ielts?.prediction} • CEFR{" "}
-              {overall.english_proficiency_scores?.mock_cefr?.prediction} • PTE{" "}
-              {overall.english_proficiency_scores?.mock_pte?.prediction}
-            </p>
-          </CardContent>
-        </Card>
+    <div className="w-full flex gap-6 min-h-[600px] mt-0">
+      {/* Sidebar Navigation */}
+      <div 
+        className="w-64 flex-shrink-0 bg-white rounded-2xl p-5"
+        style={{
+          boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+          border: "1px solid #f3f4f6",
+          backdropFilter: "blur(8px)",
+        }}
+      >
+        {/* Menu Section */}
+        <div className="mb-6">
+          <h3 
+            className="text-xs font-bold uppercase tracking-widest mb-4 px-2"
+            style={{ color: "#6b7280" }}
+          >
+            MENU
+          </h3>
+          <div className="space-y-2">
+            {navigationItems.map((item) => {
+              const Icon = item.icon
+              const isActive = activeSection === item.id
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveSection(item.id)}
+                  className="w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-300"
+                  style={isActive ? {
+                    background: "linear-gradient(to right, #3b82f6, #2563eb)",
+                    color: "white",
+                    boxShadow: "0 10px 15px -3px rgba(59, 130, 246, 0.3), 0 4px 6px -2px rgba(59, 130, 246, 0.2)",
+                    transform: "scale(1.05)",
+                    fontWeight: "600",
+                  } : {
+                    color: "#374151",
+                    border: "1px solid transparent",
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isActive) {
+                      e.currentTarget.style.backgroundColor = "#f9fafb"
+                      e.currentTarget.style.color = "#111827"
+                      e.currentTarget.style.borderColor = "#e5e7eb"
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isActive) {
+                      e.currentTarget.style.backgroundColor = "transparent"
+                      e.currentTarget.style.color = "#374151"
+                      e.currentTarget.style.borderColor = "transparent"
+                    }
+                  }}
+                >
+                  <div className="flex items-center gap-3">
+                    <div 
+                      className="p-1.5 rounded-lg"
+                      style={{
+                        backgroundColor: isActive ? "rgba(255, 255, 255, 0.2)" : "#f3f4f6"
+                      }}
+                    >
+                      <Icon 
+                        className="w-4 h-4" 
+                        style={{ color: isActive ? "white" : "#4b5563" }}
+                      />
+                    </div>
+                    <span 
+                      className="text-sm font-medium"
+                      style={{ color: isActive ? "white" : "#374151" }}
+                    >
+                      {item.label}
+                    </span>
+                  </div>
+                  {isActive && <ChevronDown className="w-4 h-4" style={{ color: "white" }} />}
+                </button>
+              )
+            })}
+          </div>
+        </div>
 
-        <Card className={cardBase}>
-          <CardContent className="p-6 text-center">
-            <Mic className="w-6 h-6 text-cyan-500 mx-auto mb-2" />
-            <div className="text-5xl font-bold text-cyan-600 mb-1">{Math.round(pronunciation.overall_score)}</div>
-            <p className="text-sm text-gray-700">Pronunciation Accuracy</p>
-            <p className="text-xs text-gray-500 mt-1">
-              IELTS {pronunciation.english_proficiency_scores?.mock_ielts?.prediction} • CEFR{" "}
-              {pronunciation.english_proficiency_scores?.mock_cefr?.prediction}
+        {/* Overall Score Gauge */}
+        <div 
+          className="mt-6 p-6 rounded-2xl"
+          style={{
+            background: "linear-gradient(to bottom right, #f8fafc, #eff6ff, #eef2ff)",
+            border: "1px solid #dbeafe",
+            boxShadow: "inset 0 2px 4px 0 rgba(0, 0, 0, 0.06)",
+          }}
+        >
+          <div className="text-center">
+            <div className="relative w-44 h-32 mx-auto mb-2">
+              {/* SVG Semi-Circular Gauge */}
+              <svg className="w-44 h-32" viewBox="0 0 200 120" style={{ overflow: "visible" }}>
+                <defs>
+                  <linearGradient id={`gaugeGradient-${overallScore}`} x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stopColor={gradientColors.start} stopOpacity="1" />
+                    <stop offset="33%" stopColor={gradientColors.mid1} stopOpacity="1" />
+                    <stop offset="66%" stopColor={gradientColors.mid2} stopOpacity="1" />
+                    <stop offset="100%" stopColor={gradientColors.end} stopOpacity="1" />
+                  </linearGradient>
+                </defs>
+                
+                {/* Background semi-circle */}
+                <path
+                  d="M 20 100 A 80 80 0 0 1 180 100"
+                  fill="none"
+                  stroke="#e5e7eb"
+                  strokeWidth="18"
+                  strokeLinecap="round"
+                />
+                
+                {/* Animated progress semi-circle */}
+                <path
+                  d="M 20 100 A 80 80 0 0 1 180 100"
+                  fill="none"
+                  stroke={`url(#gaugeGradient-${overallScore})`}
+                  strokeWidth="18"
+                  strokeLinecap="round"
+                  strokeDasharray={Math.PI * 80}
+                  strokeDashoffset={Math.PI * 80 * (1 - animatedScore / 100)}
+                  className="transition-all duration-500 ease-out"
+                  style={{ 
+                    filter: "drop-shadow(0 3px 6px rgba(0,0,0,0.2))",
+                  }}
+                />
+              </svg>
+              
+              {/* Score text below the gauge */}
+              <div className="absolute -bottom-2 left-0 right-0 text-center">
+                <div 
+                  className="text-xs font-medium mb-1"
+                  style={{ color: "#6b7280", fontSize: "11px" }}
+                >
+                  Score
+                </div>
+                <div 
+                  className="text-4xl font-bold leading-none"
+                  style={{
+                    background: "linear-gradient(to right, #1e40af, #2563eb, #3b82f6)",
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                    backgroundClip: "text",
+                    color: "#1e40af", // Fallback color
+                  }}
+                >
+                  {Math.round(animatedScore)}%
+                </div>
+              </div>
+            </div>
+            <p 
+              className="text-sm font-semibold mb-2"
+              style={{ color: "#374151" }}
+            >
+              Overall Score
             </p>
-          </CardContent>
-        </Card>
-
-        <Card className={cardBase}>
-          <CardContent className="p-6 text-center">
-            <BookOpen className="w-6 h-6 text-emerald-500 mx-auto mb-2" />
-            <div className="text-5xl font-bold text-emerald-600 mb-1">{fluency.overall_score}</div>
-            <p className="text-sm text-gray-700">Fluency</p>
-            <p className="text-xs text-gray-500 mt-1">
-              IELTS {fluency.english_proficiency_scores?.mock_ielts?.prediction} • CEFR{" "}
-              {fluency.english_proficiency_scores?.mock_cefr?.prediction}
-            </p>
-          </CardContent>
-        </Card>
+            <div className="flex items-center justify-center gap-2 text-xs">
+              <span 
+                className="px-2 py-1 rounded-md font-medium"
+                style={{ 
+                  backgroundColor: "rgba(255, 255, 255, 0.8)",
+                  color: "#1f2937",
+                }}
+              >
+                IELTS {overall.english_proficiency_scores?.mock_ielts?.prediction || "-"}
+              </span>
+              <span style={{ color: "#9ca3af" }}>•</span>
+              <span 
+                className="px-2 py-1 rounded-md font-medium"
+                style={{ 
+                  backgroundColor: "rgba(255, 255, 255, 0.8)",
+                  color: "#1f2937",
+                }}
+              >
+                CEFR {overall.english_proficiency_scores?.mock_cefr?.prediction || "-"}
+              </span>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <Card className={cardBase}>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-blue-700">
-            <Volume2 className="w-5 h-5 text-blue-500" />
-            Pronunciation Breakdown
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="mb-6">
+      {/* Main Content Area */}
+      <div className="flex-1 space-y-6">
+
+        {/* Pronunciation Section */}
+        {activeSection === "pronunciation" && (
+          <Card 
+            className={cardBase}
+            style={{
+              borderRadius: "1rem",
+              boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+              border: "1px solid #f3f4f6",
+              backgroundColor: "white",
+              backdropFilter: "blur(4px)",
+            }}
+          >
+            <CardHeader 
+              className="border-b rounded-t-2xl"
+              style={{
+                background: "linear-gradient(to right, #eff6ff, #ecfeff)",
+                borderBottomColor: "#dbeafe",
+              }}
+            >
+              <CardTitle className="flex items-center gap-3 text-blue-700">
+                <div 
+                  className="p-2 rounded-lg"
+                  style={{
+                    background: "linear-gradient(to bottom right, #3b82f6, #06b6d4)",
+                    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
+                  }}
+                >
+                  <Volume2 className="w-5 h-5 text-white" />
+                </div>
+                <span className="text-xl font-bold">Pronunciation Breakdown</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6">
+              <div className="mb-6">
             <p className="text-sm text-gray-600 mb-3">Click on any word to see detailed pronunciation breakdown:</p>
             <div className="flex flex-wrap gap-2">
               {uniqueFilteredWords.map((word, idx) => {
@@ -505,17 +738,26 @@ export function SpeechAssessmentResults({ data }) {
                       borderColor: selectedWord === word.name ? "#3b82f6" : colors.border,
                       color: selectedWord === word.name ? "#1e40af" : colors.text,
                       borderWidth: "2px",
-                      padding: "8px 16px",
-                      borderRadius: "8px",
+                      padding: "10px 18px",
+                      borderRadius: "12px",
                       fontWeight: "600",
                       cursor: "pointer",
                       transition: "all 0.3s ease",
+                      boxShadow: selectedWord === word.name 
+                        ? "0 4px 12px rgba(59, 130, 246, 0.3)" 
+                        : "0 2px 4px rgba(0, 0, 0, 0.1)",
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.opacity = "0.8"
+                      e.currentTarget.style.transform = "translateY(-2px)"
+                      e.currentTarget.style.boxShadow = selectedWord === word.name 
+                        ? "0 6px 16px rgba(59, 130, 246, 0.4)" 
+                        : "0 4px 8px rgba(0, 0, 0, 0.15)"
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.opacity = "1"
+                      e.currentTarget.style.transform = "translateY(0)"
+                      e.currentTarget.style.boxShadow = selectedWord === word.name 
+                        ? "0 4px 12px rgba(59, 130, 246, 0.3)" 
+                        : "0 2px 4px rgba(0, 0, 0, 0.1)"
                     }}
                   >
                     {word.name}
@@ -753,18 +995,44 @@ export function SpeechAssessmentResults({ data }) {
                 </span>
               ),
             )}
-          </div>
-        </CardContent>
-      </Card>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
-      <Card className={cardBase}>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-emerald-700">
-            <Brain className="w-5 h-5 text-emerald-500" />
-            Fluency & Rhythm
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
+        {/* Fluency Section */}
+        {activeSection === "fluency" && (
+          <Card 
+            className={cardBase}
+            style={{
+              borderRadius: "1rem",
+              boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+              border: "1px solid #f3f4f6",
+              backgroundColor: "white",
+              backdropFilter: "blur(4px)",
+            }}
+          >
+            <CardHeader 
+              className="border-b rounded-t-2xl"
+              style={{
+                background: "linear-gradient(to right, #ecfdf5, #f0fdfa)",
+                borderBottomColor: "#d1fae5",
+              }}
+            >
+              <CardTitle className="flex items-center gap-3 text-emerald-700">
+                <div 
+                  className="p-2 rounded-lg"
+                  style={{
+                    background: "linear-gradient(to bottom right, #10b981, #14b8a6)",
+                    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
+                  }}
+                >
+                  <Brain className="w-5 h-5 text-white" />
+                </div>
+                <span className="text-xl font-bold">Fluency & Rhythm</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div className="p-3 bg-emerald-50 rounded-lg text-center border border-emerald-100">
               <p className="text-sm text-gray-600">Speech Rate (wpm)</p>
@@ -792,98 +1060,157 @@ export function SpeechAssessmentResults({ data }) {
           </div>
         </CardContent>
       </Card>
+        )}
 
-      <Card className={cardBase}>
-        {reading && Object.keys(reading).length > 0 ? (
-          <>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-purple-700">
-                <BookOpen className="w-5 h-5 text-purple-500" />
-                Reading Metrics
+        {/* Vocabulary Section */}
+        {activeSection === "vocabulary" && (
+          <Card 
+            className={cardBase}
+            style={{
+              borderRadius: "1rem",
+              boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+              border: "1px solid #f3f4f6",
+              backgroundColor: "white",
+              backdropFilter: "blur(4px)",
+            }}
+          >
+            <CardHeader 
+              className="border-b rounded-t-2xl"
+              style={{
+                background: "linear-gradient(to right, #faf5ff, #fdf2f8)",
+                borderBottomColor: "#f3e8ff",
+              }}
+            >
+              <CardTitle className="flex items-center gap-3 text-purple-700">
+                <div 
+                  className="p-2 rounded-lg"
+                  style={{
+                    background: "linear-gradient(to bottom right, #a855f7, #ec4899)",
+                    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
+                  }}
+                >
+                  <BookOpen className="w-5 h-5 text-white" />
+                </div>
+                <span className="text-xl font-bold">Vocabulary</span>
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="text-center bg-purple-50 border border-purple-200 rounded-xl p-4">
-                  <p className="text-sm text-gray-600">Accuracy</p>
-                  <p className="text-2xl font-semibold text-purple-600">{Number.isFinite(reading.accuracy) ? (reading.accuracy * 100).toFixed(0) : "-"}%</p>
-                </div>
-                <div className="text-center bg-purple-50 border border-purple-200 rounded-xl p-4">
-                  <p className="text-sm text-gray-600">Completion</p>
-                  <p className="text-2xl font-semibold text-purple-600">{Number.isFinite(reading.completion) ? (reading.completion * 100).toFixed(0) : "-"}%</p>
-                </div>
-                <div className="text-center bg-purple-50 border border-purple-200 rounded-xl p-4">
-                  <p className="text-sm text-gray-600">Speed (WPM)</p>
-                  <p className="text-2xl font-semibold text-purple-600">{Number.isFinite(reading.speed_wpm) ? reading.speed_wpm.toFixed(1) : "-"}</p>
-                </div>
-                <div className="text-center bg-purple-50 border border-purple-200 rounded-xl p-4">
-                  <p className="text-sm text-gray-600">Words Read</p>
-                  <p className="text-2xl font-semibold text-purple-600">{reading.words_read ?? "-"}</p>
-                </div>
-              </div>
-            </CardContent>
-          </>
-        ) : (
-          <>
-            {(vocabulary && Object.keys(vocabulary).length > 0) || (grammar && Object.keys(grammar).length > 0) ? (
-              <CardContent className="space-y-6">
-                {vocabulary && Object.keys(vocabulary).length > 0 && (
-                  <div>
-                    <CardTitle className="flex items-center gap-2 text-purple-700 mb-3">
-                      <BookOpen className="w-5 h-5 text-purple-500" />
-                      Vocabulary
-                    </CardTitle>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      <div className="text-center bg-purple-50 border border-purple-200 rounded-xl p-4">
-                        <p className="text-sm text-gray-600">Overall</p>
-                        <p className="text-2xl font-semibold text-purple-600">{vocabulary.overall_score ?? "-"}</p>
-                      </div>
-                      <div className="text-center bg-purple-50 border border-purple-200 rounded-xl p-4">
-                        <p className="text-sm text-gray-600">Complexity</p>
-                        <p className="text-2xl font-semibold text-purple-600">{vocabulary.metrics?.vocabulary_complexity ?? "-"}</p>
-                      </div>
-                      <div className="text-center bg-purple-50 border border-purple-200 rounded-xl p-4">
-                        <p className="text-sm text-gray-600">Idioms</p>
-                        <p className="text-2xl font-semibold text-purple-600">{vocabulary.metrics?.idiom_details?.length ?? 0}</p>
-                      </div>
-                      <div className="text-center bg-purple-50 border border-purple-200 rounded-xl p-4">
-                        <p className="text-sm text-gray-600">IELTS</p>
-                        <p className="text-2xl font-semibold text-purple-600">{vocabulary.english_proficiency_scores?.mock_ielts?.prediction ?? "-"}</p>
-                      </div>
+            <CardContent className="p-6">
+              {vocabulary && Object.keys(vocabulary).length > 0 ? (
+                <>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                    <div className="text-center bg-purple-50 border border-purple-200 rounded-xl p-4">
+                      <p className="text-sm text-gray-600">Overall</p>
+                      <p className="text-2xl font-semibold text-purple-600">{vocabulary.overall_score ?? "-"}</p>
+                    </div>
+                    <div className="text-center bg-purple-50 border border-purple-200 rounded-xl p-4">
+                      <p className="text-sm text-gray-600">Complexity</p>
+                      <p className="text-2xl font-semibold text-purple-600">{vocabulary.metrics?.vocabulary_complexity ?? "-"}</p>
+                    </div>
+                    <div className="text-center bg-purple-50 border border-purple-200 rounded-xl p-4">
+                      <p className="text-sm text-gray-600">Idioms</p>
+                      <p className="text-2xl font-semibold text-purple-600">{vocabulary.metrics?.idiom_details?.length ?? 0}</p>
+                    </div>
+                    <div className="text-center bg-purple-50 border border-purple-200 rounded-xl p-4">
+                      <p className="text-sm text-gray-600">IELTS</p>
+                      <p className="text-2xl font-semibold text-purple-600">{vocabulary.english_proficiency_scores?.mock_ielts?.prediction ?? "-"}</p>
                     </div>
                   </div>
-                )}
-                {grammar && Object.keys(grammar).length > 0 && (
-                  <div>
-                    <CardTitle className="flex items-center gap-2 text-emerald-700 mb-3">
-                      <Brain className="w-5 h-5 text-emerald-500" />
-                      Grammar
-                    </CardTitle>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      <div className="text-center bg-emerald-50 border border-emerald-200 rounded-xl p-4">
-                        <p className="text-sm text-gray-600">Overall</p>
-                        <p className="text-2xl font-semibold text-emerald-600">{grammar.overall_score ?? "-"}</p>
-                      </div>
-                      <div className="text-center bg-emerald-50 border border-emerald-200 rounded-xl p-4">
-                        <p className="text-sm text-gray-600">Mistakes</p>
-                        <p className="text-2xl font-semibold text-emerald-600">{grammar.metrics?.mistake_count ?? 0}</p>
-                      </div>
-                      <div className="text-center bg-emerald-50 border border-emerald-200 rounded-xl p-4">
-                        <p className="text-sm text-gray-600">Complexity</p>
-                        <p className="text-2xl font-semibold text-emerald-600">{grammar.metrics?.grammatical_complexity ?? "-"}</p>
-                      </div>
-                      <div className="text-center bg-emerald-50 border border-emerald-200 rounded-xl p-4">
-                        <p className="text-sm text-gray-600">IELTS</p>
-                        <p className="text-2xl font-semibold text-emerald-600">{grammar.english_proficiency_scores?.mock_ielts?.prediction ?? "-"}</p>
+                  {reading && Object.keys(reading).length > 0 && (
+                    <div className="mt-6">
+                      <h4 className="text-lg font-semibold text-purple-700 mb-4">Reading Metrics</h4>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="text-center bg-purple-50 border border-purple-200 rounded-xl p-4">
+                          <p className="text-sm text-gray-600">Accuracy</p>
+                          <p className="text-2xl font-semibold text-purple-600">{Number.isFinite(reading.accuracy) ? (reading.accuracy * 100).toFixed(0) : "-"}%</p>
+                        </div>
+                        <div className="text-center bg-purple-50 border border-purple-200 rounded-xl p-4">
+                          <p className="text-sm text-gray-600">Completion</p>
+                          <p className="text-2xl font-semibold text-purple-600">{Number.isFinite(reading.completion) ? (reading.completion * 100).toFixed(0) : "-"}%</p>
+                        </div>
+                        <div className="text-center bg-purple-50 border border-purple-200 rounded-xl p-4">
+                          <p className="text-sm text-gray-600">Speed (WPM)</p>
+                          <p className="text-2xl font-semibold text-purple-600">{Number.isFinite(reading.speed_wpm) ? reading.speed_wpm.toFixed(1) : "-"}</p>
+                        </div>
+                        <div className="text-center bg-purple-50 border border-purple-200 rounded-xl p-4">
+                          <p className="text-sm text-gray-600">Words Read</p>
+                          <p className="text-2xl font-semibold text-purple-600">{reading.words_read ?? "-"}</p>
+                        </div>
                       </div>
                     </div>
-                    {(grammar.feedback?.corrected_text || (grammar.metrics?.grammar_errors || []).length > 0) && (
-                      <div className="mt-4 bg-white border border-emerald-200 p-3 rounded-lg">
-                        {grammar.feedback?.corrected_text && (
-                          <p className="text-sm text-gray-700"><strong>Corrected:</strong> {grammar.feedback.corrected_text}</p>
-                        )}
-                        {(grammar.metrics?.grammar_errors || []).length > 0 && (
-                          <ul className="list-disc pl-5 text-sm text-gray-700 mt-2">
+                  )}
+                </>
+              ) : (
+                <p className="text-sm text-gray-600">No vocabulary metrics available.</p>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Grammar Section */}
+        {activeSection === "grammar" && (
+          <Card 
+            className={cardBase}
+            style={{
+              borderRadius: "1rem",
+              boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+              border: "1px solid #f3f4f6",
+              backgroundColor: "white",
+              backdropFilter: "blur(4px)",
+            }}
+          >
+            <CardHeader 
+              className="border-b rounded-t-2xl"
+              style={{
+                background: "linear-gradient(to right, #ecfdf5, #f0fdf4)",
+                borderBottomColor: "#d1fae5",
+              }}
+            >
+              <CardTitle className="flex items-center gap-3 text-emerald-700">
+                <div 
+                  className="p-2 rounded-lg"
+                  style={{
+                    background: "linear-gradient(to bottom right, #10b981, #22c55e)",
+                    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
+                  }}
+                >
+                  <Award className="w-5 h-5 text-white" />
+                </div>
+                <span className="text-xl font-bold">Grammar</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6">
+              {grammar && Object.keys(grammar).length > 0 ? (
+                <>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                    <div className="text-center bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+                      <p className="text-sm text-gray-600">Overall</p>
+                      <p className="text-2xl font-semibold text-emerald-600">{grammar.overall_score ?? "-"}</p>
+                    </div>
+                    <div className="text-center bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+                      <p className="text-sm text-gray-600">Mistakes</p>
+                      <p className="text-2xl font-semibold text-emerald-600">{grammar.metrics?.mistake_count ?? 0}</p>
+                    </div>
+                    <div className="text-center bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+                      <p className="text-sm text-gray-600">Complexity</p>
+                      <p className="text-2xl font-semibold text-emerald-600">{grammar.metrics?.grammatical_complexity ?? "-"}</p>
+                    </div>
+                    <div className="text-center bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+                      <p className="text-sm text-gray-600">IELTS</p>
+                      <p className="text-2xl font-semibold text-emerald-600">{grammar.english_proficiency_scores?.mock_ielts?.prediction ?? "-"}</p>
+                    </div>
+                  </div>
+                  {(grammar.feedback?.corrected_text || (grammar.metrics?.grammar_errors || []).length > 0) && (
+                    <div className="mt-4 bg-white border border-emerald-200 p-4 rounded-lg">
+                      {grammar.feedback?.corrected_text && (
+                        <div className="mb-4">
+                          <p className="text-sm font-semibold text-gray-700 mb-2">Corrected Text:</p>
+                          <p className="text-sm text-gray-700 bg-emerald-50 p-3 rounded border border-emerald-100">{grammar.feedback.corrected_text}</p>
+                        </div>
+                      )}
+                      {(grammar.metrics?.grammar_errors || []).length > 0 && (
+                        <div>
+                          <p className="text-sm font-semibold text-gray-700 mb-2">Grammar Errors:</p>
+                          <ul className="list-disc pl-5 text-sm text-gray-700 space-y-1">
                             {grammar.metrics.grammar_errors.map((err: any, i: number) => {
                               if (typeof err === "string") {
                                 return <li key={i}>{err}</li>
@@ -904,49 +1231,71 @@ export function SpeechAssessmentResults({ data }) {
                               )
                             })}
                           </ul>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </CardContent>
-            ) : (
-              <CardContent>
-                <p className="text-sm text-gray-600">No reading, vocabulary, or grammar metrics available.</p>
-              </CardContent>
-            )}
-          </>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <p className="text-sm text-gray-600">No grammar metrics available.</p>
+              )}
+            </CardContent>
+          </Card>
         )}
-      </Card>
 
-      {(Object.keys(warnings).length > 0 || metadata.predicted_text) && (
-        <Card className={cardBase}>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-yellow-700">
-              <AlertTriangle className="w-5 h-5 text-yellow-500" />
-              Additional Information
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm text-gray-800">
-            {Object.entries(warnings).map(([key, value]) => (
-              <div key={key}>
-                <strong>{key}: </strong>
-                {typeof value === "string" ? value : JSON.stringify(value)}
-              </div>
-            ))}
-            {metadata.predicted_text && (
-              <div>
-                <strong>Predicted Text:</strong> {metadata.predicted_text}
-              </div>
-            )}
-            {metadata.content_relevance && (
-              <div>
-                <strong>Content Relevance:</strong> {metadata.content_relevance}%
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
+        {/* Additional Information - shown in all sections */}
+        {(Object.keys(warnings).length > 0 || metadata.predicted_text) && (
+          <Card 
+            className={cardBase}
+            style={{
+              borderRadius: "1rem",
+              boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+              border: "1px solid #f3f4f6",
+              backgroundColor: "white",
+              backdropFilter: "blur(4px)",
+            }}
+          >
+            <CardHeader 
+              className="border-b rounded-t-2xl"
+              style={{
+                background: "linear-gradient(to right, #fffbeb, #fefce8)",
+                borderBottomColor: "#fde68a",
+              }}
+            >
+              <CardTitle className="flex items-center gap-3 text-yellow-700">
+                <div 
+                  className="p-2 rounded-lg"
+                  style={{
+                    background: "linear-gradient(to bottom right, #f59e0b, #eab308)",
+                    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
+                  }}
+                >
+                  <AlertTriangle className="w-5 h-5 text-white" />
+                </div>
+                <span className="text-xl font-bold">Additional Information</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6 space-y-3 text-sm text-gray-800">
+              {Object.entries(warnings).map(([key, value]) => (
+                <div key={key}>
+                  <strong>{key}: </strong>
+                  {typeof value === "string" ? value : JSON.stringify(value)}
+                </div>
+              ))}
+              {metadata.predicted_text && (
+                <div>
+                  <strong>Predicted Text:</strong> {metadata.predicted_text}
+                </div>
+              )}
+              {metadata.content_relevance && (
+                <div>
+                  <strong>Content Relevance:</strong> {metadata.content_relevance}%
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+      </div>
     </div>
   )
 }

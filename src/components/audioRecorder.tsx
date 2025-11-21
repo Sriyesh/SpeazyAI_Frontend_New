@@ -5,13 +5,12 @@ import { Button } from "./ui/button"
 import { Mic, Square, Play, Pause } from "lucide-react"
 import { RecordingWaveform } from "./recordingWaveform"
 import { LoadingAssessment } from "./loadingAssessment"
-// in audioRecorder.tsx
-import { SpeechAssessmentResults } from "./SpeechAssessmentResults"
 
 export function AudioRecorder({
   expectedText = "",
   lessonColor = "from-blue-500 to-cyan-400",
-  endpoint = "https://apis.languageconfidence.ai/speech-assessment/unscripted/uk"
+  endpoint = "https://apis.languageconfidence.ai/speech-assessment/unscripted/uk",
+  onApiResponse = null
 }) {
   const [isRecording, setIsRecording] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
@@ -103,8 +102,8 @@ export function AudioRecorder({
   // 🔥 API Integration
   const callSpeechAssessmentAPI = async (base64Audio, format) => {
     console.log("Calling LanguageConfidence API through CORS proxy...")
-    const proxyUrl = "/.netlify/functions/speechProxy"
-    //const proxyUrl = "http://localhost:4000/speechProxy"
+    //const proxyUrl = "/.netlify/functions/speechProxy"
+    const proxyUrl = "http://localhost:4000/speechProxy"
     setIsLoading(true)
 
     const isScripted = typeof endpoint === "string" && endpoint.includes("speech-assessment/scripted")
@@ -134,6 +133,10 @@ export function AudioRecorder({
       const data = await response.json()
       console.log("API Response:", data)
       setApiResponse(data)
+      // Pass API response to parent component
+      if (onApiResponse) {
+        onApiResponse(data)
+      }
     } catch (error) {
       console.error("Error calling API:", error)
       alert("Error processing audio. Please try again.")
@@ -245,13 +248,6 @@ export function AudioRecorder({
 
       {/* ⏳ Loading State */}
       {isLoading && <LoadingAssessment />}
-
-      {/* 🧠 API JSON Response */}
-      {apiResponse && !isLoading && (
-        <div className="mt-8">
-          <SpeechAssessmentResults data={apiResponse} />
-        </div>
-      )}
     </div>
   )
 }
