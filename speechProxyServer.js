@@ -24,6 +24,7 @@ app.post("/speechProxy", async (req, res) => {
       headers: {
         "Content-Type": "application/json",
         "api-key": process.env.LC_API_KEY,
+        "lc-beta-features": "false", // Force false since client sends it now
         ...(req.headers["lc-beta-features"] && { "lc-beta-features": req.headers["lc-beta-features"] }),
       },
       body: JSON.stringify(apiBody),

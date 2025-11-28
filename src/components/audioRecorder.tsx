@@ -115,8 +115,12 @@ export function AudioRecorder({
   // 🔥 API Integration
   const callSpeechAssessmentAPI = async (base64Audio, format) => {
     console.log("Calling LanguageConfidence API through CORS proxy...")
-    const proxyUrl = "/.netlify/functions/speechProxy"
-    //const proxyUrl = "http://localhost:4000/speechProxy"
+    // Determine the correct proxy URL based on the environment
+    // If we're running on localhost, use the local express server (port 4000)
+    // If we're on Netlify, use the Netlify function
+    const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
+    const proxyUrl = isLocal ? "http://localhost:4000/speechProxy" : "/.netlify/functions/speechProxy"
+    
     setIsLoading(true)
 
     const isScripted = typeof endpoint === "string" && endpoint.includes("speech-assessment/scripted")

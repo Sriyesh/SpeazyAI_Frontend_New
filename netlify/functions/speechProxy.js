@@ -28,6 +28,7 @@ exports.handler = async (event) => {
       headers: {
         "Content-Type": "application/json",
         "api-key": process.env.LC_API_KEY,
+        "lc-beta-features": "false",
         ...(event.headers["lc-beta-features"] && { "lc-beta-features": event.headers["lc-beta-features"] }),
       },
       body: JSON.stringify(apiBody),
