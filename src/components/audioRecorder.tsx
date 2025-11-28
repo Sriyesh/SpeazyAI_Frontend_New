@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react"
 import { Button } from "./ui/button"
-import { Mic, Square, Play, Pause } from "lucide-react"
+import { Mic, Square, Play, Pause, RotateCcw } from "lucide-react"
 import { RecordingWaveform } from "./recordingWaveform"
 import { LoadingAssessment } from "./loadingAssessment"
 
@@ -23,6 +23,9 @@ export function AudioRecorder({
   const [audioUrl, setAudioUrl] = useState<string | null>(null)
   const [isPlaying, setIsPlaying] = useState(false)
   const [apiResponse, setApiResponse] = useState<any>(null)
+  const [currentTime, setCurrentTime] = useState(0)
+  const [duration, setDuration] = useState(0)
+  const [isDragging, setIsDragging] = useState(false)
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
@@ -188,53 +191,109 @@ export function AudioRecorder({
   // Playback Controls
   const togglePlayback = () => {
     if (!audioRef.current) return
-    if (isPlaying) audioRef.current.pause()
-    else audioRef.current.play()
+    if (isPlaying) {
+      audioRef.current.pause()
+      setIsPlaying(false)
+    } else {
+      audioRef.current.play()
+      setIsPlaying(true)
+    }
+  }
+
+  const formatTime = (time: number) => {
+    if (!time && time !== 0) return "0:00"
+    const minutes = Math.floor(time / 60)
+    const seconds = Math.floor(time % 60)
+    return `${minutes}:${seconds.toString().padStart(2, "0")}`
+  }
+
+  const handleTimeUpdate = () => {
+    if (audioRef.current && !isDragging) {
+      setCurrentTime(audioRef.current.currentTime)
+    }
+  }
+
+  const handleLoadedMetadata = () => {
+    if (audioRef.current) {
+      const dur = audioRef.current.duration
+      if (dur && !isNaN(dur) && dur !== Infinity) {
+        setDuration(dur)
+      }
+    }
+  }
+
+  const handleDurationChange = () => {
+    if (audioRef.current) {
+      const dur = audioRef.current.duration
+      if (dur && !isNaN(dur) && dur !== Infinity) {
+        setDuration(dur)
+      }
+    }
+  }
+
+  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const time = parseFloat(e.target.value)
+    setCurrentTime(time)
+  }
+
+  const handleSeekEnd = () => {
+    if (audioRef.current) {
+      audioRef.current.currentTime = currentTime
+    }
+    setIsDragging(false)
+  }
+
+  const handleSeekStart = () => {
+    setIsDragging(true)
+  }
+
+  const handleSeekChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // On touch/drag, we want to update the visual slider immediately
+    const time = parseFloat(e.target.value)
+    setCurrentTime(time)
   }
 
   useEffect(() => {
     const audioElement = audioRef.current
     if (!audioElement) return
 
-    const handleEnded = () => setIsPlaying(false)
+    const handleEnded = () => {
+      setIsPlaying(false)
+      setCurrentTime(0) // Reset slider on end
+    }
+    
     audioElement.addEventListener("ended", handleEnded)
 
     return () => {
-      // 🩹 Prevent crash: check if ref still exists before removing
       if (audioElement) {
         audioElement.removeEventListener("ended", handleEnded)
       }
     }
   }, [audioUrl])
 
+  // Helper to get valid CSS values from lessonColor
+  const isTailwind = lessonColor.includes("from-")
+  const gradientClass = isTailwind ? `bg-gradient-to-r ${lessonColor}` : ""
+  // Try to extract a hex color for text/borders, fallback to blue-600
+  const extractHex = (str: string) => {
+    const match = str.match(/#[0-9a-fA-F]{6}/)
+    return match ? match[0] : "#2563eb"
+  }
+  const themeColor = isTailwind ? "#2563eb" : extractHex(lessonColor)
+  const gradientStyle = isTailwind ? {} : { background: lessonColor }
+
   return (
     <div className="w-full space-y-6">
       {/* 🎙 Start / Stop Recording */}
-      {!isRecording && (
+      {!isRecording && !audioUrl && (
         <Button
           size="lg"
-          onClick={() => {
-            if (audioUrl) {
-              if (audioRef.current) {
-                audioRef.current.pause()
-                audioRef.current.currentTime = 0
-              }
-              // Reset for new recording
-              setApiResponse(null)
-              setAudioUrl(null)
-              startRecording()
-            } else {
-              // First-time recording
-              startRecording()
-            }
-          }}
-          className="text-white rounded-full px-8 shadow-lg transform hover:scale-105 transition-all duration-200"
-          style={{
-            background: `linear-gradient(to right, ${lessonColor.split(" to ")[0].replace("from-", "#")}, ${lessonColor.split(" to ")[1]?.replace("to-", "#")})`,
-          }}
+          onClick={() => startRecording()}
+          className={`text-white rounded-full px-8 py-6 text-lg shadow-lg transform hover:scale-105 transition-all duration-200 w-full sm:w-auto ${gradientClass}`}
+          style={gradientStyle}
         >
           <Mic className="w-6 h-6 mr-2" />
-          {audioUrl ? "Record Again" : "Start Recording"}
+          Start Recording
         </Button>
       )}
 
@@ -258,19 +317,139 @@ export function AudioRecorder({
         </div>
       )}
 
-      {/* 🎧 Playback Section */}
-      {audioUrl && !isRecording && (
-        <div
-          className="flex flex-col items-center space-y-4 rounded-xl p-6 shadow-md"
-          style={{ backgroundColor: "#F9FAFB", border: "1px solid #E5E7EB" }}
-        >
-          <audio
-            ref={audioRef}
-            src={audioUrl}
-            controls
-            className="w-full h-14 rounded-lg shadow-sm"
-            style={{ display: 'block' }}
-          />
+      {/* 🎧 Custom Playback Section - Updated Layout */}
+      {audioUrl && !isRecording && !isLoading && (
+        <div className="w-full animate-in fade-in zoom-in duration-300 flex flex-col gap-4">
+          {/* Record Again Button (Top) */}
+          <div className="flex justify-center">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                if (audioRef.current) {
+                  audioRef.current.pause()
+                  audioRef.current.currentTime = 0
+                }
+                // Reset for new recording
+                setApiResponse(null)
+                setAudioUrl(null)
+                startRecording()
+              }}
+              style={{
+                borderColor: themeColor,
+                color: themeColor,
+                backgroundColor: "white",
+                borderRadius: "9999px",
+                paddingLeft: "1.5rem",
+                paddingRight: "1.5rem",
+                height: "2.5rem",
+                fontWeight: "600",
+                borderWidth: "2px",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+                transition: "all 0.2s",
+                boxShadow: "0 2px 4px rgba(0,0,0,0.05)"
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = "#f9fafb"
+                e.currentTarget.style.transform = "translateY(-1px)"
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = "white"
+                e.currentTarget.style.transform = "translateY(0)"
+              }}
+            >
+              <RotateCcw size={16} />
+              Record Again
+            </Button>
+          </div>
+
+          <div 
+            style={{
+              padding: "1.25rem",
+              borderRadius: "1rem",
+              backgroundColor: "white",
+              boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
+              border: "1px solid #e5e7eb"
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+              {/* Play/Pause Button */}
+              <button
+                onClick={togglePlayback}
+                className={gradientClass}
+                style={{
+                  flexShrink: 0,
+                  width: "3rem",
+                  height: "3rem",
+                  borderRadius: "9999px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "white",
+                  // Fallback or gradient override
+                  background: isTailwind ? undefined : lessonColor,
+                  boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
+                  transition: "transform 0.1s",
+                  cursor: "pointer",
+                  border: "none"
+                }}
+                onMouseDown={(e) => e.currentTarget.style.transform = "scale(0.95)"}
+                onMouseUp={(e) => e.currentTarget.style.transform = "scale(1)"}
+                onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
+              >
+                {isPlaying ? (
+                  <Pause size={20} fill="currentColor" stroke="currentColor" />
+                ) : (
+                  <Play size={20} fill="currentColor" stroke="currentColor" style={{ marginLeft: "0.25rem" }} />
+                )}
+              </button>
+              
+              {/* Progress Bar & Time */}
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", gap: "0.25rem" }}>
+                 <input
+                  type="range"
+                  min="0"
+                  max={duration || 100}
+                  value={currentTime}
+                  onChange={handleSeekChange}
+                  onMouseDown={handleSeekStart}
+                  onTouchStart={handleSeekStart}
+                  onMouseUp={handleSeekEnd}
+                  onTouchEnd={handleSeekEnd}
+                  style={{
+                    width: "100%",
+                    height: "0.375rem", // h-1.5
+                    borderRadius: "0.5rem",
+                    cursor: "pointer",
+                    backgroundColor: "#f3f4f6", // bg-gray-100
+                    accentColor: themeColor,
+                    outline: "none",
+                    border: "none",
+                    padding: 0,
+                    margin: 0
+                  }}
+                />
+                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.75rem", fontWeight: "500", color: "#9ca3af" }}>
+                  <span>{formatTime(currentTime)}</span>
+                  <span>{formatTime(duration)}</span>
+                </div>
+              </div>
+            </div>
+            
+            {/* Hidden Audio Element */}
+            <audio
+              ref={audioRef}
+              src={audioUrl}
+              onPlay={() => setIsPlaying(true)}
+              onPause={() => setIsPlaying(false)}
+              onTimeUpdate={handleTimeUpdate}
+              onLoadedMetadata={handleLoadedMetadata}
+              onDurationChange={handleDurationChange}
+              style={{ display: "none" }}
+            />
+          </div>
         </div>
       )}
 
