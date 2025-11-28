@@ -44,7 +44,7 @@ export function PDFViewer({
   const totalPages = chapter.pages.length;
 
   return (
-    <Card className="bg-white/95 border-0 shadow-2xl mb-8 overflow-hidden">
+    <Card className="bg-white/95 border-0 shadow-2xl mb-8 sm:overflow-hidden">
       {/* Viewer Controls */}
       <div className="bg-gradient-to-r from-[#3B82F6] to-[#2563eb] p-4">
         <div className="flex items-center justify-between">
@@ -106,7 +106,7 @@ export function PDFViewer({
       </div>
 
       {/* PDF Content Area */}
-      <CardContent className="p-4 md:p-8 lg:p-12 bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 min-h-[500px] flex items-center justify-center relative overflow-hidden">
+      <CardContent className="p-4 md:p-8 lg:p-12 bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 min-h-[500px] flex items-center justify-center relative sm:overflow-hidden">
         {/* Decorative elements */}
         <div className="absolute top-10 left-10 opacity-20 hidden sm:block">
           <Star className="w-16 h-16 text-yellow-400 animate-pulse" />

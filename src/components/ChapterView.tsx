@@ -300,7 +300,7 @@ export function ChapterView() {
 
       <div ref={scrollAreaRef}>
         <ScrollArea className="h-[calc(100vh-64px)]">
-          <div className="max-w-[1600px] mx-auto px-6 sm:px-8 lg:px-12 py-8">
+          <div className="max-w-[1600px] mx-auto px-4 sm:px-8 lg:px-12 py-8">
           <div className="flex gap-12 items-start chapter-content-wrapper">
             {/* Left Sidebar - Green box area */}
             <motion.div 
