@@ -60,7 +60,17 @@ export function AudioRecorder({
       const source = audioContext.createMediaStreamSource(stream)
       source.connect(analyser)
 
-      const mediaRecorder = new MediaRecorder(stream)
+      // Detect supported mimeType for better mobile compatibility
+      let mimeType = "audio/webm"; // Default fallback
+      if (MediaRecorder.isTypeSupported("audio/webm;codecs=opus")) {
+        mimeType = "audio/webm;codecs=opus";
+      } else if (MediaRecorder.isTypeSupported("audio/mp4")) {
+        mimeType = "audio/mp4"; // iOS Safari often supports this
+      } else if (MediaRecorder.isTypeSupported("audio/aac")) {
+        mimeType = "audio/aac";
+      }
+
+      const mediaRecorder = new MediaRecorder(stream, { mimeType })
       mediaRecorderRef.current = mediaRecorder
       audioChunksRef.current = []
 
@@ -94,8 +104,17 @@ export function AudioRecorder({
 
   // When recording stops, convert audio and call API
   const handleRecordingStop = () => {
-    const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" })
-    const format = audioBlob.type.includes("webm") ? "webm" : "wav"
+    // Use the mimeType from the recorder if available, otherwise fallback
+    const mimeType = mediaRecorderRef.current?.mimeType || "audio/webm";
+    const audioBlob = new Blob(audioChunksRef.current, { type: mimeType })
+    
+    // Map mimeType to API format
+    // API expects 'webm', 'wav', 'mp3', 'm4a', 'ogg'
+    let format = "webm";
+    if (mimeType.includes("wav")) format = "wav";
+    else if (mimeType.includes("mp4") || mimeType.includes("m4a") || mimeType.includes("aac")) format = "m4a";
+    else if (mimeType.includes("ogg")) format = "ogg";
+    else if (mimeType.includes("webm")) format = "webm";
 
     const audioUrl = URL.createObjectURL(audioBlob)
     setAudioUrl(audioUrl)
@@ -249,21 +268,9 @@ export function AudioRecorder({
             ref={audioRef}
             src={audioUrl}
             controls
-            className="w-full rounded-lg"
-            style={{ display: 'block' }} // Force display block
-            onPlay={() => setIsPlaying(true)}
-            onPause={() => setIsPlaying(false)}
+            className="w-full h-14 rounded-lg shadow-sm"
+            style={{ display: 'block' }}
           />
-          <Button
-            onClick={togglePlayback}
-            className="text-white hover:opacity-90 rounded-full px-6 shadow-lg flex items-center gap-2"
-            style={{
-              background: "linear-gradient(to right, #10B981, #059669)",
-            }}
-          >
-            {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
-            {isPlaying ? "Pause" : "Play Recording"}
-          </Button>
         </div>
       )}
 
