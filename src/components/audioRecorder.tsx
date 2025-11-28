@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import React, { useState, useRef, useEffect } from "react"
 import { Button } from "./ui/button"
 import { Mic, Square, Play, Pause } from "lucide-react"
 import { RecordingWaveform } from "./recordingWaveform"
@@ -11,21 +11,26 @@ export function AudioRecorder({
   lessonColor = "from-blue-500 to-cyan-400",
   endpoint = "https://apis.languageconfidence.ai/speech-assessment/unscripted/uk",
   onApiResponse = null
+}: {
+  expectedText?: string;
+  lessonColor?: string;
+  endpoint?: string;
+  onApiResponse?: any;
 }) {
   const [isRecording, setIsRecording] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [recordingTime, setRecordingTime] = useState(0)
-  const [audioUrl, setAudioUrl] = useState(null)
+  const [audioUrl, setAudioUrl] = useState<string | null>(null)
   const [isPlaying, setIsPlaying] = useState(false)
-  const [apiResponse, setApiResponse] = useState(null)
+  const [apiResponse, setApiResponse] = useState<any>(null)
 
-  const mediaRecorderRef = useRef(null)
-  const audioChunksRef = useRef([])
-  const audioContextRef = useRef(null)
-  const analyserRef = useRef(null)
-  const streamRef = useRef(null)
-  const timerIntervalRef = useRef(null)
-  const audioRef = useRef(null)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const audioChunksRef = useRef<Blob[]>([])
+  const audioContextRef = useRef<AudioContext | null>(null)
+  const analyserRef = useRef<AnalyserNode | null>(null)
+  const streamRef = useRef<MediaStream | null>(null)
+  const timerIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
 
   // Recording timer
   useEffect(() => {
@@ -33,7 +38,11 @@ export function AudioRecorder({
     timerIntervalRef.current = setInterval(() => {
       setRecordingTime((prev) => prev + 10)
     }, 10)
-    return () => clearInterval(timerIntervalRef.current)
+    return () => {
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current)
+      }
+    }
   }, [isRecording])
 
   // Start Recording
@@ -42,7 +51,7 @@ export function AudioRecorder({
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       streamRef.current = stream
 
-      const audioContext = new (window.AudioContext || window.webkitAudioContext)()
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
       audioContextRef.current = audioContext
 
       const analyser = audioContext.createAnalyser()
@@ -77,7 +86,9 @@ export function AudioRecorder({
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop()
       setIsRecording(false)
-      clearInterval(timerIntervalRef.current)
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current)
+      }
     }
   }
 
@@ -91,10 +102,12 @@ export function AudioRecorder({
 
     const reader = new FileReader()
     reader.onloadend = async () => {
-      const base64Audio = reader.result.split(",")[1]
-      streamRef.current?.getTracks().forEach((t) => t.stop())
-      audioContextRef.current?.close()
-      await callSpeechAssessmentAPI(base64Audio, format)
+      if (reader.result && typeof reader.result === 'string') {
+        const base64Audio = reader.result.split(",")[1]
+        streamRef.current?.getTracks().forEach((t) => t.stop())
+        audioContextRef.current?.close()
+        await callSpeechAssessmentAPI(base64Audio, format)
+      }
     }
     reader.readAsDataURL(audioBlob)
   }
@@ -111,7 +124,9 @@ export function AudioRecorder({
       audio_base64: base64Audio,
       audio_format: format,
     }
-    if (isScripted) {
+    
+    // Only send expected_text if it's a scripted endpoint
+    if (isScripted && expectedText) {
       payloadObj.expected_text = expectedText
     }
     const payload = JSON.stringify(payloadObj)
@@ -121,6 +136,7 @@ export function AudioRecorder({
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "lc-beta-features": "false",
         },
         body: payload,
       })
@@ -230,6 +246,7 @@ export function AudioRecorder({
             src={audioUrl}
             controls
             className="w-full rounded-lg"
+            style={{ display: 'block' }} // Force display block
             onPlay={() => setIsPlaying(true)}
             onPause={() => setIsPlaying(false)}
           />

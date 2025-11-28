@@ -499,10 +499,36 @@ export function SpeechAssessmentResults({ data }) {
   const gradientColors = getGaugeGradient(overallScore)
 
   return (
-    <div className="w-full flex gap-6 min-h-[600px] mt-0">
+    <div className="speech-assessment-container w-full flex gap-6 min-h-[600px] mt-0">
+      <style>{`
+        @media (max-width: 1024px) {
+          .speech-assessment-container {
+            flex-direction: column !important;
+          }
+          .speech-assessment-sidebar {
+            width: 100% !important;
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 1rem !important;
+          }
+          .speech-assessment-sidebar .gauge-container {
+            margin-top: 0 !important;
+            display: flex !important;
+            flex-direction: row !important;
+            align-items: center !important;
+            justify-content: center !important;
+            gap: 2rem !important;
+          }
+        }
+        @media (max-width: 640px) {
+           .speech-assessment-sidebar .gauge-container {
+             flex-direction: column !important;
+           }
+        }
+      `}</style>
       {/* Sidebar Navigation */}
       <div 
-        className="w-64 flex-shrink-0 bg-white rounded-2xl p-5"
+        className="speech-assessment-sidebar w-64 flex-shrink-0 bg-white rounded-2xl p-5"
         style={{
           boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
           border: "1px solid #f3f4f6",
@@ -579,7 +605,7 @@ export function SpeechAssessmentResults({ data }) {
 
         {/* Overall Score Gauge */}
         <div 
-          className="mt-6 p-6 rounded-2xl"
+          className="gauge-container mt-6 p-6 rounded-2xl"
           style={{
             background: "linear-gradient(to bottom right, #f8fafc, #eff6ff, #eef2ff)",
             border: "1px solid #dbeafe",
@@ -829,12 +855,12 @@ export function SpeechAssessmentResults({ data }) {
               <div className="mt-4 p-4 bg-white rounded-lg border border-blue-200">
                 <h4 className="text-sm font-semibold text-gray-700 mb-4">Practice Pronunciation:</h4>
 
-                <div className="flex items-center gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-[auto_1fr_auto] items-center gap-4">
                   {/* Left side: Record button */}
-                  <div className="flex-shrink-0">
+                  <div className="w-full md:w-auto">
                     <button
                       onClick={isRecording ? stopRecording : startRecording}
-                      className={`flex items-center justify-center gap-2 px-6 py-3 rounded-lg font-medium transition-colors`}
+                      className={`flex items-center justify-center gap-2 px-6 py-3 rounded-lg font-medium transition-colors w-full md:w-auto`}
                       style={{
                         backgroundColor: isRecording ? "#EF4444" : "#4A98F8", // red-500 or purple-400
                         color: "white",
@@ -868,7 +894,7 @@ export function SpeechAssessmentResults({ data }) {
                   </div>
 
                   {/* Middle: Audio player with slider */}
-                  <div className="flex-1">
+                  <div className="w-full min-w-0">
                     {recordedAudio ? (
                       <div className="flex items-center gap-3">
                         <button
@@ -902,16 +928,16 @@ export function SpeechAssessmentResults({ data }) {
                         />
                       </div>
                     ) : (
-                      <div className="flex items-center justify-center h-12 text-sm text-gray-400">
+                      <div className="flex items-center justify-center h-12 text-sm text-gray-400 border border-dashed border-gray-300 rounded-lg">
                         {isRecording ? "Recording in progress..." : "No recording yet"}
                       </div>
                     )}
                   </div>
 
                   {/* Right side: Score boxes */}
-                  <div className="flex-shrink-0 flex flex-col gap-2">
+                  <div className="flex flex-row md:flex-col gap-2 w-full md:w-auto justify-center">
                     {/* Current Score (Orange) */}
-                    <div className="px-4 py-2 bg-orange-100 border-2 border-orange-400 rounded-lg text-center min-w-[100px]">
+                    <div className="px-4 py-2 bg-orange-100 border-2 border-orange-400 rounded-lg text-center min-w-[100px] flex-1 md:flex-none">
                       <p className="text-xs text-gray-600 mb-1">Current</p>
                       <p className="text-xl font-bold text-orange-600">
                         {currentWordScore !== null 
@@ -920,7 +946,7 @@ export function SpeechAssessmentResults({ data }) {
                       </p>
                     </div>
                     {/* Practice Score (Green) - shows API result */}
-                    <div className="px-4 py-2 bg-green-100 border-2 border-green-400 rounded-lg text-center min-w-[100px]">
+                    <div className="px-4 py-2 bg-green-100 border-2 border-green-400 rounded-lg text-center min-w-[100px] flex-1 md:flex-none">
                       <p className="text-xs text-gray-600 mb-1">Practice</p>
                       {isLoadingPractice ? (
                         <p className="text-xl font-bold text-gray-400">...</p>
@@ -1095,28 +1121,38 @@ export function SpeechAssessmentResults({ data }) {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-6">
-              {vocabulary && Object.keys(vocabulary).length > 0 ? (
+              {(vocabulary && Object.keys(vocabulary).length > 0) || (reading && Object.keys(reading).length > 0) ? (
                 <>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                    <div className="text-center bg-purple-50 border border-purple-200 rounded-xl p-4">
-                      <p className="text-sm text-gray-600">Overall</p>
-                      <p className="text-2xl font-semibold text-purple-600">{vocabulary.overall_score ?? "-"}</p>
+                  {vocabulary && Object.keys(vocabulary).length > 0 && (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                      <div className="text-center bg-purple-50 border border-purple-200 rounded-xl p-4">
+                        <p className="text-sm text-gray-600">Overall</p>
+                        <p className="text-2xl font-semibold text-purple-600">{vocabulary.overall_score ?? "-"}</p>
+                      </div>
+                      <div className="text-center bg-purple-50 border border-purple-200 rounded-xl p-4">
+                        <p className="text-sm text-gray-600">Complexity</p>
+                        <p className="text-2xl font-semibold text-purple-600">{vocabulary.metrics?.vocabulary_complexity ?? "-"}</p>
+                      </div>
+                      <div className="text-center bg-purple-50 border border-purple-200 rounded-xl p-4">
+                        <p className="text-sm text-gray-600">Idioms</p>
+                        <p className="text-2xl font-semibold text-purple-600">{vocabulary.metrics?.idiom_details?.length ?? 0}</p>
+                      </div>
+                      <div className="text-center bg-purple-50 border border-purple-200 rounded-xl p-4">
+                        <p className="text-sm text-gray-600">IELTS</p>
+                        <p className="text-2xl font-semibold text-purple-600">{vocabulary.english_proficiency_scores?.mock_ielts?.prediction ?? "-"}</p>
+                      </div>
                     </div>
-                    <div className="text-center bg-purple-50 border border-purple-200 rounded-xl p-4">
-                      <p className="text-sm text-gray-600">Complexity</p>
-                      <p className="text-2xl font-semibold text-purple-600">{vocabulary.metrics?.vocabulary_complexity ?? "-"}</p>
+                  )}
+                  
+                  {vocabulary.feedback?.tagged_transcript && (
+                    <div className="mb-6 bg-purple-50 border border-purple-200 p-4 rounded-lg">
+                      <p className="text-sm font-semibold text-purple-700 mb-2">Transcript:</p>
+                      <p className="text-sm text-gray-700">{vocabulary.feedback.tagged_transcript}</p>
                     </div>
-                    <div className="text-center bg-purple-50 border border-purple-200 rounded-xl p-4">
-                      <p className="text-sm text-gray-600">Idioms</p>
-                      <p className="text-2xl font-semibold text-purple-600">{vocabulary.metrics?.idiom_details?.length ?? 0}</p>
-                    </div>
-                    <div className="text-center bg-purple-50 border border-purple-200 rounded-xl p-4">
-                      <p className="text-sm text-gray-600">IELTS</p>
-                      <p className="text-2xl font-semibold text-purple-600">{vocabulary.english_proficiency_scores?.mock_ielts?.prediction ?? "-"}</p>
-                    </div>
-                  </div>
+                  )}
+
                   {reading && Object.keys(reading).length > 0 && (
-                    <div className="mt-6">
+                    <div className={vocabulary && Object.keys(vocabulary).length > 0 ? "mt-6" : ""}>
                       <h4 className="text-lg font-semibold text-purple-700 mb-4">Reading Metrics</h4>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         <div className="text-center bg-purple-50 border border-purple-200 rounded-xl p-4">
@@ -1125,11 +1161,11 @@ export function SpeechAssessmentResults({ data }) {
                         </div>
                         <div className="text-center bg-purple-50 border border-purple-200 rounded-xl p-4">
                           <p className="text-sm text-gray-600">Completion</p>
-                          <p className="text-2xl font-semibold text-purple-600">{Number.isFinite(reading.completion) ? (reading.completion * 100).toFixed(0) : "-"}%</p>
+                          <p className="text-2xl font-semibold text-purple-600">{Number.isFinite(reading.completion || reading.completions) ? ((reading.completion || reading.completions) * 100).toFixed(0) : "-"}%</p>
                         </div>
                         <div className="text-center bg-purple-50 border border-purple-200 rounded-xl p-4">
                           <p className="text-sm text-gray-600">Speed (WPM)</p>
-                          <p className="text-2xl font-semibold text-purple-600">{Number.isFinite(reading.speed_wpm) ? reading.speed_wpm.toFixed(1) : "-"}</p>
+                          <p className="text-2xl font-semibold text-purple-600">{Number.isFinite(reading.speed_wpm || reading.speed_wpm_correct) ? (reading.speed_wpm || reading.speed_wpm_correct).toFixed(1) : "-"}</p>
                         </div>
                         <div className="text-center bg-purple-50 border border-purple-200 rounded-xl p-4">
                           <p className="text-sm text-gray-600">Words Read</p>
@@ -1140,7 +1176,7 @@ export function SpeechAssessmentResults({ data }) {
                   )}
                 </>
               ) : (
-                <p className="text-sm text-gray-600">No vocabulary metrics available.</p>
+                <p className="text-sm text-gray-600">No vocabulary or reading metrics available.</p>
               )}
             </CardContent>
           </Card>
@@ -1199,7 +1235,7 @@ export function SpeechAssessmentResults({ data }) {
                       <p className="text-2xl font-semibold text-emerald-600">{grammar.english_proficiency_scores?.mock_ielts?.prediction ?? "-"}</p>
                     </div>
                   </div>
-                  {(grammar.feedback?.corrected_text || (grammar.metrics?.grammar_errors || []).length > 0) && (
+                  {(grammar.feedback?.corrected_text || (grammar.metrics?.grammar_errors || []).length > 0 || (grammar.feedback?.grammar_errors || []).length > 0 || grammar.feedback?.grammar_feedback) && (
                     <div className="mt-4 bg-white border border-emerald-200 p-4 rounded-lg">
                       {grammar.feedback?.corrected_text && (
                         <div className="mb-4">
@@ -1207,11 +1243,20 @@ export function SpeechAssessmentResults({ data }) {
                           <p className="text-sm text-gray-700 bg-emerald-50 p-3 rounded border border-emerald-100">{grammar.feedback.corrected_text}</p>
                         </div>
                       )}
-                      {(grammar.metrics?.grammar_errors || []).length > 0 && (
+                      
+                      {grammar.feedback?.grammar_feedback && (
+                        <div className="mb-4">
+                          <p className="text-sm font-semibold text-gray-700 mb-2">Feedback:</p>
+                          <p className="text-sm text-gray-700">{grammar.feedback.grammar_feedback}</p>
+                        </div>
+                      )}
+
+                      {((grammar.metrics?.grammar_errors || []).length > 0 || (grammar.feedback?.grammar_errors || []).length > 0) && (
                         <div>
                           <p className="text-sm font-semibold text-gray-700 mb-2">Grammar Errors:</p>
                           <ul className="list-disc pl-5 text-sm text-gray-700 space-y-1">
-                            {grammar.metrics.grammar_errors.map((err: any, i: number) => {
+                            {/* Merge and deduplicate errors if possible, or just show both lists */}
+                            {[...(grammar.metrics?.grammar_errors || []), ...(grammar.feedback?.grammar_errors || [])].map((err: any, i: number) => {
                               if (typeof err === "string") {
                                 return <li key={i}>{err}</li>
                               }

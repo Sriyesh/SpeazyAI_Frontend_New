@@ -106,15 +106,15 @@ export function PDFViewer({
       </div>
 
       {/* PDF Content Area */}
-      <CardContent className="p-8 bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 min-h-[500px] flex items-center justify-center relative overflow-hidden">
+      <CardContent className="p-4 md:p-8 lg:p-12 bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 min-h-[500px] flex items-center justify-center relative overflow-hidden">
         {/* Decorative elements */}
-        <div className="absolute top-10 left-10 opacity-20">
+        <div className="absolute top-10 left-10 opacity-20 hidden sm:block">
           <Star className="w-16 h-16 text-yellow-400 animate-pulse" />
         </div>
-        <div className="absolute bottom-10 right-10 opacity-20">
+        <div className="absolute bottom-10 right-10 opacity-20 hidden sm:block">
           <Heart className="w-16 h-16 text-pink-400 animate-pulse" />
         </div>
-        <div className="absolute top-1/2 right-20 opacity-10">
+        <div className="absolute top-1/2 right-20 opacity-10 hidden sm:block">
           <Sparkles className="w-20 h-20 text-purple-400" />
         </div>
 
@@ -127,11 +127,11 @@ export function PDFViewer({
           className="w-full max-w-4xl z-10"
           style={{
             transform: `scale(${zoomLevel / 100})`,
-            transformOrigin: "center",
+            transformOrigin: "top center",
             transition: "transform 0.3s ease",
           }}
         >
-          <div className="bg-white rounded-3xl shadow-2xl p-8 md:p-12 border-4 border-[#3B82F6]/30 relative">
+          <div className="bg-white rounded-3xl shadow-2xl p-4 sm:p-8 md:p-12 border-4 border-[#3B82F6]/30 relative">
             {/* Decorative corner elements */}
             <div className="absolute top-0 left-0 w-20 h-20 bg-gradient-to-br from-[#FFD600]/30 to-transparent rounded-tl-3xl"></div>
             <div className="absolute bottom-0 right-0 w-20 h-20 bg-gradient-to-tl from-[#3B82F6]/30 to-transparent rounded-br-3xl"></div>
