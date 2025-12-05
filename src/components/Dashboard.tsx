@@ -9,21 +9,8 @@ import { Button } from "./ui/button"
 import { Avatar, AvatarFallback } from "./ui/avatar"
 import { ThemeToggle } from "./ThemeToggle"
 import { MelloAssistant } from "./MelloAssistant"
-import {
-  BookOpen,
-  GraduationCap,
-  PenTool,
-  Mic2,
-  MessageCircle,
-  Star,
-  TrendingUp,
-  Award,
-  LogOut,
-  Sparkles,
-  Library,
-} from "lucide-react"
+import { BookOpen, GraduationCap, PenTool, Mic2, MessageCircle, Star, TrendingUp, Award, LogOut, Sparkles, Library, Users, LucideBrackets as FileBracket, Zap } from 'lucide-react'
 
-// export function Dashboard({ onLogout }: DashboardProps) {
 export function Dashboard() {
   const navigate = useNavigate()
   const [isLoaded, setIsLoaded] = useState(false)
@@ -55,58 +42,106 @@ export function Dashboard() {
       lessons: 12,
     },
     {
-      id: "academic-samples",
+      id: "speaking-practice",
       title: "Speaking Practice",
-      description: "Practice with school presentations",
+      description: "Practice with various speech scenarios",
       icon: GraduationCap,
       color: "from-[#1E3A8A] to-[#3B82F6]",
       progress: 60,
       lessons: 8,
     },
     {
-      id: "custom-content",
-      title: "Custom Content",
-      description: "Create your own speaking exercises",
+      id: "writing-practice",
+      title: "Writing Practice",
+      description: "Improve your written communication",
       icon: PenTool,
       color: "from-[#00B9FC] to-[#246BCF]",
       progress: 40,
       lessons: 5,
     },
     {
-      id: "famous-speeches",
-      title: "Famous Speeches",
-      description: "Learn from the greatest speakers",
+      id: "listening-practice",
+      title: "Listening Practice",
+      description: "Enhance your listening comprehension",
       icon: Mic2,
       color: "from-[#246BCF] to-[#3B82F6]",
       progress: 30,
       lessons: 15,
     },
     {
-      id: "chat",
-      title: "AI Tutor Chat",
-      description: "Get personalized speaking tips",
+      id: "ai-tutor",
+      title: "AI Tutor",
+      description: "Get personalized guidance from AI",
       icon: MessageCircle,
       color: "from-[#3B82F6] to-[#00B9FC]",
       progress: 0,
       lessons: 0,
       isNew: true,
     },
+    
     {
       id: "content-library",
       title: "Content Library",
-      description: "Manage your uploaded materials",
+      description: "Access curated learning materials",
       icon: Library,
-      color: "from-[#246BCF] to-[#00B9FC]",
+      color: "from-[#246BCF] to-[#3B82F6]",
+      progress: 0,
+      lessons: 0,
+    },
+    {
+      id: "custom-content",
+      title: "Custom Content",
+      description: "Create and manage custom materials",
+      icon: FileBracket,
+      color: "from-[#3B82F6] to-[#00B9FC]",
+      progress: 0,
+      lessons: 0,
+    },
+    {
+      id: "learn-own-way",
+      title: "Learn Your Own Way",
+      description: "Self-paced learning at your pace",
+      icon: Sparkles,
+      color: "from-[#00B9FC] to-[#246BCF]",
+      progress: 0,
+      lessons: 0,
+    },
+    {
+      id: "ielts",
+      title: "IELTS",
+      description: "Prepare for IELTS examination",
+      icon: Zap,
+      color: "from-[#246BCF] to-[#3B82F6]",
       progress: 0,
       lessons: 0,
       isNew: true,
     },
     {
-      id: "quick-practice",
-      title: "Learn on your own",
-      description: "Take a 5-minute speaking challenge",
-      icon: Sparkles,
-      color: "from-[#3B82F6] to-[#00B9FC]",
+      id: "connect-teacher",
+      title: "Connect to Teacher",
+      description: "Get live help from instructors",
+      icon: Users,
+      color: "from-[#3B82F6] to-[#246BCF]",
+      progress: 0,
+      lessons: 0,
+      isNew: true,
+    },
+    {
+      id: "Phoneme Guide",
+      title: "Phoneme Guide",
+      description: "Get live help from instructors",
+      icon: Users,
+      color: "from-[#3B82F6] to-[#246BCF]",
+      progress: 0,
+      lessons: 0,
+      isNew: true,
+    },
+    {
+      id: "Sample Video Module",
+      title: "samplle Video Module",
+      description: "Get live help from instructors",
+      icon: Users,
+      color: "from-[#3B82F6] to-[#246BCF]",
       progress: 0,
       lessons: 0,
       isNew: true,
@@ -225,17 +260,25 @@ export function Dashboard() {
         </div>
 
         {/* Modules */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {modules.map((module) => (
             <Card
               key={module.id}
-              className="group bg-white border-0 cursor-pointer transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl relative overflow-hidden"
+              className="group bg-white border-0 cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-xl relative overflow-hidden"
               onClick={() => {
-                if (module.id === "quick-practice") {
-                  navigate("/quick-practice")
-                } else {
-                  navigate(`/${module.id}`)
+                const navigationMap: Record<string, string> = {
+                  "my-lessons": "/my-lessons",
+                  "speaking-practice": "/academic-samples",
+                  "writing-practice": "/writing-practice",
+                  "listening-practice": "/listening-practice",
+                  "ai-tutor": "/chat",
+                  "content-library": "/content-library",
+                  "custom-content": "/custom-content",
+                  "learn-own-way": "/quick-practice",
+                  "ielts": "/ielts",
+                  "connect-teacher": "/connect-teacher",
                 }
+                navigate(navigationMap[module.id] || `/${module.id}`)
               }}
             >
               {module.isNew && (
@@ -246,39 +289,39 @@ export function Dashboard() {
                 </div>
               )}
 
-              <CardHeader className="pb-4">
+              <CardHeader className="pb-2">
                 <div
-                  className={`w-16 h-16 bg-gradient-to-br ${module.color} rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 group-hover:rotate-3 transition-all duration-300 shadow-lg`}
+                  className={`w-12 h-12 bg-gradient-to-br ${module.color} rounded-xl flex items-center justify-center mb-2 group-hover:scale-110 group-hover:rotate-3 transition-all duration-300 shadow-md`}
                 >
-                  <module.icon className="w-8 h-8 text-white" />
+                  <module.icon className="w-6 h-6 text-white" />
                 </div>
-                <CardTitle className="text-[#0F1F47]">{module.title}</CardTitle>
-                <p className="text-sm text-[#0F1F47]/70">{module.description}</p>
+                <CardTitle className="text-sm text-[#0F1F47]">{module.title}</CardTitle>
+                <p className="text-xs text-[#0F1F47]/70 line-clamp-2">{module.description}</p>
               </CardHeader>
 
-              <CardContent className="pt-0">
+              <CardContent className="pt-0 pb-3">
                 {module.progress > 0 ? (
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center text-sm">
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center text-xs">
                       <span className="text-[#0F1F47]/60">Progress</span>
                       <span className="text-[#0F1F47]">{module.progress}%</span>
                     </div>
-                    <div className="w-full bg-[#F2F3F4] rounded-full h-2 overflow-hidden">
+                    <div className="w-full bg-[#F2F3F4] rounded-full h-1.5 overflow-hidden">
                       <div
-                        className={`h-2 bg-gradient-to-r ${module.color} transition-all duration-300 shadow-md`}
+                        className={`h-1.5 bg-gradient-to-r ${module.color} transition-all duration-300 shadow-md`}
                         style={{ width: `${module.progress}%` }}
                       />
                     </div>
-                    <p className="text-xs text-[#0F1F47]/50">{module.lessons} lessons available</p>
+                    <p className="text-xs text-[#0F1F47]/50">{module.lessons} lessons</p>
                   </div>
                 ) : (
-                  <div className="text-center py-2">
-                    <p className="text-sm text-[#0F1F47]/70 mb-3">Get started with your first lesson</p>
+                  <div className="text-center py-1">
+                    <p className="text-xs text-[#0F1F47]/70 mb-2">Get started</p>
                     <Button
                       size="sm"
-                      className="bg-gradient-to-br from-[#3B82F6] to-[#00B9FC] text-white rounded-xl px-4 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105"
+                      className="bg-gradient-to-br from-[#3B82F6] to-[#00B9FC] text-white rounded-lg px-3 py-1 text-xs shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105"
                     >
-                      Start Now
+                      Start
                     </Button>
                   </div>
                 )}

@@ -18,6 +18,9 @@ import { Profile } from "./components/Profile"
 import { ThemeProvider } from "./components/ThemeProvider"
 import { ContentLibrary } from "./components/ContentLibrary"
 import { QuickPractice } from "./components/QuickPractice"
+import { WritingPractice } from "./components/WritingPractice"
+import { ListeningPractice } from "./components/ListeningPractice";
+import { Connectteacher } from "./components/Connectteacher";
 
 export default function App() {
   return (
@@ -44,6 +47,9 @@ export default function App() {
             <Route path="/profile" element={<Profile />} />
             <Route path="*" element={<Navigate to="/" replace />} />
             <Route path="/content-library" element={<ContentLibrary />} />
+            <Route path="/writing-practice" element={<WritingPractice />} />
+            <Route path="/listening-practice" element={<ListeningPractice />} />
+            <Route path="/connect-teacher" element={<Connectteacher />} />
           </Routes>
         </div>
       </BrowserRouter>
