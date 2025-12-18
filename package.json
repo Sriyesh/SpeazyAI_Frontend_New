@@ -67,6 +67,10 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "vite build"
-  }
+    "build": "vite build",
+    "proxy:speech": "node speechProxyServer.js",
+    "proxy:chatgpt": "node chatgptProxyServer.js",
+    "proxy:all": "concurrently \"npm run proxy:speech\" \"npm run proxy:chatgpt\""
+  },
+  "type": "module"
 }
