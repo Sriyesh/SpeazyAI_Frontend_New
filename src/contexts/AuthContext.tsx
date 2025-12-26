@@ -60,10 +60,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const login = async (email: string, password: string) => {
     try {
-      // Use proxy path in development, direct URL in production
-      const apiUrl = import.meta.env.DEV 
-        ? '/api/auth/login.php'
-        : 'https://api.exeleratetechnology.com/api/auth/login.php';
+      // Determine the correct API URL based on environment
+      // Development: Use Vite proxy (configured in vite.config.ts)
+      // Production: Use Netlify function to avoid CORS issues
+      const isLocal = typeof window !== 'undefined' && (
+        window.location.hostname === 'localhost' || 
+        window.location.hostname === '127.0.0.1'
+      )
+      
+      const apiUrl = isLocal
+        ? '/api/auth/login.php' // Vite proxy in development
+        : '/.netlify/functions/authProxy' // Netlify function in production
       
       const response = await fetch(apiUrl, {
         method: 'POST',
