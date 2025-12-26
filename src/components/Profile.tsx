@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card"
 import { Button } from "./ui/button"
 import { Input } from "./ui/input"
@@ -11,6 +11,8 @@ import { ArrowLeft, User, Settings, Mail, Bell, Volume2, VolumeX, Moon, Sun, Sav
 import { motion } from "motion/react"
 import { MelloAssistant } from "./MelloAssistant"
 import { useNavigate } from "react-router-dom"
+import { useAuth } from "../contexts/AuthContext"
+import { toast } from "sonner@2.0.3"
 
 interface ProfileProps {
   onBack: () => void
@@ -18,16 +20,41 @@ interface ProfileProps {
 
 export function Profile() {
   const navigate = useNavigate()
-  const [name, setName] = useState("John Smith")
-  const [email, setEmail] = useState("john.smith@email.com")
+  const { authData } = useAuth()
+  
+  // Get user data from auth context, fallback to empty strings if not available
+  const userFullName = authData?.user ? `${authData.user.first_name} ${authData.user.last_name}`.trim() : ""
+  const userEmail = authData?.user?.email || ""
+  const userInitials = authData?.user 
+    ? `${authData.user.first_name?.[0] || ""}${authData.user.last_name?.[0] || ""}`.toUpperCase() || "U"
+    : "U"
+  
+  const [name, setName] = useState(userFullName)
+  const [email, setEmail] = useState(userEmail)
   const [soundEnabled, setSoundEnabled] = useState(true)
   const [animationsEnabled, setAnimationsEnabled] = useState(true)
   const [darkMode, setDarkMode] = useState(true)
   const [notifications, setNotifications] = useState(true)
   const [showMelloMessage, setShowMelloMessage] = useState(true)
+  
+  // Update state when authData changes
+  useEffect(() => {
+    if (authData?.user) {
+      const fullName = `${authData.user.first_name} ${authData.user.last_name}`.trim()
+      if (fullName) setName(fullName)
+      if (authData.user.email) setEmail(authData.user.email)
+    }
+  }, [authData])
 
   const handleSave = () => {
-    alert("Settings saved successfully!")
+    // TODO: Implement API call to save profile settings
+    toast.success("Settings saved successfully!", {
+      style: {
+        background: "#10B981",
+        color: "#FFFFFF",
+        border: "none",
+      },
+    })
   }
 
   return (
@@ -92,7 +119,7 @@ export function Profile() {
               <CardHeader className="text-center">
                 <div className="relative mx-auto mb-4">
                   <div className="w-24 h-24 bg-gradient-to-br from-[#3B82F6] to-[#00B9FC] rounded-full flex items-center justify-center text-2xl font-bold text-white kid-pulse">
-                    JS
+                    {userInitials}
                   </div>
                   <Button
                     size="sm"
@@ -102,10 +129,15 @@ export function Profile() {
                     <Camera className="w-4 h-4" />
                   </Button>
                 </div>
-                <CardTitle style={{ color: "#1E3A8A" }}>{name}</CardTitle>
+                <CardTitle style={{ color: "#1E3A8A" }}>{userFullName || name}</CardTitle>
                 <p className="text-sm" style={{ color: "rgba(30, 58, 138, 0.7)" }}>
-                  {email}
+                  {userEmail || email}
                 </p>
+                {authData?.user?.role && (
+                  <p className="text-xs mt-1 px-2 py-1 inline-block rounded-full bg-[#3B82F6]/10 text-[#3B82F6]">
+                    {authData.user.role.charAt(0).toUpperCase() + authData.user.role.slice(1)}
+                  </p>
+                )}
               </CardHeader>
               <CardContent>
                 <div className="space-y-3 text-sm">
@@ -174,17 +206,21 @@ export function Profile() {
                     <div className="space-y-2">
                       <Label style={{ color: "#1E3A8A" }}>Full Name</Label>
                       <Input
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        className="bg-[#F2F6FF] border-[#3B82F6]/20 text-[#1E3A8A] focus:border-[#3B82F6]"
+                        value={userFullName || name}
+                        readOnly
+                        disabled
+                        className="bg-[#F2F3F4] border-[#3B82F6]/20 text-[#1E3A8A]/70 cursor-not-allowed"
+                        style={{ color: "rgba(30, 58, 138, 0.5)" }}
                       />
                     </div>
                     <div className="space-y-2">
                       <Label style={{ color: "#1E3A8A" }}>Email Address</Label>
                       <Input
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        className="bg-[#F2F6FF] border-[#3B82F6]/20 text-[#1E3A8A] focus:border-[#3B82F6]"
+                        value={userEmail || email}
+                        readOnly
+                        disabled
+                        className="bg-[#F2F3F4] border-[#3B82F6]/20 text-[#1E3A8A]/70 cursor-not-allowed"
+                        style={{ color: "rgba(30, 58, 138, 0.5)" }}
                       />
                     </div>
                   </div>

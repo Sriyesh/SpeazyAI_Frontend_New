@@ -12,18 +12,45 @@ import { MelloAssistant } from "./MelloAssistant"
 import { Eye, EyeOff, ArrowLeft } from "lucide-react"
 import { motion } from "motion/react"
 import { useNavigate } from "react-router-dom"
+import { useAuth } from "../contexts/AuthContext"
+import { toast } from "sonner@2.0.3"
 
 export function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showMelloMessage, setShowMelloMessage] = useState(true)
+  const [isLoading, setIsLoading] = useState(false)
 
   const navigate = useNavigate()
+  const { login } = useAuth()
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    navigate("/dashboard")
+    setIsLoading(true)
+
+    try {
+      await login(email, password)
+      toast.success("Login successful!", {
+        style: {
+          background: "#10B981",
+          color: "#FFFFFF",
+          border: "none",
+        },
+      })
+      navigate("/dashboard")
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Login failed. Please check your credentials."
+      toast.error(errorMessage, {
+        style: {
+          background: "#EF4444",
+          color: "#FFFFFF",
+          border: "none",
+        },
+      })
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -122,6 +149,8 @@ export function LoginPage() {
                     placeholder="Enter your email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
+                    required
+                    disabled={isLoading}
                     className="h-12 bg-[#F2F6FF] border-0 text-[#1E3A8A] placeholder:text-[#1E3A8A]/40 focus:ring-2 focus:ring-[#3B82F6] rounded-xl"
                   />
                 </div>
@@ -137,6 +166,8 @@ export function LoginPage() {
                       placeholder="Enter your password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
+                      required
+                      disabled={isLoading}
                       className="h-12 bg-[#F2F6FF] border-0 text-[#1E3A8A] placeholder:text-[#1E3A8A]/40 focus:ring-2 focus:ring-[#3B82F6] rounded-xl pr-12"
                     />
                     <button
@@ -161,9 +192,10 @@ export function LoginPage() {
 
                 <Button
                   type="submit"
-                  className="w-full h-12 bg-gradient-to-r from-[#3B82F6] to-[#00B9FC] text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105"
+                  disabled={isLoading}
+                  className="w-full h-12 bg-gradient-to-r from-[#3B82F6] to-[#00B9FC] text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                 >
-                  Sign In
+                  {isLoading ? "Signing in..." : "Sign In"}
                 </Button>
               </form>
 

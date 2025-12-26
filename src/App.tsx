@@ -21,11 +21,15 @@ import { QuickPractice } from "./components/QuickPractice"
 import { WritingPractice } from "./components/WritingPractice"
 import { ListeningPractice } from "./components/ListeningPractice";
 import { Connectteacher } from "./components/Connectteacher";
+import { AuthProvider } from "./contexts/AuthContext";
+import { Toaster } from "./components/ui/sonner";
 
 export default function App() {
   return (
     <ThemeProvider>
-      <BrowserRouter>
+      <AuthProvider>
+        <BrowserRouter>
+          <Toaster />
         <div className="size-full">
           <Routes>
             <Route path="/" element={<HomePage />} />
@@ -53,6 +57,7 @@ export default function App() {
           </Routes>
         </div>
       </BrowserRouter>
+      </AuthProvider>
     </ThemeProvider>
   )
 }

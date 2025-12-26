@@ -56,7 +56,7 @@ Format your response as JSON with the following structure:
 {
   "ieltsScore": <number>,
   "feedback": "<overall feedback text>",
-  "originalText": "${escapedAnswer}",
+  "originalText": "${answer.replace(/"/g, '\\"').replace(/\n/g, '\\n')}",
   "corrections": [
     {
       "original": "<exact text from student's answer that needs improvement>",

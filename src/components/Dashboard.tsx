@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useNavigate } from "react-router-dom"
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card"
 import { Button } from "./ui/button"
@@ -10,11 +10,176 @@ import { Avatar, AvatarFallback } from "./ui/avatar"
 import { ThemeToggle } from "./ThemeToggle"
 import { MelloAssistant } from "./MelloAssistant"
 import { BookOpen, GraduationCap, PenTool, Mic2, MessageCircle, Star, TrendingUp, Award, LogOut, Sparkles, Library, Users, LucideBrackets as FileBracket, Zap } from 'lucide-react'
+import { useAuth } from "../contexts/AuthContext"
+
+/**
+ * Module interface for type safety
+ * Each module can optionally specify which roles can see it
+ */
+interface DashboardModule {
+  id: string
+  title: string
+  description: string
+  icon: React.ComponentType<{ className?: string }>
+  color: string
+  progress: number
+  lessons: number
+  isNew?: boolean
+  roles?: string[] // Array of role names that can see this module. Empty or undefined = visible to all
+}
+
+/**
+ * Dashboard Modules Configuration
+ * 
+ * ROLE-BASED VISIBILITY:
+ * Each module has a 'roles' property that defines which user roles can see this tile.
+ * 
+ * To customize module visibility:
+ * 1. Add or modify the 'roles' array in any module object
+ * 2. Supported roles: "student", "teacher", "administrator", "principal", etc.
+ * 3. Use an empty array [] or omit 'roles' to make it visible to all roles
+ * 4. To add a new role, simply use the role name from the API response (data.user.role)
+ * 5. Note: "principal" and "administrator" roles automatically see ALL tiles (full access)
+ * 
+ * Examples:
+ * - roles: ["student", "teacher"] - visible to both students and teachers
+ * - roles: ["teacher"] - only visible to teachers
+ * - roles: ["student"] - only visible to students
+ * - roles: [] or no roles property - visible to everyone (except principal/admin see everything anyway)
+ */
+const modules: DashboardModule[] = [
+    {
+      id: "my-lessons",
+      title: "My Lessons",
+      description: "Continue your speaking journey",
+      icon: BookOpen,
+      color: "from-[#3B82F6] to-[#00B9FC]",
+      progress: 75,
+      lessons: 12,
+      roles: ["student", "teacher"], // Visible to both students and teachers
+    },
+    {
+      id: "speaking-practice",
+      title: "Speaking Practice",
+      description: "Practice with various speech scenarios",
+      icon: GraduationCap,
+      color: "from-[#1E3A8A] to-[#3B82F6]",
+      progress: 60,
+      lessons: 8,
+      roles: ["student", "teacher"], // Visible to both students and teachers
+    },
+    {
+      id: "writing-practice",
+      title: "Writing Practice",
+      description: "Improve your written communication",
+      icon: PenTool,
+      color: "from-[#00B9FC] to-[#246BCF]",
+      progress: 40,
+      lessons: 5,
+      roles: ["student", "teacher"], // Visible to both students and teachers
+    },
+    {
+      id: "listening-practice",
+      title: "Listening Practice",
+      description: "Enhance your listening comprehension",
+      icon: Mic2,
+      color: "from-[#246BCF] to-[#3B82F6]",
+      progress: 30,
+      lessons: 15,
+      roles: ["student", "teacher"], // Visible to both students and teachers
+    },
+    {
+      id: "ai-tutor",
+      title: "AI Tutor",
+      description: "Get personalized guidance from AI",
+      icon: MessageCircle,
+      color: "from-[#3B82F6] to-[#00B9FC]",
+      progress: 0,
+      lessons: 0,
+      isNew: true,
+      roles: ["student", "teacher"], // Visible to both students and teachers
+    },
+    {
+      id: "content-library",
+      title: "Content Library",
+      description: "Access curated learning materials",
+      icon: Library,
+      color: "from-[#246BCF] to-[#3B82F6]",
+      progress: 0,
+      lessons: 0,
+      roles: ["student", "teacher"], // Visible to both students and teachers
+    },
+    {
+      id: "custom-content",
+      title: "Custom Content",
+      description: "Create and manage custom materials",
+      icon: FileBracket,
+      color: "from-[#3B82F6] to-[#00B9FC]",
+      progress: 0,
+      lessons: 0,
+      roles: ["teacher"], // Only visible to teachers
+    },
+    {
+      id: "learn-own-way",
+      title: "Learn Your Own Way",
+      description: "Self-paced learning at your pace",
+      icon: Sparkles,
+      color: "from-[#00B9FC] to-[#246BCF]",
+      progress: 0,
+      lessons: 0,
+      roles: ["student", "teacher"], // Visible to both students and teachers
+    },
+    {
+      id: "ielts",
+      title: "IELTS",
+      description: "Prepare for IELTS examination",
+      icon: Zap,
+      color: "from-[#246BCF] to-[#3B82F6]",
+      progress: 0,
+      lessons: 0,
+      isNew: true,
+      roles: ["student", "teacher"], // Visible to both students and teachers
+    },
+    {
+      id: "connect-teacher",
+      title: "Connect to Teacher",
+      description: "Get live help from instructors",
+      icon: Users,
+      color: "from-[#3B82F6] to-[#246BCF]",
+      progress: 0,
+      lessons: 0,
+      isNew: true,
+      roles: ["student"], // Only visible to students
+    },
+    {
+      id: "Phoneme Guide",
+      title: "Phoneme Guide",
+      description: "Get live help from instructors",
+      icon: Users,
+      color: "from-[#3B82F6] to-[#246BCF]",
+      progress: 0,
+      lessons: 0,
+      isNew: true,
+      roles: ["student", "teacher"], // Visible to both students and teachers
+    },
+    {
+      id: "Sample Video Module",
+      title: "samplle Video Module",
+      description: "Get live help from instructors",
+      icon: Users,
+      color: "from-[#3B82F6] to-[#246BCF]",
+      progress: 0,
+      lessons: 0,
+      isNew: true,
+      roles: ["student", "teacher"], // Visible to both students and teachers
+    },
+  ]
 
 export function Dashboard() {
   const navigate = useNavigate()
   const [isLoaded, setIsLoaded] = useState(false)
   const [showMelloMessage, setShowMelloMessage] = useState(true)
+  const { userRole, authData, logout } = useAuth()
 
   useEffect(() => {
     setTimeout(() => setIsLoaded(true), 100)
@@ -31,122 +196,45 @@ export function Dashboard() {
     backgroundSize: "cover",
   }
 
-  const modules = [
-    {
-      id: "my-lessons",
-      title: "My Lessons",
-      description: "Continue your speaking journey",
-      icon: BookOpen,
-      color: "from-[#3B82F6] to-[#00B9FC]",
-      progress: 75,
-      lessons: 12,
-    },
-    {
-      id: "speaking-practice",
-      title: "Speaking Practice",
-      description: "Practice with various speech scenarios",
-      icon: GraduationCap,
-      color: "from-[#1E3A8A] to-[#3B82F6]",
-      progress: 60,
-      lessons: 8,
-    },
-    {
-      id: "writing-practice",
-      title: "Writing Practice",
-      description: "Improve your written communication",
-      icon: PenTool,
-      color: "from-[#00B9FC] to-[#246BCF]",
-      progress: 40,
-      lessons: 5,
-    },
-    {
-      id: "listening-practice",
-      title: "Listening Practice",
-      description: "Enhance your listening comprehension",
-      icon: Mic2,
-      color: "from-[#246BCF] to-[#3B82F6]",
-      progress: 30,
-      lessons: 15,
-    },
-    {
-      id: "ai-tutor",
-      title: "AI Tutor",
-      description: "Get personalized guidance from AI",
-      icon: MessageCircle,
-      color: "from-[#3B82F6] to-[#00B9FC]",
-      progress: 0,
-      lessons: 0,
-      isNew: true,
-    },
+  /**
+   * Filter modules based on user role
+   * 
+   * This function filters the modules array to show only tiles that the current user's role can access.
+   * 
+   * How it works:
+   * - Principal and Administrator roles see ALL tiles (full access)
+   * - If a module has a 'roles' property, it checks if the current userRole is in that array
+   * - If a module has no 'roles' property or an empty array, it's visible to everyone
+   * - The filtering is case-insensitive and handles role variations
+   * 
+   * To customize:
+   * - Modify the 'roles' array in each module object above
+   * - Add new roles as needed (e.g., "administrator", "parent", "guest")
+   */
+  const filteredModules = useMemo(() => {
+    if (!userRole) {
+      // If no role is set, show all modules (fallback)
+      return modules
+    }
+
+    const normalizedUserRole = userRole.toLowerCase()
     
-    {
-      id: "content-library",
-      title: "Content Library",
-      description: "Access curated learning materials",
-      icon: Library,
-      color: "from-[#246BCF] to-[#3B82F6]",
-      progress: 0,
-      lessons: 0,
-    },
-    {
-      id: "custom-content",
-      title: "Custom Content",
-      description: "Create and manage custom materials",
-      icon: FileBracket,
-      color: "from-[#3B82F6] to-[#00B9FC]",
-      progress: 0,
-      lessons: 0,
-    },
-    {
-      id: "learn-own-way",
-      title: "Learn Your Own Way",
-      description: "Self-paced learning at your pace",
-      icon: Sparkles,
-      color: "from-[#00B9FC] to-[#246BCF]",
-      progress: 0,
-      lessons: 0,
-    },
-    {
-      id: "ielts",
-      title: "IELTS",
-      description: "Prepare for IELTS examination",
-      icon: Zap,
-      color: "from-[#246BCF] to-[#3B82F6]",
-      progress: 0,
-      lessons: 0,
-      isNew: true,
-    },
-    {
-      id: "connect-teacher",
-      title: "Connect to Teacher",
-      description: "Get live help from instructors",
-      icon: Users,
-      color: "from-[#3B82F6] to-[#246BCF]",
-      progress: 0,
-      lessons: 0,
-      isNew: true,
-    },
-    {
-      id: "Phoneme Guide",
-      title: "Phoneme Guide",
-      description: "Get live help from instructors",
-      icon: Users,
-      color: "from-[#3B82F6] to-[#246BCF]",
-      progress: 0,
-      lessons: 0,
-      isNew: true,
-    },
-    {
-      id: "Sample Video Module",
-      title: "samplle Video Module",
-      description: "Get live help from instructors",
-      icon: Users,
-      color: "from-[#3B82F6] to-[#246BCF]",
-      progress: 0,
-      lessons: 0,
-      isNew: true,
-    },
-  ]
+    // Principal and Administrator roles have full access - show all modules
+    if (normalizedUserRole === "principal" || normalizedUserRole === "administrator") {
+      return modules
+    }
+
+    return modules.filter(module => {
+      // If module has no roles property or empty roles array, show to everyone
+      if (!module.roles || module.roles.length === 0) {
+        return true
+      }
+      
+      // Check if current user's role matches any of the module's allowed roles
+      // Convert to lowercase for case-insensitive comparison
+      return module.roles.some(role => role.toLowerCase() === normalizedUserRole)
+    })
+  }, [userRole])
 
   const stats = [
     {
@@ -207,7 +295,8 @@ export function Dashboard() {
               <Button variant="ghost" size="sm" onClick={() => navigate("/profile")} className="hover:bg-white/10">
                 <Avatar className="w-8 h-8">
                   <AvatarFallback className="bg-gradient-to-br from-[#3B82F6] to-[#00B9FC] text-white text-xs">
-                    JS
+                    {authData?.user?.first_name?.[0] || "U"}
+                    {authData?.user?.last_name?.[0] || ""}
                   </AvatarFallback>
                 </Avatar>
               </Button>
@@ -215,7 +304,10 @@ export function Dashboard() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => navigate("/")}
+                onClick={() => {
+                  logout()
+                  navigate("/")
+                }}
                 className="hover:bg-white/10"
                 style={{ color: TEXT_LIGHT }}
               >
@@ -231,7 +323,7 @@ export function Dashboard() {
         {/* Welcome */}
         <div className="mb-8">
           <h2 className="text-3xl mb-2" style={{ color: TEXT_LIGHT }}>
-            Welcome back, John! 👋
+            Welcome back, {authData?.user?.first_name || "User"}! 👋
           </h2>
           <p style={{ color: TEXT_MUTED }}>Ready to practice your speaking skills today?</p>
         </div>
@@ -261,7 +353,7 @@ export function Dashboard() {
 
         {/* Modules */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {modules.map((module) => (
+          {filteredModules.map((module) => (
             <Card
               key={module.id}
               className="group bg-white border-0 cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-xl relative overflow-hidden"
