@@ -21,6 +21,7 @@ import { QuickPractice } from "./components/QuickPractice"
 import { WritingPractice } from "./components/WritingPractice"
 import { ListeningPractice } from "./components/ListeningPractice";
 import { Connectteacher } from "./components/Connectteacher";
+import { VideoContent } from "./components/VideoContent";
 import { AuthProvider } from "./contexts/AuthContext";
 import { Toaster } from "./components/ui/sonner";
 
@@ -54,6 +55,7 @@ export default function App() {
             <Route path="/writing-practice" element={<WritingPractice />} />
             <Route path="/listening-practice" element={<ListeningPractice />} />
             <Route path="/connect-teacher" element={<Connectteacher />} />
+            <Route path="/video-content" element={<VideoContent />} />
           </Routes>
         </div>
       </BrowserRouter>

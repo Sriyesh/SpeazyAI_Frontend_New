@@ -9,7 +9,7 @@ import { Button } from "./ui/button"
 import { Avatar, AvatarFallback } from "./ui/avatar"
 import { ThemeToggle } from "./ThemeToggle"
 import { MelloAssistant } from "./MelloAssistant"
-import { BookOpen, GraduationCap, PenTool, Mic2, MessageCircle, Star, TrendingUp, Award, LogOut, Sparkles, Library, Users, LucideBrackets as FileBracket, Zap } from 'lucide-react'
+import { BookOpen, GraduationCap, PenTool, Mic2, MessageCircle, Star, TrendingUp, Award, LogOut, Sparkles, Library, Users, LucideBrackets as FileBracket, Zap, Video } from 'lucide-react'
 import { useAuth } from "../contexts/AuthContext"
 
 /**
@@ -171,6 +171,16 @@ const modules: DashboardModule[] = [
       progress: 0,
       lessons: 0,
       isNew: true,
+      roles: ["student", "teacher"], // Visible to both students and teachers
+    },
+    {
+      id: "video-content",
+      title: "Video Content",
+      description: "Watch educational videos and tutorials",
+      icon: Video,
+      color: "from-[#246BCF] to-[#3B82F6]",
+      progress: 0,
+      lessons: 0,
       roles: ["student", "teacher"], // Visible to both students and teachers
     },
   ]
@@ -369,6 +379,7 @@ export function Dashboard() {
                   "learn-own-way": "/quick-practice",
                   "ielts": "/ielts",
                   "connect-teacher": "/connect-teacher",
+                  "video-content": "/video-content",
                 }
                 navigate(navigationMap[module.id] || `/${module.id}`)
               }}
