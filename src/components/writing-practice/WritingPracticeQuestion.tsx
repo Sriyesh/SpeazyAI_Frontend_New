@@ -228,7 +228,7 @@ export function WritingPracticeQuestion({
 
     try {
       const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
-      const proxyUrl = isLocal ? "http://localhost:4000/chatgptProxy" : "/.netlify/functions/chatgptProxy";
+      const proxyUrl = isLocal ? "http://localhost:4001/chatgptProxy" : "/.netlify/functions/chatgptProxy";
 
       console.log("Calling ChatGPT proxy at:", proxyUrl);
 
@@ -740,7 +740,6 @@ export function WritingPracticeQuestion({
     </div>
   );
 }
-
 
 
 

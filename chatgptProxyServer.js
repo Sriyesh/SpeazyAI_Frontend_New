@@ -159,4 +159,3 @@ app.listen(PORT, () => {
   console.log(`📋 Health check: http://localhost:${PORT}/health`);
   console.log(`🔑 Make sure OPENAI_API_KEY is set in your .env file`);
 });
-

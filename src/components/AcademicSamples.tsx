@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useMemo } from "react"
 import { Button } from "./ui/button"
 import { ScrollArea } from "./ui/scroll-area"
 import { motion, AnimatePresence } from "motion/react"
@@ -14,6 +14,7 @@ import type { RecordingState, ClassData, Chapter } from "./types"
 import { useNavigate } from "react-router-dom"
 import { PageHeader } from "./PageHeader"
 import type { CSSProperties } from "react"
+import { useAuth } from "../contexts/AuthContext"
 
 interface AcademicSamplesProps {
   onBack?: () => void
@@ -21,6 +22,7 @@ interface AcademicSamplesProps {
 
 export function AcademicSamples({ onBack }: AcademicSamplesProps) {
   const navigate = useNavigate()
+  const { authData } = useAuth()
   const [expandedClass, setExpandedClass] = useState<string | null>(null)
   const [selectedChapter, setSelectedChapter] = useState<{
     classData: ClassData
@@ -33,7 +35,42 @@ export function AcademicSamples({ onBack }: AcademicSamplesProps) {
   const [recordingScore, setRecordingScore] = useState<number | null>(null)
   const resultRef = useRef<HTMLDivElement>(null)
 
-  const classesData = generateClassesData()
+  const allClassesData = generateClassesData()
+
+  // Filter classes based on user's classes from API response
+  const classesData = useMemo(() => {
+    const userClass = authData?.user?.class
+    
+    // If no user classes specified, return all classes
+    if (!userClass) {
+      return allClassesData
+    }
+
+    // Normalize userClass to array format (API can return string or array)
+    const userClasses = Array.isArray(userClass) ? userClass : [userClass]
+
+    // If empty array, return all classes
+    if (userClasses.length === 0) {
+      return allClassesData
+    }
+
+    // Extract class numbers from user's classes (e.g., "10-D" -> 10)
+    const userClassNumbers = userClasses.map((userClass: string) => {
+      // Extract number from class string (e.g., "10-D" -> 10, "Class 5" -> 5)
+      const match = userClass.match(/\d+/)
+      return match ? parseInt(match[0], 10) : null
+    }).filter((num: number | null) => num !== null) as number[]
+
+    // Filter classes that match user's class numbers
+    return allClassesData.filter((classItem) => {
+      // Extract class number from class title (e.g., "Class 10" -> 10)
+      const classMatch = classItem.title.match(/\d+/)
+      const classNumber = classMatch ? parseInt(classMatch[0], 10) : null
+      
+      // Check if this class number is in the user's classes
+      return classNumber !== null && userClassNumbers.includes(classNumber)
+    })
+  }, [authData?.user?.class, allClassesData])
 
   // Simulate audio levels for waveform
   useEffect(() => {

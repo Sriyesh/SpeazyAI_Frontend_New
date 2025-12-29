@@ -36,55 +36,67 @@ import { PhonemeGuide } from "./components/PhonemeGuide"
 import { StoryDetail } from "./components/StoryDetail"
 import { NovelDetail } from "./components/NovelDetail"
 import { AssessmentResultsPage } from "./components/AssessmentResultsPage"
+import { SpeechAssessmentResultsPage } from "./components/SpeechAssessmentResultsPage"
+import { AuthProvider } from "./contexts/AuthContext"
+import { Toaster } from "./components/ui/sonner"
+import { ProtectedRoute } from "./components/ProtectedRoute"
 
 
 export default function App() {
   return (
     <ThemeProvider>
-      <BrowserRouter>
-        <div className="size-full">
-          <Routes>
+      <AuthProvider>
+        <BrowserRouter>
+          <div className="size-full">
+            <Routes>
+            {/* Public Routes */}
             <Route path="/" element={<Navigate to="/login" replace />} />
             <Route path="/about" element={<AboutPage />} />
             <Route path="/contact" element={<ContactPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/signup" element={<SignUpPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/quick-practice" element={<QuickPractice />} />
+            
+            {/* Protected Routes */}
+            <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+            <Route path="/quick-practice" element={<ProtectedRoute><QuickPractice /></ProtectedRoute>} />
             <Route path="/application" element={<Navigate to="/login" replace />} />
-            <Route path="/famous-speeches" element={<FamousSpeeches />} />
-            <Route path="/academic-samples" element={<AcademicSamples />} />
-            <Route path="/academic-samples/chapter/:chapterId" element={<ChapterView />} />
-            <Route path="/academic-samples/results" element={<AssessmentResultsPage />} />
-            <Route path="/my-lessons" element={<MyLessons />} />
-            <Route path="/custom-content" element={<CustomContent />} />
-            <Route path="/chat" element={<ChatWithAI />} />
-            <Route path="/ielts" element={<IELTSModule />} />
-            <Route path="/profile" element={<Profile />} />
+            <Route path="/famous-speeches" element={<ProtectedRoute><FamousSpeeches /></ProtectedRoute>} />
+            <Route path="/academic-samples" element={<ProtectedRoute><AcademicSamples /></ProtectedRoute>} />
+            <Route path="/academic-samples/chapter/:chapterId" element={<ProtectedRoute><ChapterView /></ProtectedRoute>} />
+            <Route path="/academic-samples/results" element={<ProtectedRoute><SpeechAssessmentResultsPage /></ProtectedRoute>} />
+            <Route path="/my-lessons" element={<ProtectedRoute><MyLessons /></ProtectedRoute>} />
+            <Route path="/custom-content" element={<ProtectedRoute><CustomContent /></ProtectedRoute>} />
+            <Route path="/chat" element={<ProtectedRoute><ChatWithAI /></ProtectedRoute>} />
+            <Route path="/ielts" element={<ProtectedRoute><IELTSModule /></ProtectedRoute>} />
+            <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+            <Route path="/content-library" element={<ProtectedRoute><ContentLibrary /></ProtectedRoute>} />
+            <Route path="/writing-practice" element={<ProtectedRoute><WritingPractice /></ProtectedRoute>} />
+            <Route path="/listening-practice" element={<ProtectedRoute><ListeningPractice /></ProtectedRoute>} />
+            <Route path="/casual-conversations" element={<ProtectedRoute><CasualConversations /></ProtectedRoute>} />
+            <Route path="/official-conversations" element={<ProtectedRoute><OfficialConversations /></ProtectedRoute>} />
+            <Route path="/formal-conversations" element={<ProtectedRoute><FormalConversations /></ProtectedRoute>} />
+            <Route path="/connect-teacher" element={<ProtectedRoute><Connectteacher /></ProtectedRoute>} />
+            <Route path="/skills-home" element={<ProtectedRoute><NewDashboard /></ProtectedRoute>} />
+            <Route path="/skills/:skillId" element={<ProtectedRoute><SkillDetail /></ProtectedRoute>} />
+            <Route path="/reading-page" element={<ProtectedRoute><ReadingPage /></ProtectedRoute>} />
+            <Route path="/reading-modules" element={<ProtectedRoute><ReadingModulesPage /></ProtectedRoute>} />
+            <Route path="/speaking-modules" element={<ProtectedRoute><SpeakingModulesPage /></ProtectedRoute>} />
+            <Route path="/writing-modules" element={<ProtectedRoute><WritingModulesPage /></ProtectedRoute>} />
+            <Route path="/listening-modules" element={<ProtectedRoute><ListeningModulesPage /></ProtectedRoute>} />
+            <Route path="/stories" element={<ProtectedRoute><Stories /></ProtectedRoute>} />
+            <Route path="/story/:storyId" element={<ProtectedRoute><StoryDetail /></ProtectedRoute>} />
+            <Route path="/novel" element={<ProtectedRoute><Novel /></ProtectedRoute>} />
+            <Route path="/novel/:novelId" element={<ProtectedRoute><NovelDetail /></ProtectedRoute>} />
+            <Route path="/phoneme-guide" element={<ProtectedRoute><PhonemeGuide /></ProtectedRoute>} />
+            
+            {/* Catch all - redirect to login */}
             <Route path="*" element={<Navigate to="/login" replace />} />
-            <Route path="/content-library" element={<ContentLibrary />} />
-            <Route path="/writing-practice" element={<WritingPractice />} />
-            <Route path="/listening-practice" element={<ListeningPractice />} />
-            <Route path="/casual-conversations" element={<CasualConversations />} />
-            <Route path="/official-conversations" element={<OfficialConversations />} />
-            <Route path="/formal-conversations" element={<FormalConversations />} />
-            <Route path="/connect-teacher" element={<Connectteacher />} />
-            <Route path="/skills-home" element={<NewDashboard />} />
-            <Route path="/skills/:skillId" element={<SkillDetail />} />
-            <Route path="/reading-page" element={<ReadingPage />} />
-            <Route path="/reading-modules" element={<ReadingModulesPage />} />
-            <Route path="/speaking-modules" element={<SpeakingModulesPage />} />
-            <Route path="/writing-modules" element={<WritingModulesPage />} />
-            <Route path="/listening-modules" element={<ListeningModulesPage />} />
-            <Route path="/stories" element={<Stories />} />
-            <Route path="/story/:storyId" element={<StoryDetail />} />
-            <Route path="/novel" element={<Novel />} />
-            <Route path="/novel/:novelId" element={<NovelDetail />} />
-            <Route path="/phoneme-guide" element={<PhonemeGuide />} />
           </Routes>
         </div>
       </BrowserRouter>
+      </AuthProvider>
+      <Toaster />
     </ThemeProvider>
   )
 }

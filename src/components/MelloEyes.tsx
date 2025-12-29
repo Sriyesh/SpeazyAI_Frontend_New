@@ -20,7 +20,10 @@ export function MelloEyes() {
       viewBox="0 0 60 60"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      className="transition-all duration-200"
+      style={{
+        transition: "none",
+        animation: "none",
+      }}
     >
       <defs>
         <radialGradient id="miniCloudGradient" cx="50%" cy="40%">

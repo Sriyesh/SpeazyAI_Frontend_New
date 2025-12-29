@@ -7,7 +7,7 @@ interface User {
   email: string;
   role: string;
   organisation_id: number | null;
-  class: string | null;
+  class: string | string[] | null;
   created_at: string;
 }
 
@@ -20,6 +20,7 @@ interface AuthContextType {
   authData: AuthData | null;
   isAuthenticated: boolean;
   userRole: string | null;
+  token: string | null;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   loading: boolean;
@@ -120,8 +121,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const value: AuthContextType = {
     authData,
-    isAuthenticated: !!authData,
+    isAuthenticated: !!authData?.token,
     userRole: authData?.user.role || null,
+    token: authData?.token || null,
     login,
     logout,
     loading,

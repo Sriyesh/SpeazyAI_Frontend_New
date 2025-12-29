@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "./ui/card"
 import { Button } from "./ui/button"
 import { MelloAssistant } from "./MelloAssistant"
 import { PageHeader } from "./PageHeader"
+import { useAuth } from "../contexts/AuthContext"
 import {
   BookOpen,
   PenTool,
@@ -22,6 +23,7 @@ export function NewDashboard() {
   const navigate = useNavigate()
   const [isLoaded, setIsLoaded] = useState(false)
   const [showMelloMessage, setShowMelloMessage] = useState(true)
+  const { authData } = useAuth()
 
   useEffect(() => {
     setTimeout(() => setIsLoaded(true), 100)
@@ -34,7 +36,7 @@ export function NewDashboard() {
       title: "Speaking",
       description: "Practice speaking with confidence",
       icon: Mic2,
-      color: "from-[#3B82F6] to-[#00B9FC]",
+      color: "#3B82F6",
       progress: 60,
     },
     {
@@ -42,7 +44,7 @@ export function NewDashboard() {
       title: "Writing",
       description: "Improve your writing skills",
       icon: PenTool,
-      color: "from-[#00B9FC] to-[#246BCF]",
+      color: "#00B9FC",
       progress: 45,
     },
     {
@@ -50,7 +52,7 @@ export function NewDashboard() {
       title: "Reading",
       description: "Enhance reading comprehension",
       icon: BookOpen,
-      color: "from-[#246BCF] to-[#1E3A8A]",
+      color: "#246BCF",
       progress: 75,
     },
     {
@@ -58,7 +60,7 @@ export function NewDashboard() {
       title: "Listening",
       description: "Develop listening skills",
       icon: Headphones,
-      color: "from-[#1E3A8A] to-[#3B82F6]",
+      color: "#1E3A8A",
       progress: 30,
     },
     {
@@ -66,7 +68,7 @@ export function NewDashboard() {
       title: "IELTS Preparation",
       description: "Complete IELTS test preparation",
       icon: Award,
-      color: "from-[#00B9FC] to-[#246BCF]",
+      color: "#00B9FC",
       progress: 0,
     },
     {
@@ -74,7 +76,7 @@ export function NewDashboard() {
       title: "AI Tutor",
       description: "Get personalized coaching",
       icon: MessageCircle,
-      color: "from-[#3B82F6] to-[#FFD600]",
+      color: "#3B82F6",
       progress: 0,
     },
   ]
@@ -130,56 +132,206 @@ export function NewDashboard() {
   const renderMainDashboard = () => (
     <>
       {/* Welcome Section */}
-      <div className="mb-8">
-        <h2 className="text-3xl font-bold text-white mb-2">Welcome back, John! 👋</h2>
-        <p className="text-base text-white/80">Ready to practice your speaking skills today?</p>
+      <div style={{ marginBottom: "32px" }}>
+        <h2
+          style={{
+            fontSize: "30px",
+            fontWeight: "bold",
+            color: "#FFFFFF",
+            marginBottom: "8px",
+          }}
+        >
+          Welcome back, {authData?.user?.first_name || "User"}! 👋
+        </h2>
+        <p
+          style={{
+            fontSize: "16px",
+            color: "rgba(255, 255, 255, 0.8)",
+          }}
+        >
+          Ready to practice your speaking skills today?
+        </p>
       </div>
 
       {/* Stats Section */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <style>
+        {`
+          @media (min-width: 1024px) {
+            .stats-grid {
+              grid-template-columns: repeat(4, 1fr) !important;
+            }
+            .modules-grid {
+              grid-template-columns: repeat(3, 1fr) !important;
+            }
+          }
+          @media (min-width: 768px) and (max-width: 1023px) {
+            .modules-grid {
+              grid-template-columns: repeat(2, 1fr) !important;
+            }
+          }
+        `}
+      </style>
+      <div
+        className="stats-grid"
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(2, 1fr)",
+          gap: "16px",
+          marginBottom: "32px",
+        }}
+      >
         {stats.map((stat, index) => (
-          <Card
+          <div
             key={index}
-            className="bg-white border-0 hover:shadow-xl transition-all duration-300 hover:-translate-y-1 cursor-pointer rounded-3xl"
+            style={{
+              backgroundColor: "#FFFFFF",
+              border: "none",
+              borderRadius: "24px",
+              cursor: "pointer",
+              transition: "all 0.3s",
+              boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = "translateY(-4px)"
+              e.currentTarget.style.boxShadow = "0 10px 25px rgba(0, 0, 0, 0.15)"
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = "translateY(0)"
+              e.currentTarget.style.boxShadow = "0 1px 3px rgba(0, 0, 0, 0.1)"
+            }}
           >
-            <CardContent className="p-4 text-center">
+            <div style={{ padding: "16px", textAlign: "center" }}>
               <div
-                className="w-10 h-10 mx-auto mb-2 rounded-2xl flex items-center justify-center shadow-md"
                 style={{
-                  background: `linear-gradient(135deg, ${stat.color}, ${stat.color}dd)`,
+                  width: "40px",
+                  height: "40px",
+                  margin: "0 auto 8px",
+                  borderRadius: "16px",
+                  backgroundColor: stat.color,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
                 }}
               >
-                <stat.icon className="w-5 h-5 text-white" />
+                <stat.icon
+                  style={{
+                    width: "20px",
+                    height: "20px",
+                    color: "#FFFFFF",
+                  }}
+                />
               </div>
-              <p className="text-xl font-bold text-[#1E3A8A] mb-1">{stat.value}</p>
-              <p className="text-sm text-[#1E3A8A]/70">{stat.label}</p>
-            </CardContent>
-          </Card>
+              <p
+                style={{
+                  fontSize: "20px",
+                  fontWeight: "bold",
+                  color: "#1E3A8A",
+                  marginBottom: "4px",
+                }}
+              >
+                {stat.value}
+              </p>
+              <p
+                style={{
+                  fontSize: "14px",
+                  color: "rgba(30, 58, 138, 0.7)",
+                }}
+              >
+                {stat.label}
+              </p>
+            </div>
+          </div>
         ))}
       </div>
 
       {/* Learning Modules - 6 Tiles */}
-      <div className="mb-6">
-        <h3 className="text-2xl font-bold text-white mb-6">Your Learning Modules</h3>
+      <div style={{ marginBottom: "24px" }}>
+        <h3
+          style={{
+            fontSize: "24px",
+            fontWeight: "bold",
+            color: "#FFFFFF",
+            marginBottom: "24px",
+          }}
+        >
+          Your Learning Modules
+        </h3>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pr-0 lg:pr-4">
+      <div
+        className="modules-grid"
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(1, 1fr)",
+          gap: "24px",
+        }}
+      >
         {modules.map((module) => (
-          <Card
+          <div
             key={module.id}
-            className="group bg-white border-0 cursor-pointer transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl relative overflow-hidden rounded-3xl"
+            style={{
+              backgroundColor: "#FFFFFF",
+              border: "none",
+              borderRadius: "24px",
+              cursor: "pointer",
+              transition: "all 0.3s",
+              boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+              overflow: "hidden",
+            }}
             onClick={() => handleModuleClick(module.id)}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = "translateY(-8px)"
+              e.currentTarget.style.boxShadow = "0 20px 40px rgba(0, 0, 0, 0.15)"
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = "translateY(0)"
+              e.currentTarget.style.boxShadow = "0 1px 3px rgba(0, 0, 0, 0.1)"
+            }}
           >
-            <CardHeader className="pb-4 pt-6">
+            <div style={{ paddingBottom: "16px", paddingTop: "24px", paddingLeft: "24px", paddingRight: "24px" }}>
               <div
-                className={`w-16 h-16 bg-gradient-to-br ${module.color} rounded-3xl flex items-center justify-center mb-4 group-hover:scale-110 group-hover:rotate-3 transition-all duration-300 shadow-lg`}
+                style={{
+                  width: "64px",
+                  height: "64px",
+                  backgroundColor: module.color,
+                  borderRadius: "24px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  marginBottom: "16px",
+                  boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
+                  transition: "all 0.3s",
+                }}
               >
-                <module.icon className="w-8 h-8 text-white drop-shadow-lg" />
+                <module.icon
+                  style={{
+                    width: "32px",
+                    height: "32px",
+                    color: "#FFFFFF",
+                  }}
+                />
               </div>
-              <CardTitle className="text-[#1E3A8A] text-xl mb-2">{module.title}</CardTitle>
-              <p className="text-sm text-[#1E3A8A]/70">{module.description}</p>
-            </CardHeader>
-          </Card>
+              <h3
+                style={{
+                  fontSize: "20px",
+                  fontWeight: "bold",
+                  color: "#1E3A8A",
+                  marginBottom: "8px",
+                }}
+              >
+                {module.title}
+              </h3>
+              <p
+                style={{
+                  fontSize: "14px",
+                  color: "rgba(30, 58, 138, 0.7)",
+                }}
+              >
+                {module.description}
+              </p>
+            </div>
+          </div>
         ))}
       </div>
     </>
@@ -194,23 +346,51 @@ export function NewDashboard() {
   }
 
   return (
-    <div className="h-screen flex flex-col relative overflow-x-hidden w-full">
+    <div
+      style={{
+        height: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        position: "relative",
+        overflowX: "hidden",
+        width: "100%",
+      }}
+    >
       {/* Background */}
-      <div className="absolute inset-0 -z-10" style={BLUE_BG} />
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          zIndex: -10,
+          ...BLUE_BG,
+        }}
+      />
       
       {/* Header */}
       <PageHeader />
 
       {/* Main Content */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-32">
+      <div
+        style={{
+          flex: 1,
+          overflowY: "auto",
+        }}
+      >
+        <div
+          style={{
+            maxWidth: "1280px",
+            margin: "0 auto",
+            padding: "32px 16px",
+            paddingBottom: "128px",
+          }}
+        >
           {renderMainDashboard()}
         </div>
       </div>
 
       <MelloAssistant
         state="waving"
-        message="Hi! Welcome back, John! You're on a 7-day streak! Keep it up! 👋🎉"
+        message={`Hi! Welcome back, ${authData?.user?.first_name || "User"}! You're on a 7-day streak! Keep it up! 👋🎉`}
         showMessage={showMelloMessage}
         onMessageDismiss={() => setShowMelloMessage(false)}
         position="bottom-right"

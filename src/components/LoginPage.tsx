@@ -1,29 +1,115 @@
 "use client"
 
-import type React from "react"
-
-import { useState } from "react"
+import React, { useState } from "react"
 import { Button } from "./ui/button"
 import { Input } from "./ui/input"
 import { Label } from "./ui/label"
 import { Card, CardContent, CardHeader } from "./ui/card"
-import { ThemeToggle } from "./ThemeToggle"
+import { Alert, AlertDescription } from "./ui/alert"
 import { MelloAssistant } from "./MelloAssistant"
-import { Eye, EyeOff } from "lucide-react"
+import { Eye, EyeOff, AlertCircle, Loader2 } from "lucide-react"
 import { motion } from "motion/react"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, Navigate } from "react-router-dom"
+import { useAuth } from "../contexts/AuthContext"
+import { toast } from "sonner"
+import { useEffect } from "react"
 
 export function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showMelloMessage, setShowMelloMessage] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
 
   const navigate = useNavigate()
+  const { login, isAuthenticated, loading } = useAuth()
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Redirect to dashboard if already authenticated
+  useEffect(() => {
+    if (!loading && isAuthenticated) {
+      navigate("/skills-home", { replace: true })
+    }
+  }, [isAuthenticated, loading, navigate])
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-navigate("/skills-home")
+    setError(null)
+    
+    // Basic validation
+    if (!email.trim()) {
+      setError("Please enter your email or username")
+      return
+    }
+    
+    if (!password.trim()) {
+      setError("Please enter your password")
+      return
+    }
+
+    setIsLoading(true)
+    
+    try {
+      await login(email.trim(), password)
+      // Login successful - show success toast
+      toast.success("Login successful! 🎉", {
+        description: "Welcome back! Redirecting to your dashboard...",
+        duration: 3000,
+        style: {
+          background: "linear-gradient(135deg, #3B82F6 0%, #00B9FC 100%)",
+          color: "#FFFFFF",
+          border: "none",
+        },
+      })
+      // Navigate to dashboard after a brief delay to show the toast
+      setTimeout(() => {
+        navigate("/skills-home")
+      }, 500)
+    } catch (err) {
+      // Handle login error - show error toast
+      const errorMessage = err instanceof Error ? err.message : "Login failed. Please try again."
+      setError(errorMessage)
+      toast.error("Login failed", {
+        description: errorMessage,
+        duration: 4000,
+        style: {
+          background: "#EF4444",
+          color: "#FFFFFF",
+          border: "none",
+        },
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // Show loading state while checking authentication
+  if (loading) {
+    return (
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          height: "100vh",
+          background: "#1E3A8A",
+        }}
+      >
+        <div
+          style={{
+            color: "#FFFFFF",
+            fontSize: "18px",
+          }}
+        >
+          Loading...
+        </div>
+      </div>
+    )
+  }
+
+  // Redirect if already authenticated (handled by useEffect, but also prevent rendering)
+  if (isAuthenticated) {
+    return null
   }
 
   return (
@@ -67,11 +153,6 @@ navigate("/skills-home")
         ))}
       </div>
 
-      <div className="absolute top-4 right-4 z-50">
-        <ThemeToggle />
-      </div>
-
-
       <div className="w-full max-w-md relative z-10">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
           <Card
@@ -104,6 +185,42 @@ navigate("/skills-home")
 
             <CardContent className="space-y-6 px-8 pb-8 pt-8">
               <form onSubmit={handleSubmit} className="space-y-5">
+                {error && (
+                  <div
+                    style={{
+                      backgroundColor: "#FEE2E2",
+                      borderColor: "#EF4444",
+                      borderWidth: "1px",
+                      borderStyle: "solid",
+                      borderRadius: "8px",
+                      padding: "12px 16px",
+                      display: "flex",
+                      alignItems: "flex-start",
+                      gap: "12px",
+                    }}
+                  >
+                    <AlertCircle
+                      style={{
+                        width: "18px",
+                        height: "18px",
+                        color: "#DC2626",
+                        flexShrink: 0,
+                        marginTop: "2px",
+                      }}
+                    />
+                    <span
+                      style={{
+                        color: "#991B1B",
+                        fontSize: "14px",
+                        fontWeight: "500",
+                        lineHeight: "1.5",
+                      }}
+                    >
+                      {error}
+                    </span>
+                  </div>
+                )}
+
                 <div className="space-y-2">
                   <Label htmlFor="email" style={{ color: "#1E3A8A" }}>
                     Email or Username
@@ -113,7 +230,11 @@ navigate("/skills-home")
                     type="email"
                     placeholder="Enter your email"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => {
+                      setEmail(e.target.value)
+                      setError(null) // Clear error when user types
+                    }}
+                    disabled={isLoading}
                     className="h-12 bg-[#F2F6FF] border-0 text-[#1E3A8A] placeholder:text-[#1E3A8A]/40 focus:ring-2 focus:ring-[#3B82F6] rounded-xl"
                   />
                 </div>
@@ -128,12 +249,17 @@ navigate("/skills-home")
                       type={showPassword ? "text" : "password"}
                       placeholder="Enter your password"
                       value={password}
-                      onChange={(e) => setPassword(e.target.value)}
+                      onChange={(e) => {
+                        setPassword(e.target.value)
+                        setError(null) // Clear error when user types
+                      }}
+                      disabled={isLoading}
                       className="h-12 bg-[#F2F6FF] border-0 text-[#1E3A8A] placeholder:text-[#1E3A8A]/40 focus:ring-2 focus:ring-[#3B82F6] rounded-xl pr-12"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
+                      disabled={isLoading}
                       className="absolute right-4 top-1/2 transform -translate-y-1/2 text-[#1E3A8A]/60 hover:text-[#3B82F6] transition-colors"
                     >
                       {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
@@ -145,7 +271,8 @@ navigate("/skills-home")
                   <button
                     type="button"
                     onClick={() => navigate("/forgot-password")}
-                    className="text-sm text-[#3B82F6] hover:text-[#1E3A8A] transition-colors"
+                    disabled={isLoading}
+                    className="text-sm text-[#3B82F6] hover:text-[#1E3A8A] transition-colors disabled:opacity-50"
                   >
                     Forgot Password?
                   </button>
@@ -153,9 +280,17 @@ navigate("/skills-home")
 
                 <Button
                   type="submit"
-                  className="w-full h-12 bg-gradient-to-r from-[#3B82F6] to-[#00B9FC] text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105"
+                  disabled={isLoading}
+                  className="w-full h-12 bg-gradient-to-r from-[#3B82F6] to-[#00B9FC] text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                 >
-                  Sign In
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                      Signing In...
+                    </>
+                  ) : (
+                    "Sign In"
+                  )}
                 </Button>
               </form>
 
@@ -166,14 +301,7 @@ navigate("/skills-home")
         <p className="text-center text-[#F2F6FF]/60 text-sm mt-6">Secure Login • Professional Platform</p>
       </div>
 
-      <motion.div
-        animate={showMelloMessage ? { y: [0, -15, 0], scale: [1, 1.1, 1] } : { x: [0, 10, -10, 0] }}
-        transition={{
-          duration: 2,
-          repeat: Number.POSITIVE_INFINITY,
-          ease: "easeInOut",
-          times: showMelloMessage ? [0, 0.5, 1] : [0, 0.33, 0.66, 1],
-        }}
+      <div
         style={{
           position: "fixed",
           bottom: "20px",
@@ -187,16 +315,8 @@ navigate("/skills-home")
           showMessage={showMelloMessage}
           onMessageDismiss={() => setShowMelloMessage(false)}
           position="bottom-right"
-          style={{
-            background: "linear-gradient(135deg, #3B82F6 0%, #00B9FC 100%)",
-            borderRadius: "24px",
-            boxShadow: "0 8px 32px rgba(59, 130, 246, 0.3)",
-            padding: "12px",
-            maxWidth: "300px",
-          }}
-          messageClassName="typewriter"
         />
-      </motion.div>
+      </div>
     </div>
   )
 }
