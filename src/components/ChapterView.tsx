@@ -7,8 +7,6 @@ import { motion } from "motion/react"
 import { ArrowLeft } from 'lucide-react'
 import { PDFViewer } from "./PDFViewer"
 import { AudioRecorder } from "./audioRecorder"
-import { SpeechAssessmentResults } from "./SpeechAssessmentResults"
-import { ScrollToTop } from "./ScrollToTop"
 import { useNavigate, useParams } from "react-router-dom"
 import { useLocation } from "react-router-dom"
 
@@ -21,10 +19,6 @@ export function ChapterView() {
 
   const [currentPage, setCurrentPage] = useState(0)
   const [zoomLevel, setZoomLevel] = useState(100)
-  const [recordingScore, setRecordingScore] = useState<number | null>(null)
-  const [apiResponse, setApiResponse] = useState<any>(null)
-  const resultRef = useRef<HTMLDivElement>(null)
-  const scrollAreaRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!chapter || !classData) {
@@ -32,74 +26,25 @@ export function ChapterView() {
     }
   }, [chapter, classData, navigate])
 
-  // Auto-scroll to results when API response arrives
-  useEffect(() => {
-    if (!apiResponse) {
-      return
-    }
-
-    // Use IntersectionObserver to detect when element is rendered
-    const scrollToResults = () => {
-      const resultElement = resultRef.current || document.getElementById('assessment-results')
-      if (!resultElement) {
-        return
-      }
-
-      // Use scrollIntoView - this works with any scroll container including Radix ScrollArea
-      resultElement.scrollIntoView({ 
-        behavior: 'smooth', 
-        block: 'start',
-        inline: 'nearest'
+  // Handle API response - navigate to results page
+  const handleApiResponse = (apiResponse: any) => {
+    console.log("handleApiResponse called with:", apiResponse)
+    if (apiResponse && !apiResponse.error) {
+      console.log("Navigating to results page...")
+      // Navigate to results page with the API response data
+      navigate("/academic-samples/results", {
+        state: {
+          apiResponse,
+          chapter,
+          classData,
+          backRoute: `/academic-samples/chapter/${chapterId}`,
+        },
+        replace: false, // Allow back button to work
       })
-
-      // Also try to focus the element for accessibility
-      resultElement.focus({ preventScroll: true })
+    } else {
+      console.log("API response has error or is invalid:", apiResponse)
     }
-
-    // Wait for element to be in DOM and rendered
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting || entry.target === resultRef.current) {
-            // Element is visible, scroll to it
-            setTimeout(() => {
-              scrollToResults()
-            }, 100)
-            observer.disconnect()
-          }
-        })
-      },
-      { threshold: 0.1 }
-    )
-
-    // Try multiple times with delays
-    let attempts = 0
-    const maxAttempts = 10
-    
-    const tryScroll = () => {
-      const resultElement = resultRef.current || document.getElementById('assessment-results')
-      if (resultElement) {
-        observer.observe(resultElement)
-        // Also try direct scroll after a delay
-        setTimeout(() => {
-          scrollToResults()
-        }, 500)
-      } else if (attempts < maxAttempts) {
-        attempts++
-        setTimeout(tryScroll, 200)
-      }
-    }
-
-    // Start after animation delay
-    const timeout = setTimeout(() => {
-      tryScroll()
-    }, 600)
-
-    return () => {
-      clearTimeout(timeout)
-      observer.disconnect()
-    }
-  }, [apiResponse])
+  }
 
   const handleZoomIn = () => {
     setZoomLevel((prev) => Math.min(prev + 10, 150))
@@ -298,7 +243,7 @@ export function ChapterView() {
         </div>
       </header>
 
-      <div ref={scrollAreaRef}>
+      <div>
         <ScrollArea className="h-[calc(100vh-64px)]">
           <div className="max-w-[1600px] mx-auto px-4 sm:px-8 lg:px-12 py-8">
           <div className="flex gap-12 items-start chapter-content-wrapper">
@@ -338,19 +283,6 @@ export function ChapterView() {
                   />
                 </div>
                 
-                {/* Assessment Results - Green box underneath PDFViewer */}
-                {apiResponse && (
-                  <motion.div
-                    id="assessment-results"
-                    ref={resultRef}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.3 }}
-                    className="bg-white/95 rounded-2xl shadow-2xl p-8 border-0"
-                  >
-                    <SpeechAssessmentResults data={apiResponse} />
-                  </motion.div>
-                )}
               </div>
             </motion.div>
 
@@ -367,7 +299,7 @@ export function ChapterView() {
                   expectedText={chapter.content} 
                   lessonColor={classData.gradient} 
                   endpoint="https://apis.languageconfidence.ai/speech-assessment/unscripted/uk"
-                  onApiResponse={setApiResponse as any}
+                  onApiResponse={handleApiResponse}
                 />
               </div>
             </motion.div>
@@ -388,7 +320,7 @@ export function ChapterView() {
               expectedText={chapter.content} 
               lessonColor={classData.gradient} 
               endpoint="https://apis.languageconfidence.ai/speech-assessment/unscripted/uk"
-              onApiResponse={setApiResponse as any}
+              onApiResponse={handleApiResponse}
             />
         </div>
       </div>
@@ -401,12 +333,6 @@ export function ChapterView() {
         }
       `}</style>
 
-      {/* Scroll to Top Button */}
-      <ScrollToTop 
-        scrollContainerRef={scrollAreaRef}
-        alwaysShow={!!apiResponse}
-        showWhenScrolled={200}
-      />
     </div>
   )
 }

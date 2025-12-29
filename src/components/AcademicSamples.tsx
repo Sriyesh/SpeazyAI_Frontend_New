@@ -12,6 +12,8 @@ import { ResultsSection } from "./ResultsSection"
 import { generateClassesData } from "./data"
 import type { RecordingState, ClassData, Chapter } from "./types"
 import { useNavigate } from "react-router-dom"
+import { PageHeader } from "./PageHeader"
+import type { CSSProperties } from "react"
 
 interface AcademicSamplesProps {
   onBack?: () => void
@@ -105,52 +107,62 @@ export function AcademicSamples({ onBack }: AcademicSamplesProps) {
     setAudioLevel([])
   }
 
+  const BLUE_BG: CSSProperties = {
+    backgroundColor: "#1E3A8A",
+    backgroundAttachment: "fixed",
+    backgroundRepeat: "no-repeat",
+    backgroundSize: "cover",
+  }
+
   // Main Class Selection View
   if (!selectedChapter) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#1E3A8A] via-[#2563eb] to-[#1E3A8A]">
-        <header className="bg-[#1E3A8A]/90 backdrop-blur-lg border-b border-white/10 sticky top-0 z-50 shadow-md">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between h-16">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigate("/dashboard")}
-                className="text-white hover:bg-white/10 hover:text-[#FFD600] transition-all duration-300"
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Dashboard
-              </Button>
-              <h1 className="text-xl text-white">Academic Speaking</h1>
-              <div className="w-32"></div>
+      <div className="h-screen flex flex-col relative overflow-x-hidden w-full">
+        <div className="absolute inset-0 -z-10" style={BLUE_BG} />
+        <PageHeader />
+        
+        <div className="flex-1 overflow-y-auto">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                if (onBack) {
+                  onBack()
+                } else {
+                  const backRoute = "/speaking-modules"
+                  navigate(backRoute)
+                }
+              }}
+              className="text-white hover:bg-white/10 mb-4 rounded-2xl"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back
+            </Button>
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-12">
+              <h2 className="text-5xl text-white mb-4">Choose Your Class</h2>
+              <p className="text-xl text-white/70 max-w-2xl mx-auto">
+                Explore engaging content tailored to your grade level
+              </p>
+            </motion.div>
+
+            <div className="space-y-4">
+              {classesData.map((classItem, index) => (
+                <motion.div
+                  key={classItem.id}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                >
+                  <ClassCard
+                    classData={classItem}
+                    isExpanded={expandedClass === classItem.id}
+                    onToggle={() => handleClassToggle(classItem.id)}
+                    onChapterSelect={(chapter) => handleChapterSelect(classItem, chapter)}
+                  />
+                </motion.div>
+              ))}
             </div>
-          </div>
-        </header>
-
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-12">
-            <h2 className="text-5xl text-white mb-4">Choose Your Class</h2>
-            <p className="text-xl text-white/70 max-w-2xl mx-auto">
-              Explore engaging content tailored to your grade level
-            </p>
-          </motion.div>
-
-          <div className="space-y-4">
-            {classesData.map((classItem, index) => (
-              <motion.div
-                key={classItem.id}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.05 }}
-              >
-                <ClassCard
-                  classData={classItem}
-                  isExpanded={expandedClass === classItem.id}
-                  onToggle={() => handleClassToggle(classItem.id)}
-                  onChapterSelect={(chapter) => handleChapterSelect(classItem, chapter)}
-                />
-              </motion.div>
-            ))}
           </div>
         </div>
       </div>
@@ -161,27 +173,22 @@ export function AcademicSamples({ onBack }: AcademicSamplesProps) {
   const { classData, chapter } = selectedChapter
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#1E3A8A] via-[#2563eb] to-[#1E3A8A]">
-      <header className="bg-[#1E3A8A]/90 backdrop-blur-lg border-b border-white/10 sticky top-0 z-50 shadow-md">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleBackToClasses}
-              className="text-white hover:bg-white/10 hover:text-[#FFD600] transition-all duration-300"
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Classes
-            </Button>
-            <h1 className="text-xl text-white truncate max-w-md">{chapter.title}</h1>
-            <div className="w-32"></div>
-          </div>
-        </div>
-      </header>
+    <div className="h-screen flex flex-col relative overflow-x-hidden w-full">
+      <div className="absolute inset-0 -z-10" style={BLUE_BG} />
+      <PageHeader />
+      
+      <div className="flex-1 overflow-y-auto">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleBackToClasses}
+            className="text-white hover:bg-white/10 mb-4 rounded-2xl"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Classes
+          </Button>
 
-      <ScrollArea className="h-[calc(100vh-64px)]">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* PDF Viewer */}
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
             <PDFViewer
@@ -216,7 +223,7 @@ export function AcademicSamples({ onBack }: AcademicSamplesProps) {
             )}
           </AnimatePresence>
         </div>
-      </ScrollArea>
+      </div>
     </div>
   )
 }

@@ -107,31 +107,88 @@ export function AudioRecorder({
 
   // When recording stops, convert audio and call API
   const handleRecordingStop = () => {
-    // Use the mimeType from the recorder if available, otherwise fallback
-    const mimeType = mediaRecorderRef.current?.mimeType || "audio/webm";
-    const audioBlob = new Blob(audioChunksRef.current, { type: mimeType })
-    
-    // Map mimeType to API format
-    // API expects 'webm', 'wav', 'mp3', 'm4a', 'ogg'
-    let format = "webm";
-    if (mimeType.includes("wav")) format = "wav";
-    else if (mimeType.includes("mp4") || mimeType.includes("m4a") || mimeType.includes("aac")) format = "m4a";
-    else if (mimeType.includes("ogg")) format = "ogg";
-    else if (mimeType.includes("webm")) format = "webm";
-
-    const audioUrl = URL.createObjectURL(audioBlob)
-    setAudioUrl(audioUrl)
-
-    const reader = new FileReader()
-    reader.onloadend = async () => {
-      if (reader.result && typeof reader.result === 'string') {
-        const base64Audio = reader.result.split(",")[1]
-        streamRef.current?.getTracks().forEach((t) => t.stop())
-        audioContextRef.current?.close()
-        await callSpeechAssessmentAPI(base64Audio, format)
+    try {
+      // Check if we have audio chunks
+      if (!audioChunksRef.current || audioChunksRef.current.length === 0) {
+        console.error("No audio chunks recorded")
+        setApiResponse({ 
+          error: "No audio data was recorded. Please try recording again.",
+          errorType: "NO_AUDIO_DATA"
+        })
+        alert("No audio data was recorded. Please try recording again.")
+        return
       }
+
+      // Use the mimeType from the recorder if available, otherwise fallback
+      const mimeType = mediaRecorderRef.current?.mimeType || "audio/webm";
+      const audioBlob = new Blob(audioChunksRef.current, { type: mimeType })
+      
+      // Verify blob size
+      if (audioBlob.size === 0) {
+        console.error("Audio blob is empty")
+        setApiResponse({ 
+          error: "Recorded audio is empty. Please try recording again.",
+          errorType: "EMPTY_AUDIO"
+        })
+        alert("Recorded audio is empty. Please try recording again.")
+        return
+      }
+      
+      // Map mimeType to API format
+      // API expects 'webm', 'wav', 'mp3', 'm4a', 'ogg'
+      let format = "webm";
+      if (mimeType.includes("wav")) format = "wav";
+      else if (mimeType.includes("mp4") || mimeType.includes("m4a") || mimeType.includes("aac")) format = "m4a";
+      else if (mimeType.includes("ogg")) format = "ogg";
+      else if (mimeType.includes("webm")) format = "webm";
+
+      const audioUrl = URL.createObjectURL(audioBlob)
+      setAudioUrl(audioUrl)
+
+      const reader = new FileReader()
+      reader.onloadend = async () => {
+        try {
+          if (reader.result && typeof reader.result === 'string') {
+            const base64Audio = reader.result.split(",")[1]
+            if (!base64Audio) {
+              throw new Error("Failed to convert audio to base64 format")
+            }
+            streamRef.current?.getTracks().forEach((t) => t.stop())
+            audioContextRef.current?.close()
+            await callSpeechAssessmentAPI(base64Audio, format)
+          } else {
+            throw new Error("Failed to read audio file")
+          }
+        } catch (error: any) {
+          console.error("Error processing audio:", error)
+          setIsLoading(false)
+          setApiResponse({ 
+            error: error?.message || "Failed to process audio",
+            errorType: "PROCESSING_ERROR"
+          })
+          alert(`Error processing audio: ${error?.message || "Unknown error"}. Please try recording again.`)
+        }
+      }
+      reader.onerror = () => {
+        console.error("FileReader error:", reader.error)
+        setIsLoading(false)
+        const errorMsg = reader.error?.message || "Failed to read audio file"
+        setApiResponse({ 
+          error: errorMsg,
+          errorType: "FILE_READ_ERROR"
+        })
+        alert(`Error reading audio file: ${errorMsg}. Please try recording again.`)
+      }
+      reader.readAsDataURL(audioBlob)
+    } catch (error: any) {
+      console.error("Error in handleRecordingStop:", error)
+      setIsLoading(false)
+      setApiResponse({ 
+        error: error?.message || "Failed to process recording",
+        errorType: "RECORDING_STOP_ERROR"
+      })
+      alert(`Error processing recording: ${error?.message || "Unknown error"}. Please try recording again.`)
     }
-    reader.readAsDataURL(audioBlob)
   }
 
   // 🔥 API Integration
@@ -143,6 +200,7 @@ export function AudioRecorder({
     const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
     const proxyUrl = isLocal ? "http://localhost:4000/speechProxy" : "/.netlify/functions/speechProxy"
     
+    console.log(`Using proxy URL: ${proxyUrl} (isLocal: ${isLocal})`)
     setIsLoading(true)
 
     const isScripted = typeof endpoint === "string" && endpoint.includes("speech-assessment/scripted")
@@ -179,10 +237,33 @@ export function AudioRecorder({
       if (onApiResponse) {
         onApiResponse(data)
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error calling API:", error)
-      alert("Error processing audio. Please try again.")
-      setApiResponse({ error: error.message })
+      // Show user-friendly error message
+      const errorMessage = error?.message || "Unknown error occurred"
+      console.error("Full error details:", error)
+      
+      // Set error response so the UI can show it gracefully
+      setApiResponse({ 
+        error: errorMessage,
+        errorType: error?.name || "API_ERROR"
+      })
+      
+      // Show alert with helpful message
+      if (errorMessage.includes("Failed to fetch") || errorMessage.includes("NetworkError")) {
+        const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
+        if (isLocal) {
+          alert("Network error: Could not connect to the proxy server at localhost:4000.\n\nPlease make sure the proxy server is running:\n1. Open a terminal\n2. Run: node speechProxyServer.js\n3. Then try recording again.")
+        } else {
+          alert("Network error: Could not connect to the server.\n\nPlease check:\n1. Your internet connection\n2. If you're on a production site, the Netlify function may not be deployed\n3. Try refreshing the page and recording again")
+        }
+      } else if (errorMessage.includes("404")) {
+        alert("Service not found (404). The proxy endpoint may not be available. Please contact support if this issue persists.")
+      } else if (errorMessage.includes("500")) {
+        alert("Server error (500): The service is temporarily unavailable. Please try again later.")
+      } else {
+        alert(`Error processing audio: ${errorMessage}. Please try recording again.`)
+      }
     } finally {
       setIsLoading(false)
     }

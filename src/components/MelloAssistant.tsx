@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { X, Sparkles } from "lucide-react";
+import { X, Sparkles, Phone } from "lucide-react";
 import { Button } from "./ui/button";
+import { useNavigate } from "react-router-dom";
 
 interface MelloAssistantProps {
   state?:
@@ -14,6 +15,7 @@ interface MelloAssistantProps {
   showMessage?: boolean;
   onMessageDismiss?: () => void;
   position?: "bottom-right" | "bottom-left" | "center";
+  onClick?: () => void;
 }
 
 export function MelloAssistant({
@@ -22,7 +24,9 @@ export function MelloAssistant({
   showMessage = true,
   onMessageDismiss,
   position = "bottom-right",
+  onClick,
 }: MelloAssistantProps) {
+  const navigate = useNavigate();
   const [isBlinking, setIsBlinking] = useState(false);
   const [eyeScale, setEyeScale] = useState(1);
 
@@ -53,6 +57,20 @@ export function MelloAssistant({
     center:
       "top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2",
   };
+  
+  // Adjust chatbox position to avoid overlapping with content
+  const chatboxPositionClasses = {
+    "bottom-right": "bottom-full mb-4 right-0 translate-x-0",
+    "bottom-left": "bottom-full mb-4 left-0 -translate-x-0",
+    center: "bottom-full mb-4 left-1/2 -translate-x-1/2",
+  };
+  
+  // Enhanced floating animation for waving state
+  const floatingAnimation = state === "waving" 
+    ? { y: [0, -15, 0], rotate: [0, -3, 3, 0] }
+    : { y: [0, -10, 0] };
+  
+  const floatingDuration = state === "waving" ? 2 : 3;
 
   return (
     <div className={`fixed ${positionClasses[position]} z-50`}>
@@ -63,25 +81,47 @@ export function MelloAssistant({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.8 }}
             transition={{ duration: 0.3, type: "spring" }}
-            className="absolute bottom-full mb-4 right-0 max-w-xs"
+            className={`absolute ${chatboxPositionClasses[position]} max-w-xs z-[60] pointer-events-auto`}
+            style={{ 
+              maxWidth: '320px',
+              minWidth: '280px',
+            }}
           >
             <div className="relative bg-gradient-to-br from-white to-[#F2F3F4] border-2 border-[#3B82F6]/30 rounded-2xl p-4 shadow-2xl">
               <div className="absolute -bottom-2 right-12 w-4 h-4 bg-white border-r-2 border-b-2 border-[#3B82F6]/30 transform rotate-45" />
-              <div className="flex items-start gap-3">
-                <Sparkles className="w-5 h-5 text-[#3B82F6] flex-shrink-0 mt-0.5" />
-                <p className="text-[#1E3A8A] text-sm leading-relaxed">
-                  {message}
-                </p>
-                {onMessageDismiss && (
+              <div className="flex flex-col gap-3">
+                <div className="flex items-start gap-3">
+                  <Sparkles className="w-5 h-5 text-[#3B82F6] flex-shrink-0 mt-0.5" />
+                  <p className="text-[#1E3A8A] text-sm leading-relaxed flex-1">
+                    {message}
+                  </p>
+                  {onMessageDismiss && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onMessageDismiss();
+                      }}
+                      className="p-0 h-5 w-5 flex-shrink-0 text-[#1E3A8A]/60 hover:text-[#1E3A8A]"
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  )}
+                </div>
+                <div className="flex flex-col gap-2 pt-2 border-t border-[#3B82F6]/20">
+                  <p className="text-xs text-[#1E3A8A]/70 font-medium">Need help?</p>
                   <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={onMessageDismiss}
-                    className="p-0 h-5 w-5 ml-auto flex-shrink-0 text-[#1E3A8A]/60 hover:text-[#1E3A8A]"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate("/connect-teacher");
+                    }}
+                    className="flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-[#3B82F6] to-[#00B9FC] text-white hover:from-[#2563EB] hover:to-[#0099CC] transition-all duration-200 rounded-lg shadow-lg hover:shadow-xl hover:scale-105 font-semibold text-sm"
                   >
-                    <X className="w-4 h-4" />
+                    <Phone className="w-5 h-5" />
+                    <span>Connect with Teacher</span>
                   </Button>
-                )}
+                </div>
               </div>
             </div>
           </motion.div>
@@ -89,13 +129,15 @@ export function MelloAssistant({
       </AnimatePresence>
 
       <motion.div
-        animate={{ y: [0, -10, 0] }}
+        animate={floatingAnimation}
         transition={{
-          duration: 3,
+          duration: floatingDuration,
           repeat: Infinity,
           ease: "easeInOut",
         }}
         className="relative cursor-pointer"
+        onClick={onClick}
+        style={{ cursor: onClick ? "pointer" : "default" }}
       >
         <motion.div
           animate={{
@@ -237,6 +279,45 @@ export function MelloAssistant({
               fill="#FFD600"
             />
           </g>
+
+          {/* Waving Hands - only show when state is "waving" */}
+          {state === "waving" && (
+            <>
+              {/* Left hand - waving */}
+              <circle cx="20" cy="65" r="8" fill="url(#bodyGradient)">
+                <animate
+                  attributeName="cy"
+                  values="65;53;65"
+                  dur="0.6s"
+                  repeatCount="indefinite"
+                />
+                <animate
+                  attributeName="cx"
+                  values="20;16;20"
+                  dur="0.6s"
+                  repeatCount="indefinite"
+                />
+              </circle>
+              
+              {/* Right hand - waving */}
+              <circle cx="100" cy="65" r="8" fill="url(#bodyGradient)">
+                <animate
+                  attributeName="cy"
+                  values="65;53;65"
+                  dur="0.6s"
+                  begin="0.3s"
+                  repeatCount="indefinite"
+                />
+                <animate
+                  attributeName="cx"
+                  values="100;104;100"
+                  dur="0.6s"
+                  begin="0.3s"
+                  repeatCount="indefinite"
+                />
+              </circle>
+            </>
+          )}
         </svg>
 
         <motion.div

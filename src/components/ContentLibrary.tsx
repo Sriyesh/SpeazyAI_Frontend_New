@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
     Card,
     CardContent,
@@ -43,10 +44,21 @@ interface ContentItem {
 }
 
 interface ContentLibraryProps {
-    onBack: () => void;
+    onBack?: () => void;
 }
 
 export function ContentLibrary({ onBack }: ContentLibraryProps) {
+    const navigate = useNavigate()
+    const location = useLocation()
+    const backRoute = (location.state as any)?.backRoute || "/reading-modules"
+    
+    const handleBack = () => {
+        if (onBack) {
+            onBack()
+        } else {
+            navigate(backRoute)
+        }
+    }
     const [contentItems, setContentItems] = useState<ContentItem[]>([
         {
             id: "1",
@@ -123,7 +135,7 @@ export function ContentLibrary({ onBack }: ContentLibraryProps) {
                             <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={onBack}
+                                onClick={handleBack}
                                 className="hover:bg-white/10"
                                 style={{ color: TEXT_LIGHT }}
                             >

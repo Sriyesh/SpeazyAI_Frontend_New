@@ -20,11 +20,16 @@ export function QuickPractice() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => navigate("/dashboard")}
+              onClick={() => {
+                // QuickPractice can be accessed from speaking or writing modules
+                // Default to speaking-modules
+                const backRoute = "/speaking-modules"
+                navigate(backRoute)
+              }}
               className="text-white hover:bg-white/10 hover:text-[#FFD600] transition-all duration-300"
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Dashboard
+              Back
             </Button>
             <h1 className="text-xl text-white truncate max-w-md">Quick Practice Session</h1>
             <div className="flex items-center justify-end w-32">

@@ -12,7 +12,7 @@ import { ArrowLeft, Send, Mic, Bot, User, Sparkles, Heart, Star, ThumbsUp, Light
 import { useNavigate } from "react-router-dom"
 
 interface ChatWithAIProps {
-  onBack: () => void
+  onBack?: () => void
 }
 
 type Message = {
@@ -212,12 +212,15 @@ export function ChatWithAI() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => navigate("/dashboard")}
+                onClick={() => {
+                  const backRoute = "/speaking-modules"
+                  navigate(backRoute)
+                }}
                 className="transition-all duration-300 hover:bg-white/10 hover:text-amber-300"
                 style={{ color: "#F2F6FF" }}
               >
                 <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Dashboard
+                Back
               </Button>
             </div>
             <div className="flex items-center space-x-4">

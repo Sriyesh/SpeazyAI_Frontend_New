@@ -282,7 +282,7 @@ export function Dashboard() {
       <header className="sticky top-0 z-50 backdrop-blur-sm border-b border-white/10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            <div className="flex items-center space-x-3 cursor-pointer" onClick={() => navigate("/dashboard")}>
+            <div className="flex items-center space-x-3 cursor-pointer" onClick={() => navigate("/skills")}>
               <div
                 className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg"
                 style={{ background: "#3B82F6" }}

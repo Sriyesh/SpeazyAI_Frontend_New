@@ -23,9 +23,10 @@ import {
 } from "lucide-react";
 import { motion } from "motion/react";
 import { MelloAssistant } from "./MelloAssistant";
+import { useNavigate, useLocation } from "react-router-dom";
 
 interface FamousSpeechesProps {
-  onBack: () => void;
+  onBack?: () => void;
 }
 
 type View = "selection" | "speech-detail" | "quiz";
@@ -70,6 +71,17 @@ const speeches = [
 export function FamousSpeeches({
   onBack,
 }: FamousSpeechesProps) {
+  const navigate = useNavigate()
+  const location = useLocation()
+  const backRoute = (location.state as any)?.backRoute || "/reading-modules"
+  
+  const handleBack = () => {
+    if (onBack) {
+      onBack()
+    } else {
+      navigate(backRoute)
+    }
+  }
   const [currentView, setCurrentView] =
     useState<View>("selection");
   const [selectedSpeech, setSelectedSpeech] = useState<
@@ -233,11 +245,11 @@ export function FamousSpeeches({
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={onBack}
+                onClick={handleBack}
                 className="text-[#F2F6FF] hover:text-[#FFD600] hover:bg-white/10 transition-all duration-300"
               >
                 <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Dashboard
+                Back
               </Button>
             </div>
             <h1

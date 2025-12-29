@@ -33,7 +33,7 @@ export function SignUpPage() {
       alert("Please accept the terms and conditions")
       return
     }
-    navigate("/dashboard")
+    navigate("/skills-home")
   }
 
   const getPasswordStrength = () => {

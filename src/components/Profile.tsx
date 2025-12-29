@@ -92,7 +92,7 @@ export function Profile() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => navigate("/dashboard")}
+              onClick={() => navigate("/skills-home")}
               className="text-[#F2F6FF] hover:text-[#FFD600] hover:bg-white/10 transition-all duration-300"
             >
               <ArrowLeft className="w-4 h-4 mr-2" />

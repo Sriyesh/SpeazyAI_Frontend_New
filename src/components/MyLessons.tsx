@@ -22,7 +22,7 @@ import {
   Square,
 } from "lucide-react"
 import { AudioRecorder } from "./audioRecorder"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, useLocation } from "react-router-dom"
 
 interface MyLessonsProps {
   onBack: () => void
@@ -79,6 +79,8 @@ Maya's research helped protect marine ecosystems and educated people about the i
 
 export function MyLessons() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const backRoute = (location.state as any)?.backRoute || "/reading-modules"
   const [currentView, setCurrentView] = useState<View>("lesson-list")
   const [selectedLesson, setSelectedLesson] = useState<(typeof lessons)[0] | null>(null)
   const [isRecording, setIsRecording] = useState(false)
@@ -294,11 +296,11 @@ export function MyLessons() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => navigate("/dashboard")}
+              onClick={() => navigate(backRoute)}
               className="text-white hover:text-[#CFE2FF] hover:bg-white/10"
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Dashboard
+              Back
             </Button>
             <h1 className="text-xl font-bold text-white">My Lessons Book</h1>
             <div />

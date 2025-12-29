@@ -25,10 +25,10 @@ import {
 } from "lucide-react";
 import { motion } from "motion/react";
 import { MelloAssistant } from "./MelloAssistant";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 
 interface CustomContentProps {
-  onBack: () => void;
+  onBack?: () => void;
 }
 
 type CustomLesson = {
@@ -40,7 +40,18 @@ type CustomLesson = {
 };
 
 export function CustomContent({ onBack }: CustomContentProps) {
-  const navigate = useNavigate();
+  const navigate = useNavigate()
+  const location = useLocation()
+  const backRoute = (location.state as any)?.backRoute || "/speaking-modules"
+  
+  const handleBack = () => {
+    if (onBack) {
+      onBack()
+    } else {
+      navigate(backRoute)
+    }
+  }
+  
   const [view, setView] = useState<
     "list" | "create" | "practice"
   >("list");
@@ -675,11 +686,11 @@ export function CustomContent({ onBack }: CustomContentProps) {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => navigate("/dashboard")}
+                onClick={handleBack}
                 className="text-[#F2F6FF] hover:text-[#FFD600] hover:bg-white/10 transition-all duration-300"
               >
                 <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Dashboard
+                Back
               </Button>
             </div>
             <h1

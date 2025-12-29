@@ -9,48 +9,21 @@ import { Label } from "./ui/label"
 import { Card, CardContent, CardHeader } from "./ui/card"
 import { ThemeToggle } from "./ThemeToggle"
 import { MelloAssistant } from "./MelloAssistant"
-import { Eye, EyeOff, ArrowLeft } from "lucide-react"
+import { Eye, EyeOff } from "lucide-react"
 import { motion } from "motion/react"
 import { useNavigate } from "react-router-dom"
-import { useAuth } from "../contexts/AuthContext"
-import { toast } from "sonner@2.0.3"
 
 export function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showMelloMessage, setShowMelloMessage] = useState(true)
-  const [isLoading, setIsLoading] = useState(false)
 
   const navigate = useNavigate()
-  const { login } = useAuth()
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    setIsLoading(true)
-
-    try {
-      await login(email, password)
-      toast.success("Login successful!", {
-        style: {
-          background: "#10B981",
-          color: "#FFFFFF",
-          border: "none",
-        },
-      })
-      navigate("/dashboard")
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Login failed. Please check your credentials."
-      toast.error(errorMessage, {
-        style: {
-          background: "#EF4444",
-          color: "#FFFFFF",
-          border: "none",
-        },
-      })
-    } finally {
-      setIsLoading(false)
-    }
+navigate("/skills-home")
   }
 
   return (
@@ -98,14 +71,6 @@ export function LoginPage() {
         <ThemeToggle />
       </div>
 
-      <Button
-        variant="ghost"
-        onClick={() => navigate("/")}
-        className="absolute top-4 left-4 text-[#F2F6FF] hover:text-[#FFD600] hover:bg-white/10 transition-all duration-300"
-      >
-        <ArrowLeft className="w-4 h-4 mr-2" />
-        Back
-      </Button>
 
       <div className="w-full max-w-md relative z-10">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
@@ -149,8 +114,6 @@ export function LoginPage() {
                     placeholder="Enter your email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    required
-                    disabled={isLoading}
                     className="h-12 bg-[#F2F6FF] border-0 text-[#1E3A8A] placeholder:text-[#1E3A8A]/40 focus:ring-2 focus:ring-[#3B82F6] rounded-xl"
                   />
                 </div>
@@ -166,8 +129,6 @@ export function LoginPage() {
                       placeholder="Enter your password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      required
-                      disabled={isLoading}
                       className="h-12 bg-[#F2F6FF] border-0 text-[#1E3A8A] placeholder:text-[#1E3A8A]/40 focus:ring-2 focus:ring-[#3B82F6] rounded-xl pr-12"
                     />
                     <button
@@ -192,36 +153,12 @@ export function LoginPage() {
 
                 <Button
                   type="submit"
-                  disabled={isLoading}
-                  className="w-full h-12 bg-gradient-to-r from-[#3B82F6] to-[#00B9FC] text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                  className="w-full h-12 bg-gradient-to-r from-[#3B82F6] to-[#00B9FC] text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105"
                 >
-                  {isLoading ? "Signing in..." : "Sign In"}
+                  Sign In
                 </Button>
               </form>
 
-              <div className="relative my-6">
-                <div className="absolute inset-0 flex items-center">
-                  <div
-                    className="w-full border-t"
-                    style={{
-                      borderColor: "rgba(59, 130, 246, 0.2)",
-                    }}
-                  />
-                </div>
-                <div className="relative flex justify-center text-sm">
-                  <span className="px-4 text-[#1E3A8A]/60" style={{ background: "#FFFFFF" }}>
-                    New to Speech Skills AI?
-                  </span>
-                </div>
-              </div>
-
-              <Button
-                variant="outline"
-                onClick={() => navigate("/signup")}
-                className="w-full h-12 border-2 border-[#3B82F6] text-[#3B82F6] hover:bg-[#3B82F6]/10 rounded-xl transition-all duration-200"
-              >
-                Create Account
-              </Button>
             </CardContent>
           </Card>
         </motion.div>
