@@ -246,54 +246,37 @@ export function ChapterView() {
       <div>
         <ScrollArea className="h-[calc(100vh-64px)]">
           <div className="max-w-[1600px] mx-auto px-4 sm:px-8 lg:px-12 py-8">
-          <div className="flex gap-12 items-start chapter-content-wrapper">
-            {/* Left Sidebar - Green box area */}
-            <motion.div 
-              initial={{ opacity: 0, y: 20 }} 
-              animate={{ opacity: 1, y: 0 }}
-              className="w-16 flex-shrink-0 pt-8 chapter-sidebar"
-            >
-              <div className="hidden bg-white/5 backdrop-blur-sm rounded-lg p-4 h-fit border border-white/10">
-                {/* Sidebar content like bookmark icon */}
-                <div className="flex flex-col items-center gap-4">
-                  {/* Add any sidebar icons here */}
-                </div>
-              </div>
-            </motion.div>
-
+          <div className="flex gap-12 items-center chapter-content-wrapper min-h-[calc(100vh-64px)]">
             {/* PDF Viewer - Left side */}
             <motion.div 
               initial={{ opacity: 0, y: 20 }} 
               animate={{ opacity: 1, y: 0 }}
               className="flex-1 min-w-0 pr-4 pdf-viewer-wrapper"
             >
-              <div className="space-y-6">
-                <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 shadow-xl border border-white/20">
-                  <PDFViewer
-                    classData={classData}
-                    chapter={chapter}
-                    currentPage={currentPage}
-                    zoomLevel={zoomLevel}
-                    onZoomIn={handleZoomIn}
-                    onZoomOut={handleZoomOut}
-                    onResetZoom={handleResetZoom}
-                    onNextPage={handleNextPage}
-                    onPrevPage={handlePrevPage}
-                    onPageSelect={setCurrentPage}
-                  />
-                </div>
-                
+              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 shadow-xl border border-white/20">
+                <PDFViewer
+                  classData={classData}
+                  chapter={chapter}
+                  currentPage={currentPage}
+                  zoomLevel={zoomLevel}
+                  onZoomIn={handleZoomIn}
+                  onZoomOut={handleZoomOut}
+                  onResetZoom={handleResetZoom}
+                  onNextPage={handleNextPage}
+                  onPrevPage={handlePrevPage}
+                  onPageSelect={setCurrentPage}
+                />
               </div>
             </motion.div>
 
-            {/* Audio Recorder - Desktop (hidden on mobile) */}
+            {/* Practice Your Speaking - Right side, centered */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
-              className="w-[400px] flex-shrink-0 pt-24 desktop-audio-recorder"
+              className="w-[400px] flex-shrink-0 desktop-audio-recorder"
             >
-              <div className="bg-white/95 rounded-2xl shadow-2xl p-8 border-0 audio-recorder-card">
+              <div className="bg-white/95 rounded-2xl shadow-2xl p-8 border-0 audio-recorder-card w-full">
                 <h2 className="text-2xl font-bold text-[#1E3A8A] mb-6 text-center audio-recorder-title">Practice Your Speaking</h2>
                 <AudioRecorder 
                   expectedText={chapter.content} 

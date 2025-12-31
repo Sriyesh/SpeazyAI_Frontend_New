@@ -37,6 +37,7 @@ import { StoryDetail } from "./components/StoryDetail"
 import { NovelDetail } from "./components/NovelDetail"
 import { AssessmentResultsPage } from "./components/AssessmentResultsPage"
 import { SpeechAssessmentResultsPage } from "./components/SpeechAssessmentResultsPage"
+import { VideoContent } from "./components/VideoContent"
 import { AuthProvider } from "./contexts/AuthContext"
 import { Toaster } from "./components/ui/sonner"
 import { ProtectedRoute } from "./components/ProtectedRoute"
@@ -89,6 +90,7 @@ export default function App() {
             <Route path="/novel" element={<ProtectedRoute><Novel /></ProtectedRoute>} />
             <Route path="/novel/:novelId" element={<ProtectedRoute><NovelDetail /></ProtectedRoute>} />
             <Route path="/phoneme-guide" element={<ProtectedRoute><PhonemeGuide /></ProtectedRoute>} />
+            <Route path="/sample-videos" element={<ProtectedRoute><VideoContent /></ProtectedRoute>} />
             
             {/* Catch all - redirect to login */}
             <Route path="*" element={<Navigate to="/login" replace />} />

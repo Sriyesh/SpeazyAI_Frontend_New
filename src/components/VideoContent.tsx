@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, useLocation } from "react-router-dom"
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card"
 import { Button } from "./ui/button"
 import { ArrowLeft, Play } from "lucide-react"
@@ -113,6 +113,7 @@ const videoCategories: VideoCategory[] = [
 
 export function VideoContent({ onBack }: { onBack?: () => void }) {
   const navigate = useNavigate()
+  const location = useLocation()
   const [selectedCategory, setSelectedCategory] = useState<VideoCategory | null>(null)
   const [selectedVideo, setSelectedVideo] = useState<VideoItem | null>(null)
 
@@ -131,7 +132,9 @@ export function VideoContent({ onBack }: { onBack?: () => void }) {
     if (onBack) {
       onBack()
     } else {
-      navigate("/dashboard")
+      // Use location state if available, otherwise default to reading-modules or dashboard
+      const backRoute = (location.state as { backRoute?: string })?.backRoute || "/reading-modules"
+      navigate(backRoute)
     }
   }
 
