@@ -62,23 +62,26 @@ export function SpeakingModulesPage() {
 
       {/* Main Content */}
       <div className="flex-1 overflow-y-auto">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="mb-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <div className="mb-12">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => navigate("/skills-home")}
-              className="text-white hover:bg-white/10 mb-4 rounded-2xl"
+              className="text-white hover:bg-white/10 mb-8 rounded-2xl"
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back
             </Button>
-            <h2 className="text-3xl font-bold text-white mb-2">Speaking</h2>
-            <p className="text-base text-white/80">Choose your learning path</p>
+            <div className="text-center">
+              <h2 className="text-3xl font-bold text-white mb-3">Speaking</h2>
+              <p className="text-base text-white/80">Choose your learning path</p>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {speakingModules.map((module) => (
+          <div className="flex justify-center py-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl w-full">
+              {speakingModules.map((module) => (
               <Card
                 key={module.id}
                 className="group bg-white border-0 cursor-pointer transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl relative overflow-hidden rounded-3xl h-full flex flex-col"
@@ -94,7 +97,8 @@ export function SpeakingModulesPage() {
                   <p className="text-sm text-[#1E3A8A]/70">{module.description}</p>
                 </CardHeader>
               </Card>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
       </div>

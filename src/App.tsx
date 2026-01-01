@@ -51,7 +51,7 @@ export default function App() {
           <div className="size-full">
             <Routes>
             {/* Public Routes */}
-            <Route path="/" element={<Navigate to="/login" replace />} />
+            <Route path="/" element={<HomePage />} />
             <Route path="/about" element={<AboutPage />} />
             <Route path="/contact" element={<ContactPage />} />
             <Route path="/login" element={<LoginPage />} />

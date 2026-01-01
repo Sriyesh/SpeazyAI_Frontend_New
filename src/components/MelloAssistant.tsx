@@ -16,6 +16,7 @@ interface MelloAssistantProps {
   onMessageDismiss?: () => void;
   position?: "bottom-right" | "bottom-left" | "center";
   onClick?: () => void;
+  showConnectTeacher?: boolean;
 }
 
 export function MelloAssistant({
@@ -25,6 +26,7 @@ export function MelloAssistant({
   onMessageDismiss,
   position = "bottom-right",
   onClick,
+  showConnectTeacher = false,
 }: MelloAssistantProps) {
   const navigate = useNavigate();
   const [isBlinking, setIsBlinking] = useState(false);
@@ -109,19 +111,21 @@ export function MelloAssistant({
                     </Button>
                   )}
                 </div>
-                <div className="flex flex-col gap-2 pt-2 border-t border-[#3B82F6]/20">
-                  <p className="text-xs text-[#1E3A8A]/70 font-medium">Need help?</p>
-                  <Button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigate("/connect-teacher");
-                    }}
-                    className="flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-[#3B82F6] to-[#00B9FC] text-white hover:from-[#2563EB] hover:to-[#0099CC] transition-all duration-200 rounded-lg shadow-lg hover:shadow-xl hover:scale-105 font-semibold text-sm"
-                  >
-                    <Phone className="w-5 h-5" />
-                    <span>Connect with Teacher</span>
-                  </Button>
-                </div>
+                {showConnectTeacher && (
+                  <div className="flex flex-col gap-2 pt-2 border-t border-[#3B82F6]/20">
+                    <p className="text-xs text-[#1E3A8A]/70 font-medium">Need help?</p>
+                    <Button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate("/connect-teacher");
+                      }}
+                      className="flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-[#3B82F6] to-[#00B9FC] text-white hover:from-[#2563EB] hover:to-[#0099CC] transition-all duration-200 rounded-lg shadow-lg hover:shadow-xl hover:scale-105 font-semibold text-sm"
+                    >
+                      <Phone className="w-5 h-5" />
+                      <span>Connect with Teacher</span>
+                    </Button>
+                  </div>
+                )}
               </div>
             </div>
           </motion.div>

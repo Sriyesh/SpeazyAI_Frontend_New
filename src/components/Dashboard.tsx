@@ -289,7 +289,7 @@ export function Dashboard() {
               >
                 <Mic2 className="w-5 h-5 text-white" />
               </div>
-              <h1 className="text-lg text-[#F2F6FF]">Speech Skills AI</h1>
+              <h1 className="text-lg text-[#F2F6FF]">English Skill AI</h1>
             </div>
 
             <div className="flex items-center space-x-4">
@@ -440,6 +440,7 @@ export function Dashboard() {
         showMessage={showMelloMessage}
         onMessageDismiss={() => setShowMelloMessage(false)}
         position="bottom-right"
+        showConnectTeacher={true}
       />
     </div>
   )

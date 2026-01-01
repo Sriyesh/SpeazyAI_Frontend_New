@@ -12,7 +12,6 @@ import { motion } from "motion/react"
 import { useNavigate, Navigate } from "react-router-dom"
 import { useAuth } from "../contexts/AuthContext"
 import { toast } from "sonner"
-import { useEffect } from "react"
 
 export function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
@@ -24,13 +23,6 @@ export function LoginPage() {
 
   const navigate = useNavigate()
   const { login, isAuthenticated, loading } = useAuth()
-
-  // Redirect to dashboard if already authenticated
-  useEffect(() => {
-    if (!loading && isAuthenticated) {
-      navigate("/skills-home", { replace: true })
-    }
-  }, [isAuthenticated, loading, navigate])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -105,11 +97,6 @@ export function LoginPage() {
         </div>
       </div>
     )
-  }
-
-  // Redirect if already authenticated (handled by useEffect, but also prevent rendering)
-  if (isAuthenticated) {
-    return null
   }
 
   return (
@@ -311,7 +298,7 @@ export function LoginPage() {
       >
         <MelloAssistant
           state={showMelloMessage ? "celebrating" : "idle"}
-          message="Welcome back! Ready to continue improving your speaking skills? 🎯😄"
+          message="Welcome back! Ready to continue improving your english skills? 🎯😄"
           showMessage={showMelloMessage}
           onMessageDismiss={() => setShowMelloMessage(false)}
           position="bottom-right"

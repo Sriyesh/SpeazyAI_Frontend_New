@@ -3,7 +3,7 @@
 import { useNavigate } from "react-router-dom"
 import { Button } from "./ui/button"
 import { MelloEyes } from "./MelloEyes"
-import { Star, Phone, LogOut } from "lucide-react"
+import { Star, LogOut } from "lucide-react"
 import { useAuth } from "../contexts/AuthContext"
 
 export function PageHeader() {
@@ -81,7 +81,7 @@ export function PageHeader() {
                 color: "#FFFFFF",
               }}
             >
-              Speech Skills AI
+              English Skill AI
             </h1>
           </div>
 
@@ -122,32 +122,6 @@ export function PageHeader() {
                 7 day streak
               </span>
             </div>
-
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate("/connect-teacher")}
-              style={{
-                color: "#FFFFFF",
-                borderRadius: "16px",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.1)"
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = "transparent"
-              }}
-              title="Connect with Teacher"
-            >
-              <Phone
-                style={{
-                  width: "16px",
-                  height: "16px",
-                  marginRight: "8px",
-                }}
-              />
-              Connect Teacher
-            </Button>
 
             <Button
               variant="ghost"

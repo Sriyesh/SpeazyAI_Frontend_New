@@ -394,6 +394,7 @@ export function NewDashboard() {
         showMessage={showMelloMessage}
         onMessageDismiss={() => setShowMelloMessage(false)}
         position="bottom-right"
+        showConnectTeacher={true}
       />
     </div>
   )
