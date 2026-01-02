@@ -513,7 +513,6 @@ export function AudioRecorder({
               {/* Play/Pause Button */}
               <button
                 onClick={togglePlayback}
-                className={gradientClass}
                 style={{
                   flexShrink: 0,
                   width: "3rem",
@@ -523,8 +522,7 @@ export function AudioRecorder({
                   alignItems: "center",
                   justifyContent: "center",
                   color: "white",
-                  // Fallback or gradient override
-                  background: isTailwind ? undefined : lessonColor,
+                  ...gradientStyle,
                   boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
                   transition: "transform 0.1s",
                   cursor: "pointer",
