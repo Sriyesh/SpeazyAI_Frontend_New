@@ -351,7 +351,7 @@ export function ContentLibrary({ onBack }: ContentLibraryProps) {
                     title: newTitle.trim(),
                     class_name: selectedClass,
                     userId: authData?.user?.id || 12,
-                    chapterName: chapterName.trim(),
+                    chapter_name: chapterName.trim(),
                     pdf_url: publicUrl,
                 }),
             });

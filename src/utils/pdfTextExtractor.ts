@@ -80,7 +80,7 @@ export const clearAllPdfTextCache = (): void => {
 
 /**
  * Extract text from PDF using pdf.js from CDN (client-side extraction)
- * Then optionally send to ChatGPT API for processing/formatting
+ * Fetches PDF as blob first to handle CORS issues
  */
 const extractTextFromPdf = async (pdfUrl: string): Promise<string> => {
   try {
@@ -108,11 +108,62 @@ const extractTextFromPdf = async (pdfUrl: string): Promise<string> => {
       throw new Error('Failed to load pdf.js library')
     }
 
-    // Load the PDF
+    // Fetch PDF as blob first to handle CORS issues
+    // This approach works better with CORS-restricted resources
+    let pdfData: ArrayBuffer | string
+    
+    try {
+      // Try to fetch as blob first (handles CORS better)
+      const response = await fetch(pdfUrl, {
+        mode: 'cors',
+        credentials: 'omit',
+      })
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch PDF: ${response.status} ${response.statusText}`)
+      }
+      
+      const blob = await response.blob()
+      pdfData = await blob.arrayBuffer()
+    } catch (fetchError: any) {
+      // If direct fetch fails due to CORS, try using proxy
+      console.warn('Direct fetch failed, trying proxy:', fetchError.message)
+      
+      try {
+        const isLocal = typeof window !== 'undefined' && (
+          window.location.hostname === 'localhost' || 
+          window.location.hostname === '127.0.0.1'
+        )
+        
+        const proxyUrl = isLocal
+          ? `/api/pdf-proxy?url=${encodeURIComponent(pdfUrl)}` // Local proxy (if you create one)
+          : `/.netlify/functions/pdfProxy?url=${encodeURIComponent(pdfUrl)}` // Netlify function
+        
+        const proxyResponse = await fetch(proxyUrl)
+        
+        if (!proxyResponse.ok) {
+          throw new Error(`Proxy failed: ${proxyResponse.status}`)
+        }
+        
+        // Proxy returns PDF as blob
+        const blob = await proxyResponse.blob()
+        pdfData = await blob.arrayBuffer()
+      } catch (proxyError: any) {
+        // Last resort: try using the URL directly with pdf.js
+        // Some servers allow pdf.js to load even if fetch fails
+        console.warn('Proxy also failed, trying URL directly:', proxyError.message)
+        pdfData = pdfUrl
+      }
+    }
+
+    // Load the PDF using the blob data or URL
     const loadingTask = pdfjs.getDocument({
-      url: pdfUrl,
+      data: pdfData instanceof ArrayBuffer ? pdfData : undefined,
+      url: pdfData instanceof ArrayBuffer ? undefined : pdfData as string,
       withCredentials: false,
+      httpHeaders: {},
     })
+    
     const pdf = await loadingTask.promise
 
     let fullText = ''
@@ -130,7 +181,16 @@ const extractTextFromPdf = async (pdfUrl: string): Promise<string> => {
     return fullText.trim()
   } catch (error) {
     console.error('Error extracting text from PDF:', error)
-    throw new Error(`Failed to extract text from PDF: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    
+    // Provide more helpful error message
+    if (error instanceof Error) {
+      if (error.message.includes('CORS') || error.message.includes('Failed to fetch')) {
+        throw new Error('PDF cannot be accessed due to CORS restrictions. Please ensure the PDF server allows cross-origin requests.')
+      }
+      throw new Error(`Failed to extract text from PDF: ${error.message}`)
+    }
+    
+    throw new Error(`Failed to extract text from PDF: Unknown error`)
   }
 }
 
