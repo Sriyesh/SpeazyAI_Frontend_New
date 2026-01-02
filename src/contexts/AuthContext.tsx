@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { clearAllPdfTextCache } from '../utils/pdfTextExtractor';
 
 interface User {
   id: number;
@@ -117,6 +118,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const logout = () => {
     setAuthData(null);
     localStorage.removeItem('authData');
+    // Clear PDF text cache
+    try {
+      clearAllPdfTextCache();
+    } catch (error) {
+      console.error('Error clearing PDF cache on logout:', error);
+    }
   };
 
   const value: AuthContextType = {

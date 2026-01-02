@@ -354,28 +354,82 @@ export function AudioRecorder({
 
   // Helper to get valid CSS values from lessonColor
   const isTailwind = lessonColor.includes("from-")
-  const gradientClass = isTailwind ? `bg-gradient-to-r ${lessonColor}` : ""
   // Try to extract a hex color for text/borders, fallback to blue-600
   const extractHex = (str: string) => {
     const match = str.match(/#[0-9a-fA-F]{6}/)
     return match ? match[0] : "#2563eb"
   }
   const themeColor = isTailwind ? "#2563eb" : extractHex(lessonColor)
-  const gradientStyle = isTailwind ? {} : { background: lessonColor }
+  
+  // Extract gradient colors from Tailwind class or use provided gradient
+  const getGradientStyle = () => {
+    if (!isTailwind) {
+      return { background: lessonColor }
+    }
+    
+    // Map Tailwind gradient classes to actual gradient values
+    const gradientMap: { [key: string]: string } = {
+      "from-blue-500 to-cyan-400": "linear-gradient(to right, #3B82F6, #22D3EE)",
+      "from-blue-700 to-blue-500": "linear-gradient(to right, #1D4ED8, #3B82F6)",
+      "from-cyan-400 to-blue-500": "linear-gradient(to right, #22D3EE, #3B82F6)",
+      "from-indigo-500 to-purple-500": "linear-gradient(to right, #6366F1, #A855F7)",
+      "from-pink-500 to-rose-500": "linear-gradient(to right, #EC4899, #F43F5E)",
+      "from-amber-500 to-red-500": "linear-gradient(to right, #F59E0B, #EF4444)",
+      "from-emerald-500 to-emerald-600": "linear-gradient(to right, #10B981, #059669)",
+      "from-purple-500 to-pink-500": "linear-gradient(to right, #A855F7, #EC4899)",
+    }
+    
+    const gradientValue = gradientMap[lessonColor] || "linear-gradient(to right, #3B82F6, #22D3EE)"
+    return { background: gradientValue }
+  }
+  
+  const gradientStyle = getGradientStyle()
 
   return (
     <div className="w-full space-y-6">
       {/* 🎙 Start / Stop Recording */}
       {!isRecording && !audioUrl && (
-        <Button
-          size="lg"
+        <button
           onClick={() => startRecording()}
-          className={`text-white rounded-full px-8 py-6 text-lg shadow-lg transform hover:scale-105 transition-all duration-200 w-full sm:w-auto ${gradientClass}`}
-          style={gradientStyle}
+          style={{
+            ...gradientStyle,
+            color: "#FFFFFF",
+            borderRadius: "9999px",
+            paddingLeft: "2rem",
+            paddingRight: "2rem",
+            paddingTop: "1.5rem",
+            paddingBottom: "1.5rem",
+            fontSize: "1.125rem",
+            fontWeight: "600",
+            boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
+            transform: "scale(1)",
+            transition: "all 0.2s ease-in-out",
+            width: "100%",
+            border: "none",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "0.5rem",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = "scale(1.05)"
+            e.currentTarget.style.boxShadow = "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)"
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = "scale(1)"
+            e.currentTarget.style.boxShadow = "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)"
+          }}
+          onMouseDown={(e) => {
+            e.currentTarget.style.transform = "scale(0.98)"
+          }}
+          onMouseUp={(e) => {
+            e.currentTarget.style.transform = "scale(1.05)"
+          }}
         >
-          <Mic className="w-6 h-6 mr-2" />
+          <Mic style={{ width: "24px", height: "24px" }} />
           Start Recording
-        </Button>
+        </button>
       )}
 
       {isRecording && (

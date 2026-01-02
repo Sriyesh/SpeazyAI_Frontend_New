@@ -147,6 +147,72 @@ Be encouraging but honest. Adjust your expectations based on the level (beginner
   }
 });
 
+// PDF Extraction Proxy endpoint
+app.post("/pdfExtractProxy", async (req, res) => {
+  try {
+    const { pdf_base64, extracted_text, prompt } = req.body;
+
+    // If we have extracted_text, process it with ChatGPT
+    if (extracted_text) {
+      const openaiApiKey = process.env.OPENAI_API_KEY;
+      if (!openaiApiKey) {
+        return res.status(500).json({ error: "OpenAI API key not configured" });
+      }
+
+      const processingPrompt = prompt || 
+        `Please process and format the following text extracted from a PDF. Clean up any formatting issues, preserve paragraph structure, and return the cleaned text. Do not add any commentary, just return the cleaned text:\n\n${extracted_text.substring(0, 100000)}`;
+
+      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${openaiApiKey}`,
+        },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          messages: [
+            {
+              role: "system",
+              content: "You are a helpful assistant that processes and cleans text extracted from PDF files. Return only the cleaned text without any additional commentary.",
+            },
+            {
+              role: "user",
+              content: processingPrompt,
+            },
+          ],
+          max_tokens: 4000,
+          temperature: 0.3,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("OpenAI API Error:", errorText);
+        // Return the raw extracted text if ChatGPT processing fails
+        res.header("Access-Control-Allow-Origin", "*");
+        return res.json({ text: extracted_text });
+      }
+
+      const data = await response.json();
+      const processedText = data.choices?.[0]?.message?.content || extracted_text;
+
+      res.header("Access-Control-Allow-Origin", "*");
+      return res.json({ text: processedText });
+    }
+
+    // If we have pdf_base64, we would need a PDF parsing library on the server
+    // For now, return an error suggesting client-side extraction
+    res.header("Access-Control-Allow-Origin", "*");
+    return res.status(400).json({ 
+      error: "Please extract PDF text client-side first, then send extracted_text for processing" 
+    });
+  } catch (err) {
+    console.error("PDF Extract Proxy Error:", err);
+    res.header("Access-Control-Allow-Origin", "*");
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 // Health check endpoint
 app.get("/health", (req, res) => {
   res.header("Access-Control-Allow-Origin", "*");
