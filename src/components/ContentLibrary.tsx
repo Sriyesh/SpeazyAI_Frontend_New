@@ -1281,7 +1281,7 @@ export function ContentLibrary({ onBack }: ContentLibraryProps) {
                                                                 View PDF
                                                             </Button>
                                                         </DialogTrigger>
-                                                        <DialogContent className="bg-white p-0 overflow-hidden" style={{ maxWidth: '94vw', width: '94vw', maxHeight: '95vh', height: '95vh', display: 'flex', flexDirection: 'column' }}>
+                                                        <DialogContent className="bg-white p-0 overflow-hidden" style={{ maxWidth: '80vw', width: '80vw', maxHeight: '85vh', height: '85vh', display: 'flex', flexDirection: 'column' }}>
                                                             <DialogHeader className="p-4 pb-3 border-b border-[#E5E7EB] flex-shrink-0 relative">
                                                                 <DialogClose asChild>
                                                                     <Button
@@ -1343,7 +1343,7 @@ export function ContentLibrary({ onBack }: ContentLibraryProps) {
                                                                         }}>
                                                                             <iframe
                                                                                 key={item.pdfUrl}
-                                                                                src={`${item.pdfUrl}#view=FitH`}
+                                                                                src={`${item.pdfUrl}#toolbar=0&navpanes=0&scrollbar=0&zoom=100`}
                                                                                 style={{ 
                                                                                     width: "100%", 
                                                                                     height: "100%", 
@@ -1351,7 +1351,7 @@ export function ContentLibrary({ onBack }: ContentLibraryProps) {
                                                                                     display: "block"
                                                                                 }}
                                                                                 title={item.title}
-                                                                                allowFullScreen
+                                                                                allowFullScreen={false}
                                                                                 loading="lazy"
                                                                             />
                                                                         </div>

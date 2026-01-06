@@ -785,7 +785,7 @@ export function MyLessons() {
                         {selectedLesson.pdfUrl ? (
                           <div className="w-full" style={{ height: "calc(100vh - 350px)", minHeight: "600px" }}>
                             <iframe
-                              src={selectedLesson.pdfUrl}
+                              src={`${selectedLesson.pdfUrl}#toolbar=0&navpanes=0&zoom=100&scrollbar=1&view=FitH`}
                               className="w-full h-full border-0 rounded-lg"
                               title={selectedLesson.title}
                             />
