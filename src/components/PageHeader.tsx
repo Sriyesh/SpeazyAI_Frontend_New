@@ -1,14 +1,18 @@
 "use client"
 
 import { useNavigate } from "react-router-dom"
+import { useState, useEffect } from "react"
 import { Button } from "./ui/button"
 import { MelloEyes } from "./MelloEyes"
 import { Star, LogOut } from "lucide-react"
 import { useAuth } from "../contexts/AuthContext"
+import { fetchStreakData } from "../utils/streakApi"
 
 export function PageHeader() {
   const navigate = useNavigate()
-  const { authData, logout } = useAuth()
+  const { authData, logout, token } = useAuth()
+  const [streakDays, setStreakDays] = useState<number>(0)
+  const [loadingStreak, setLoadingStreak] = useState(true)
 
   // Get user initials from auth data
   const userInitials = authData?.user
@@ -19,6 +23,30 @@ export function PageHeader() {
     logout()
     navigate("/login", { replace: true })
   }
+
+  // Fetch streak data on mount and when token changes
+  useEffect(() => {
+    const loadStreakData = async () => {
+      if (!token) {
+        setLoadingStreak(false)
+        return
+      }
+
+      try {
+        setLoadingStreak(true)
+        const streakData = await fetchStreakData(token)
+        if (streakData) {
+          setStreakDays(streakData.current_streak || streakData.streak_days || 0)
+        }
+      } catch (error) {
+        console.error('Error loading streak data:', error)
+      } finally {
+        setLoadingStreak(false)
+      }
+    }
+
+    loadStreakData()
+  }, [token])
 
   return (
     <>
@@ -119,7 +147,7 @@ export function PageHeader() {
                   color: "#FFFFFF",
                 }}
               >
-                7 day streak
+                {loadingStreak ? "..." : `${streakDays} day${streakDays !== 1 ? 's' : ''} streak`}
               </span>
             </div>
 

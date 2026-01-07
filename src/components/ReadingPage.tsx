@@ -2,7 +2,6 @@
 
 import React from "react";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { Card } from "@/components/ui/card";
 import { BookOpen, Layers, Lightbulb } from "lucide-react";
 
 export default function ReadingPage() {
@@ -13,15 +12,136 @@ export default function ReadingPage() {
     backgroundSize: "cover",
   };
 
+  const containerStyle: React.CSSProperties = {
+    minHeight: "100vh",
+    position: "relative",
+    fontFamily: "Fredoka, sans-serif",
+  };
+
+  const backgroundStyle: React.CSSProperties = {
+    position: "absolute",
+    inset: 0,
+    zIndex: -10,
+    ...BLUE_BG,
+  };
+
+  const headerStyle: React.CSSProperties = {
+    position: "sticky",
+    top: 0,
+    zIndex: 50,
+    backdropFilter: "blur(12px)",
+    borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
+  };
+
+  const headerContentStyle: React.CSSProperties = {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: "0 32px",
+    height: "64px",
+  };
+
+  const titleStyle: React.CSSProperties = {
+    color: "white",
+    fontSize: "18px",
+    fontWeight: 600,
+    display: "flex",
+    gap: "8px",
+    alignItems: "center",
+  };
+
+  const mainStyle: React.CSSProperties = {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "64px 24px",
+    maxWidth: "1152px",
+    margin: "0 auto",
+    textAlign: "center",
+  };
+
+  const headingStyle: React.CSSProperties = {
+    fontSize: "clamp(30px, 4vw, 36px)",
+    color: "white",
+    fontWeight: 800,
+    marginBottom: "40px",
+  };
+
+  const gridStyle: React.CSSProperties = {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+    gap: "32px",
+    width: "100%",
+  };
+
+  const cardStyle: React.CSSProperties = {
+    backgroundColor: "white",
+    borderRadius: "24px",
+    padding: "32px",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    textAlign: "center",
+    boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+    cursor: "pointer",
+    transition: "all 0.3s ease",
+  };
+
+  const cardHoverStyle: React.CSSProperties = {
+    ...cardStyle,
+    boxShadow: "0 20px 25px rgba(0, 0, 0, 0.15)",
+  };
+
+  const iconContainerStyle1: React.CSSProperties = {
+    width: "64px",
+    height: "64px",
+    marginBottom: "16px",
+    borderRadius: "50%",
+    background: "linear-gradient(to bottom right, #38bdf8, #3b82f6)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  };
+
+  const iconContainerStyle2: React.CSSProperties = {
+    ...iconContainerStyle1,
+    background: "linear-gradient(to bottom right, #4ade80, #10b981)",
+  };
+
+  const iconContainerStyle3: React.CSSProperties = {
+    ...iconContainerStyle1,
+    background: "linear-gradient(to bottom right, #fde047, #eab308)",
+  };
+
+  const iconStyle: React.CSSProperties = {
+    width: "32px",
+    height: "32px",
+    color: "white",
+  };
+
+  const cardTitleStyle: React.CSSProperties = {
+    fontSize: "20px",
+    fontWeight: 700,
+    color: "#0F1F47",
+    marginBottom: "8px",
+  };
+
+  const cardTextStyle: React.CSSProperties = {
+    fontSize: "14px",
+    color: "rgba(15, 31, 71, 0.7)",
+  };
+
   return (
-    <div className="min-h-screen relative font-[Fredoka]">
-      <div className="absolute inset-0 -z-10" style={BLUE_BG} />
+    <div style={containerStyle}>
+      <div style={backgroundStyle} />
 
       {/* HEADER */}
-      <header className="sticky top-0 z-50 backdrop-blur-md border-b border-white/10">
-        <div className="flex items-center justify-between px-8 h-16">
-          <h1 className="text-white text-lg font-semibold flex gap-2 items-center">
-            <BookOpen className="w-5 h-5 text-white" />
+      <header style={headerStyle}>
+        <div style={headerContentStyle}>
+          <h1 style={titleStyle}>
+            <BookOpen style={{ width: "20px", height: "20px", color: "white" }} />
             Reading Skills
           </h1>
           <ThemeToggle />
@@ -29,38 +149,68 @@ export default function ReadingPage() {
       </header>
 
       {/* MAIN CONTENT */}
-      <main className="flex flex-col items-center justify-center px-6 py-16 max-w-6xl mx-auto text-center">
-        <h2 className="text-3xl md:text-4xl text-white font-extrabold mb-10">
+      <main style={mainStyle}>
+        <h2 style={headingStyle}>
           Dive into Reading 📖
         </h2>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 w-full">
+        <div style={gridStyle}>
           {/* My Lessons */}
-          <Card className="bg-white rounded-3xl p-8 flex flex-col items-center justify-center text-center shadow-md hover:shadow-xl transition-all duration-300 cursor-pointer">
-            <div className="w-16 h-16 mb-4 rounded-full bg-gradient-to-br from-sky-400 to-blue-500 flex items-center justify-center">
-              <BookOpen className="w-8 h-8 text-white" />
+          <div
+            style={cardStyle}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.boxShadow = "0 20px 25px rgba(0, 0, 0, 0.15)";
+              e.currentTarget.style.transform = "translateY(-4px)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.boxShadow = "0 4px 6px rgba(0, 0, 0, 0.1)";
+              e.currentTarget.style.transform = "translateY(0)";
+            }}
+          >
+            <div style={iconContainerStyle1}>
+              <BookOpen style={iconStyle} />
             </div>
-            <h3 className="text-xl font-bold text-[#0F1F47] mb-2">My Lessons</h3>
-            <p className="text-sm text-[#0F1F47]/70">Track, continue, or revise lessons at your pace.</p>
-          </Card>
+            <h3 style={cardTitleStyle}>My Lessons</h3>
+            <p style={cardTextStyle}>Track, continue, or revise lessons at your pace.</p>
+          </div>
 
           {/* Custom Content */}
-          <Card className="bg-white rounded-3xl p-8 flex flex-col items-center justify-center text-center shadow-md hover:shadow-xl transition-all duration-300 cursor-pointer">
-            <div className="w-16 h-16 mb-4 rounded-full bg-gradient-to-br from-green-400 to-emerald-500 flex items-center justify-center">
-              <Layers className="w-8 h-8 text-white" />
+          <div
+            style={cardStyle}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.boxShadow = "0 20px 25px rgba(0, 0, 0, 0.15)";
+              e.currentTarget.style.transform = "translateY(-4px)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.boxShadow = "0 4px 6px rgba(0, 0, 0, 0.1)";
+              e.currentTarget.style.transform = "translateY(0)";
+            }}
+          >
+            <div style={iconContainerStyle2}>
+              <Layers style={iconStyle} />
             </div>
-            <h3 className="text-xl font-bold text-[#0F1F47] mb-2">Custom Content</h3>
-            <p className="text-sm text-[#0F1F47]/70">Access personalized reading materials and uploads.</p>
-          </Card>
+            <h3 style={cardTitleStyle}>Custom Content</h3>
+            <p style={cardTextStyle}>Access personalized reading materials and uploads.</p>
+          </div>
 
           {/* Learn Your Own Way */}
-          <Card className="bg-white rounded-3xl p-8 flex flex-col items-center justify-center text-center shadow-md hover:shadow-xl transition-all duration-300 cursor-pointer">
-            <div className="w-16 h-16 mb-4 rounded-full bg-gradient-to-br from-yellow-300 to-yellow-500 flex items-center justify-center">
-              <Lightbulb className="w-8 h-8 text-white" />
+          <div
+            style={cardStyle}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.boxShadow = "0 20px 25px rgba(0, 0, 0, 0.15)";
+              e.currentTarget.style.transform = "translateY(-4px)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.boxShadow = "0 4px 6px rgba(0, 0, 0, 0.1)";
+              e.currentTarget.style.transform = "translateY(0)";
+            }}
+          >
+            <div style={iconContainerStyle3}>
+              <Lightbulb style={iconStyle} />
             </div>
-            <h3 className="text-xl font-bold text-[#0F1F47] mb-2">Learn Your Own Way</h3>
-            <p className="text-sm text-[#0F1F47]/70">Explore flexible content designed around your learning style.</p>
-          </Card>
+            <h3 style={cardTitleStyle}>Learn Your Own Way</h3>
+            <p style={cardTextStyle}>Explore flexible content designed around your learning style.</p>
+          </div>
         </div>
       </main>
     </div>

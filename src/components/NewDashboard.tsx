@@ -8,6 +8,7 @@ import { Button } from "./ui/button"
 import { MelloAssistant } from "./MelloAssistant"
 import { PageHeader } from "./PageHeader"
 import { useAuth } from "../contexts/AuthContext"
+import { fetchStreakData } from "../utils/streakApi"
 import {
   BookOpen,
   PenTool,
@@ -23,11 +24,37 @@ export function NewDashboard() {
   const navigate = useNavigate()
   const [isLoaded, setIsLoaded] = useState(false)
   const [showMelloMessage, setShowMelloMessage] = useState(true)
-  const { authData } = useAuth()
+  const { authData, token } = useAuth()
+  const [streakDays, setStreakDays] = useState<number>(0)
+  const [loadingStreak, setLoadingStreak] = useState(true)
 
   useEffect(() => {
     setTimeout(() => setIsLoaded(true), 100)
   }, [])
+
+  // Fetch streak data on mount and when token changes
+  useEffect(() => {
+    const loadStreakData = async () => {
+      if (!token) {
+        setLoadingStreak(false)
+        return
+      }
+
+      try {
+        setLoadingStreak(true)
+        const streakData = await fetchStreakData(token)
+        if (streakData) {
+          setStreakDays(streakData.current_streak || streakData.streak_days || 0)
+        }
+      } catch (error) {
+        console.error('Error loading streak data:', error)
+      } finally {
+        setLoadingStreak(false)
+      }
+    }
+
+    loadStreakData()
+  }, [token])
 
   // Main learning modules (6 tiles in order: Speaking, Writing, Reading, Listening, IELTS, AI Tutor)
   const modules = [
@@ -117,7 +144,7 @@ export function NewDashboard() {
     },
     {
       label: "Streak Days",
-      value: "7",
+      value: loadingStreak ? "..." : streakDays.toString(),
       icon: Star,
       color: "#FFD600",
     },
@@ -390,7 +417,7 @@ export function NewDashboard() {
 
       <MelloAssistant
         state="waving"
-        message={`Hi! Welcome back, ${authData?.user?.first_name || "User"}! You're on a 7-day streak! Keep it up! 👋🎉`}
+        message={`Hi! Welcome back, ${authData?.user?.first_name || "User"}! ${streakDays > 0 ? `You're on a ${streakDays}-day streak! Keep it up! 👋🎉` : "Ready to start your learning journey? 👋"}`}
         showMessage={showMelloMessage}
         onMessageDismiss={() => setShowMelloMessage(false)}
         position="bottom-right"

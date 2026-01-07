@@ -2,7 +2,9 @@
 
 import { useNavigate, useLocation } from "react-router-dom"
 import { Button } from "./ui/button"
-import { ArrowLeft, BookText } from "lucide-react"
+import { ArrowLeft } from "lucide-react"
+import { useState, useRef } from "react"
+import React from "react"
 import type { CSSProperties } from "react"
 
 const BLUE_BG: CSSProperties = {
@@ -12,39 +14,482 @@ const BLUE_BG: CSSProperties = {
   backgroundSize: "cover",
 }
 
+// Phoneme data structure
+interface Phoneme {
+  symbol: string
+  examples: string[]
+  type: 'short-vowel' | 'long-vowel' | 'diphthong' | 'voiced-consonant' | 'unvoiced-consonant'
+}
+
+const vowels: Phoneme[] = [
+  // Row 1
+  { symbol: 'i:', examples: ['sheep', 'eagle', 'field'], type: 'long-vowel' },
+  { symbol: 'ɪ', examples: ['ship', 'busy', 'started'], type: 'short-vowel' },
+  { symbol: 'ʊ', examples: ['good', 'put', 'should'], type: 'short-vowel' },
+  { symbol: 'u:', examples: ['moon', 'grew', 'through'], type: 'long-vowel' },
+  { symbol: 'ɪə', examples: ['ear', 'here', 'career'], type: 'diphthong' },
+  { symbol: 'eɪ', examples: ['train', 'say', 'plane'], type: 'diphthong' },
+  // Row 2
+  { symbol: 'e', examples: ['bed', 'dead', 'said'], type: 'short-vowel' },
+  { symbol: 'ə', examples: ['about', 'police', 'the'], type: 'short-vowel' },
+  { symbol: 'ɜ:', examples: ['bird', 'hurt', 'work'], type: 'long-vowel' },
+  { symbol: 'ɔ:', examples: ['door', 'walk', 'saw'], type: 'long-vowel' },
+  { symbol: 'ʊə', examples: ['your', 'sure', 'tourist'], type: 'diphthong' },
+  { symbol: 'ɔɪ', examples: ['boy', 'point', 'oil'], type: 'diphthong' },
+  { symbol: 'əʊ', examples: ['coat', 'low', 'note'], type: 'diphthong' },
+  // Row 3
+  { symbol: 'æ', examples: ['apple', 'cat', 'mat'], type: 'short-vowel' },
+  { symbol: 'ʌ', examples: ['up', 'money', 'cut'], type: 'short-vowel' },
+  { symbol: 'ɑ:', examples: ['car', 'bath', 'safari'], type: 'long-vowel' },
+  { symbol: 'ɒ', examples: ['not', 'what', 'because'], type: 'short-vowel' },
+  { symbol: 'eə', examples: ['hair', 'careful', 'there'], type: 'diphthong' },
+  { symbol: 'aɪ', examples: ['by', 'high', 'fine'], type: 'diphthong' },
+  { symbol: 'aʊ', examples: ['now', 'our', 'house'], type: 'diphthong' },
+]
+
+const consonants: Phoneme[] = [
+  // Row 1
+  { symbol: 'p', examples: ['pen', 'hopping', 'jump'], type: 'unvoiced-consonant' },
+  { symbol: 'b', examples: ['ball', 'hobby', 'herb'], type: 'voiced-consonant' },
+  { symbol: 't', examples: ['table', 'little', 'watched'], type: 'unvoiced-consonant' },
+  { symbol: 'd', examples: ['dog', 'added', 'played'], type: 'voiced-consonant' },
+  { symbol: 'tʃ', examples: ['chips', 'itch', 'picture'], type: 'unvoiced-consonant' },
+  { symbol: 'dʒ', examples: ['jam', 'danger', 'fudge'], type: 'voiced-consonant' },
+  { symbol: 'k', examples: ['key', 'car', 'luck'], type: 'unvoiced-consonant' },
+  { symbol: 'g', examples: ['green', 'hug', 'league'], type: 'voiced-consonant' },
+  // Row 2
+  { symbol: 'f', examples: ['fire', 'laugh', 'phone'], type: 'unvoiced-consonant' },
+  { symbol: 'v', examples: ['video', 'move', 'of'], type: 'voiced-consonant' },
+  { symbol: 'θ', examples: ['thick', 'healthy', 'teeth'], type: 'unvoiced-consonant' },
+  { symbol: 'ð', examples: ['mother', 'this', 'with'], type: 'voiced-consonant' },
+  { symbol: 's', examples: ['see', 'city', 'notice'], type: 'unvoiced-consonant' },
+  { symbol: 'z', examples: ['zebra', 'cosy', 'has'], type: 'voiced-consonant' },
+  { symbol: 'ʃ', examples: ['shop', 'nation', 'special'], type: 'unvoiced-consonant' },
+  { symbol: 'ʒ', examples: ['television', 'visual', 'leisure'], type: 'voiced-consonant' },
+  // Row 3
+  { symbol: 'm', examples: ['man', 'tummy', 'lamb'], type: 'voiced-consonant' },
+  { symbol: 'n', examples: ['no', 'funny', 'knife'], type: 'voiced-consonant' },
+  { symbol: 'ŋ', examples: ['sing', 'uncle', 'angry'], type: 'voiced-consonant' },
+  { symbol: 'j', examples: ['yes', 'onion', 'view'], type: 'voiced-consonant' },
+  { symbol: 'l', examples: ['light', 'smelly', 'feel'], type: 'voiced-consonant' },
+  { symbol: 'r', examples: ['right', 'berry', 'wrong'], type: 'voiced-consonant' },
+  { symbol: 'w', examples: ['win', 'where', 'one'], type: 'voiced-consonant' },
+  { symbol: 'h', examples: ['house', 'hungry', 'who'], type: 'unvoiced-consonant' },
+]
+
 export function PhonemeGuide() {
   const navigate = useNavigate()
   const location = useLocation()
   const backRoute = (location.state as any)?.backRoute || "/reading-modules"
+  const [playingSymbol, setPlayingSymbol] = useState<string | null>(null)
+  const audioRefs = useRef<{ [key: string]: HTMLAudioElement }>({})
+
+  const playAudio = (symbol: string) => {
+    // Stop any currently playing audio
+    Object.values(audioRefs.current).forEach(audio => {
+      if (audio && !audio.paused) {
+        audio.pause()
+        audio.currentTime = 0
+      }
+    })
+
+    // Get or create audio element for this symbol
+    const audioKey = symbol.replace(/[:\s]/g, '_')
+    let audio = audioRefs.current[audioKey]
+
+    if (!audio) {
+      // Create new audio element
+      // Audio files should be stored in public/audio/phonemes/
+      // Format: symbol.mp3 (e.g., i_.mp3, ɪ.mp3, tʃ.mp3)
+      const audioPath = `/audio/phonemes/${audioKey}.mp3`
+      audio = new Audio(audioPath)
+      audioRefs.current[audioKey] = audio
+    }
+
+    setPlayingSymbol(symbol)
+    audio.play().catch(err => {
+      console.error(`Error playing audio for ${symbol}:`, err)
+      setPlayingSymbol(null)
+    })
+
+    audio.onended = () => {
+      setPlayingSymbol(null)
+    }
+
+    audio.onerror = () => {
+      console.error(`Audio file not found for ${symbol}. Please add it to public/audio/phonemes/${audioKey}.mp3`)
+      setPlayingSymbol(null)
+    }
+  }
+
+  const getPhonemeColor = (type: Phoneme['type']): string => {
+    switch (type) {
+      case 'short-vowel':
+        return '#F5E6D3' // Light beige
+      case 'long-vowel':
+        return '#FFE4B5' // Light orange
+      case 'diphthong':
+        return '#FFA500' // Orange
+      case 'voiced-consonant':
+        return '#ADD8E6' // Light blue
+      case 'unvoiced-consonant':
+        return '#90EE90' // Light green
+      default:
+        return '#FFFFFF'
+    }
+  }
+
+
+  const containerStyle: CSSProperties = {
+    height: '100vh',
+    display: 'flex',
+    flexDirection: 'column',
+    position: 'relative',
+    overflowX: 'hidden',
+    width: '100%',
+  }
+
+  const backgroundStyle: CSSProperties = {
+    position: 'absolute',
+    inset: 0,
+    zIndex: -10,
+    ...BLUE_BG,
+  }
+
+  const headerStyle: CSSProperties = {
+    position: 'sticky',
+    top: 0,
+    zIndex: 50,
+    backdropFilter: 'blur(4px)',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+    flexShrink: 0,
+  }
+
+  const headerContentStyle: CSSProperties = {
+    maxWidth: '1280px',
+    margin: '0 auto',
+    padding: '0 16px',
+  }
+
+  const headerInnerStyle: CSSProperties = {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    height: '64px',
+  }
+
+  const titleStyle: CSSProperties = {
+    fontSize: '20px',
+    fontWeight: 600,
+    color: 'white',
+  }
+
+  const contentStyle: CSSProperties = {
+    flex: 1,
+    overflowY: 'auto',
+  }
+
+  const wrapperStyle: CSSProperties = {
+    maxWidth: '1280px',
+    margin: '0 auto',
+    padding: '32px 16px',
+  }
+
+  const chartTitleStyle: CSSProperties = {
+    fontSize: '28px',
+    fontWeight: 700,
+    color: 'white',
+    marginBottom: '24px',
+    textAlign: 'center',
+  }
+
+  const sectionStyle: CSSProperties = {
+    marginBottom: '40px',
+  }
+
+  const sectionContainerStyle: CSSProperties = {
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: '20px',
+  }
+
+  const sectionLabelStyle: CSSProperties = {
+    fontSize: '28px',
+    fontWeight: 600,
+    color: 'white',
+    writingMode: 'vertical-rl',
+    textOrientation: 'mixed',
+    padding: '0 8px',
+    minWidth: '40px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  }
+
+  const chartContentStyle: CSSProperties = {
+    flex: 1,
+  }
+
+  const rowStyle: CSSProperties = {
+    display: 'flex',
+    gap: '0',
+    marginBottom: '0',
+    flexWrap: 'nowrap',
+  }
+
+  const phonemeBoxStyle = (type: Phoneme['type'], isPlaying: boolean, borderColor: string): CSSProperties => ({
+    backgroundColor: getPhonemeColor(type),
+    border: isPlaying ? '2px solid #FFD700' : borderColor,
+    borderRadius: '0',
+    padding: '12px 8px',
+    width: '100%',
+    minWidth: '120px',
+    maxWidth: '140px',
+    cursor: 'pointer',
+    transition: 'all 0.15s ease',
+    boxShadow: isPlaying ? '0 2px 8px rgba(255, 215, 0, 0.4)' : 'none',
+    position: 'relative',
+  })
+
+  const symbolStyle: CSSProperties = {
+    fontSize: '36px',
+    fontWeight: 700,
+    marginBottom: '6px',
+    textAlign: 'center',
+    color: '#1E3A8A',
+    lineHeight: '1.2',
+  }
+
+  const exampleStyle: CSSProperties = {
+    fontSize: '11px',
+    color: '#1E3A8A',
+    textAlign: 'center',
+    lineHeight: '1.3',
+  }
+
+  const primaryExampleStyle: CSSProperties = {
+    ...exampleStyle,
+    fontWeight: 600,
+    textDecoration: 'underline',
+    marginBottom: '2px',
+    fontSize: '12px',
+  }
+
+  const mainContentStyle: CSSProperties = {
+    display: 'flex',
+    gap: '32px',
+    alignItems: 'flex-start',
+  }
+
+  const chartSectionStyle: CSSProperties = {
+    flex: 1,
+  }
+
+  const legendStyle: CSSProperties = {
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: '8px',
+    padding: '16px 20px',
+    minWidth: '200px',
+    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+  }
+
+  const legendTitleStyle: CSSProperties = {
+    fontSize: '18px',
+    fontWeight: 700,
+    marginBottom: '12px',
+    color: '#1E3A8A',
+    textAlign: 'center',
+  }
+
+  const legendListStyle: CSSProperties = {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '10px',
+  }
+
+  const legendItemStyle: CSSProperties = {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+  }
+
+  const legendColorBoxStyle = (color: string): CSSProperties => ({
+    width: '32px',
+    height: '20px',
+    backgroundColor: color,
+    borderRadius: '3px',
+    border: '1px solid rgba(0, 0, 0, 0.2)',
+    flexShrink: 0,
+  })
+
+  const legendTextStyle: CSSProperties = {
+    fontSize: '13px',
+    color: '#1E3A8A',
+  }
+
+  const renderPhonemeBox = (phoneme: Phoneme, index: number, allPhonemes: Phoneme[], rowIndex: number) => {
+    const isPlaying = playingSymbol === phoneme.symbol
+    const borderStyle = '1px solid rgba(0, 0, 0, 0.2)'
+    
+    return (
+      <div
+        key={`${phoneme.symbol}-${index}`}
+        style={phonemeBoxStyle(phoneme.type, isPlaying, borderStyle)}
+        onClick={() => playAudio(phoneme.symbol)}
+        onMouseEnter={(e) => {
+          if (!isPlaying) {
+            e.currentTarget.style.backgroundColor = getPhonemeColor(phoneme.type)
+            e.currentTarget.style.opacity = '0.9'
+          }
+        }}
+        onMouseLeave={(e) => {
+          if (!isPlaying) {
+            e.currentTarget.style.backgroundColor = getPhonemeColor(phoneme.type)
+            e.currentTarget.style.opacity = '1'
+          }
+        }}
+      >
+        <div style={symbolStyle}>{phoneme.symbol}</div>
+        <div style={primaryExampleStyle}>{phoneme.examples[0]}</div>
+        <div style={exampleStyle}>
+          {phoneme.examples.slice(1).join(', ')}
+        </div>
+      </div>
+    )
+  }
+
+  // Group vowels into rows
+  const vowelRows = [
+    vowels.slice(0, 6),
+    vowels.slice(6, 13),
+    vowels.slice(13),
+  ]
+
+  // Group consonants into rows
+  const consonantRows = [
+    consonants.slice(0, 8),
+    consonants.slice(8, 16),
+    consonants.slice(16),
+  ]
 
   return (
-    <div className="h-screen flex flex-col relative overflow-x-hidden w-full">
-      <div className="absolute inset-0 -z-10" style={BLUE_BG} />
+    <div style={containerStyle}>
+      <div style={backgroundStyle} />
 
-      <header className="sticky top-0 z-50 backdrop-blur-sm bg-white/10 border-b border-white/10 flex-shrink-0">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
+      <header style={headerStyle}>
+        <div style={headerContentStyle}>
+          <div style={headerInnerStyle}>
             <Button
               variant="ghost"
               size="sm"
               onClick={() => navigate(backRoute)}
-              className="text-white hover:bg-white/10 rounded-2xl"
+              style={{
+                color: 'white',
+                backgroundColor: 'transparent',
+                borderRadius: '16px',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'transparent'
+              }}
             >
-              <ArrowLeft className="w-4 h-4 mr-2" />
+              <ArrowLeft style={{ width: '16px', height: '16px', marginRight: '8px' }} />
               Back
             </Button>
-            <h1 className="text-xl font-semibold text-white">Phoneme Guide</h1>
-            <div className="w-10 h-10" />
+            <h1 style={titleStyle}>Phoneme Guide</h1>
+            <div style={{ width: '40px', height: '40px' }} />
           </div>
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="text-center py-20">
-            <BookText className="w-24 h-24 text-white/50 mx-auto mb-6" />
-            <h2 className="text-3xl font-bold text-white mb-4">Phoneme Guide</h2>
-            <p className="text-base text-white/80">Learn pronunciation patterns and phonemes to improve your reading skills.</p>
+      <div style={contentStyle}>
+        <div style={wrapperStyle}>
+          <h2 style={chartTitleStyle}>Phonemic Chart</h2>
+
+          <div style={mainContentStyle}>
+            <div style={chartSectionStyle}>
+              {/* Vowels Section */}
+              <div style={sectionStyle}>
+                <div style={sectionContainerStyle}>
+                  <div style={sectionLabelStyle}>Vowels</div>
+                  <div style={chartContentStyle}>
+                    {vowelRows.map((row, rowIndex) => (
+                      <div key={`vowel-row-${rowIndex}`} style={rowStyle}>
+                        {row.map((phoneme, index) => renderPhonemeBox(phoneme, index, row, rowIndex))}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Consonants Section */}
+              <div style={sectionStyle}>
+                <div style={sectionContainerStyle}>
+                  <div style={sectionLabelStyle}>Consonants</div>
+                  <div style={chartContentStyle}>
+                    {consonantRows.map((row, rowIndex) => (
+                      <div key={`consonant-row-${rowIndex}`} style={rowStyle}>
+                        {row.map((phoneme, index) => {
+                          // Add separator line between paired consonants (unvoiced -> voiced)
+                          const pairedConsonants = [
+                            ['p', 'b'], ['t', 'd'], ['tʃ', 'dʒ'], ['k', 'g'],
+                            ['f', 'v'], ['θ', 'ð'], ['s', 'z'], ['ʃ', 'ʒ']
+                          ]
+                          // Check if current phoneme is the voiced one (second in pair) and previous is unvoiced (first in pair)
+                          const needsSeparator = pairedConsonants.some(pair => 
+                            pair[1] === phoneme.symbol && index > 0 && row[index - 1]?.symbol === pair[0]
+                          )
+                          
+                          return (
+                            <React.Fragment key={`${phoneme.symbol}-${index}`}>
+                              {needsSeparator && (
+                                <div style={{
+                                  width: '1px',
+                                  backgroundColor: 'rgba(128, 128, 128, 0.3)',
+                                  margin: '0',
+                                  height: '100%',
+                                }} />
+                              )}
+                              {renderPhonemeBox(phoneme, index, row, rowIndex)}
+                            </React.Fragment>
+                          )
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Legend - Right Side */}
+            <div style={legendStyle}>
+              <h3 style={legendTitleStyle}>Phonemic Chart</h3>
+              <div style={legendListStyle}>
+                <div style={legendItemStyle}>
+                  <div style={legendColorBoxStyle('#F5E6D3')} />
+                  <span style={legendTextStyle}>short</span>
+                </div>
+                <div style={legendItemStyle}>
+                  <div style={legendColorBoxStyle('#FFE4B5')} />
+                  <span style={legendTextStyle}>long</span>
+                </div>
+                <div style={legendItemStyle}>
+                  <div style={legendColorBoxStyle('#FFA500')} />
+                  <span style={legendTextStyle}>diphthongs</span>
+                </div>
+                <div style={legendItemStyle}>
+                  <div style={legendColorBoxStyle('#ADD8E6')} />
+                  <span style={legendTextStyle}>voiced</span>
+                </div>
+                <div style={legendItemStyle}>
+                  <div style={legendColorBoxStyle('#90EE90')} />
+                  <span style={legendTextStyle}>unvoiced</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
