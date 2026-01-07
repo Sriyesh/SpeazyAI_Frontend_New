@@ -15,7 +15,120 @@ exports.handler = async (event) => {
   }
 
   try {
-    const { question, answer, level } = JSON.parse(event.body || "{}");
+    const body = JSON.parse(event.body || "{}");
+    const { mode, predicted_text, expected_text, question, answer, level } = body;
+
+    // New mode: speech word breakdown verification/cleanup
+    if (mode === "speech_word_breakdown" || predicted_text || expected_text) {
+      const predicted = (predicted_text || "").toString().trim();
+      const expected = (expected_text || "").toString().trim();
+
+      if (!predicted) {
+        return {
+          statusCode: 400,
+          headers: { "Access-Control-Allow-Origin": allowedOrigin },
+          body: JSON.stringify({ error: "predicted_text is required" }),
+        };
+      }
+
+      const prompt = `You are a transcript alignment assistant.
+
+Input 1 (predicted_text): The ASR transcript of what the user actually said.
+Input 2 (expected_text): The script the user was supposed to read. This can include noise like headings (UNIT/CHAPTER), page numbers, standalone question numbers, etc.
+
+Your task: return a JSON object with a clean list of words to display in a "Pronunciation Breakdown" UI.
+
+Rules:
+- Prefer predicted_text for display unless it is empty or clearly unusable.
+- Remove obvious noise tokens from expected_text (e.g., UNIT, CHAPTER, LESSON, standalone numbers like 7, 12, 13, etc).
+- Output tokens (words) in reading order.
+- Keep contractions like "it's", "don't" as a single token if they appear.
+- Do NOT invent new content beyond predicted_text/expected_text.
+- Limit to max 200 words.
+
+Return JSON in this shape:
+{
+  "display_source": "predicted" | "expected" | "mixed",
+  "display_text": "<string>",
+  "display_words": ["word1", "word2", ...]
+}
+
+predicted_text:
+${predicted.slice(0, 8000)}
+
+expected_text:
+${expected.slice(0, 8000)}`;
+
+      const openaiApiKey = process.env.OPENAI_API_KEY;
+      if (!openaiApiKey) {
+        return {
+          statusCode: 500,
+          headers: { "Access-Control-Allow-Origin": allowedOrigin },
+          body: JSON.stringify({ error: "OpenAI API key not configured" }),
+        };
+      }
+
+      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${openaiApiKey}`,
+        },
+        body: JSON.stringify({
+          model: "gpt-4o",
+          messages: [
+            {
+              role: "system",
+              content:
+                "Return only JSON. You clean transcripts and produce token lists for UI display.",
+            },
+            { role: "user", content: prompt },
+          ],
+          temperature: 0.1,
+          response_format: { type: "json_object" },
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("OpenAI API Error:", errorText);
+        return {
+          statusCode: response.status,
+          headers: { "Access-Control-Allow-Origin": allowedOrigin },
+          body: JSON.stringify({ error: `OpenAI API error: ${errorText}` }),
+        };
+      }
+
+      const data = await response.json();
+      const content = data.choices[0]?.message?.content;
+      if (!content) {
+        return {
+          statusCode: 500,
+          headers: { "Access-Control-Allow-Origin": allowedOrigin },
+          body: JSON.stringify({ error: "No response from OpenAI" }),
+        };
+      }
+
+      let result;
+      try {
+        result = JSON.parse(content);
+      } catch {
+        result = {
+          display_source: "predicted",
+          display_text: predicted,
+          display_words: predicted.split(/\s+/).slice(0, 200),
+        };
+      }
+
+      return {
+        statusCode: 200,
+        headers: {
+          "Access-Control-Allow-Origin": allowedOrigin,
+          "Access-Control-Allow-Headers": "Content-Type",
+        },
+        body: JSON.stringify(result),
+      };
+    }
 
     if (!question || !answer) {
       return {

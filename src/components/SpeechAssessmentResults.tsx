@@ -5,9 +5,11 @@ import React from "react"
 //@ts-ignore
 import { useState, useRef, useEffect } from "react"
 import { Card, CardHeader, CardContent, CardTitle } from "./ui/card"
-import { Mic, BookOpen, AlertTriangle, Volume2, Award, Brain, Square, Play, Pause, LayoutDashboard, ChevronDown } from "lucide-react"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog"
+import { Mic, BookOpen, AlertTriangle, Volume2, Award, Brain, Square, Play, Pause, LayoutDashboard, ChevronDown, BookText } from "lucide-react"
+import { EmbeddedPhonemeChart } from "./EmbeddedPhonemeChart"
 
-type NavigationItem = "pronunciation" | "fluency" | "vocabulary" | "grammar"
+type NavigationItem = "pronunciation" | "fluency" | "vocabulary" | "grammar" | "phoneme-guide"
 
 export function SpeechAssessmentResults({ data }) {
   const [activeSection, setActiveSection] = useState<NavigationItem>("pronunciation")
@@ -22,6 +24,7 @@ export function SpeechAssessmentResults({ data }) {
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
   const [updatedWordScores, setUpdatedWordScores] = useState<Map<string, number>>(new Map())
+  const [verifiedDisplayWords, setVerifiedDisplayWords] = useState<string[] | null>(null)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
   const recordingTimerRef = useRef<NodeJS.Timeout | null>(null)
@@ -36,6 +39,65 @@ export function SpeechAssessmentResults({ data }) {
   const grammar = data?.grammar || {}
   const warnings = data?.warnings || {}
   const metadata = data?.metadata || {}
+
+  // After we receive results from the Confidence API, send predicted_text + expected_text to ChatGPT
+  // to get a clean/verified word list for the pronunciation breakdown UI.
+  useEffect(() => {
+    const predicted = (metadata.predicted_text || "").trim()
+    const expected = (pronunciation.expected_text || "").trim()
+
+    // No transcript → nothing to verify
+    if (!predicted) {
+      setVerifiedDisplayWords(null)
+      return
+    }
+
+    let cancelled = false
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 10000)
+
+    const run = async () => {
+      try {
+        const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
+        const proxyUrl = isLocal ? "http://localhost:4001/chatgptProxy" : "/.netlify/functions/chatgptProxy"
+
+        const resp = await fetch(proxyUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            mode: "speech_word_breakdown",
+            predicted_text: predicted,
+            expected_text: expected,
+          }),
+          signal: controller.signal,
+        })
+
+        clearTimeout(timeoutId)
+
+        if (!resp.ok) {
+          // Fall back to raw predicted words if verification fails
+          if (!cancelled) setVerifiedDisplayWords(null)
+          return
+        }
+
+        const json = await resp.json()
+        const words = Array.isArray(json?.display_words) ? json.display_words.filter((w: any) => typeof w === "string" && w.trim().length > 0) : null
+        if (!cancelled) {
+          setVerifiedDisplayWords(words && words.length > 0 ? words.slice(0, 200) : null)
+        }
+      } catch {
+        clearTimeout(timeoutId)
+        if (!cancelled) setVerifiedDisplayWords(null)
+      }
+    }
+
+    run()
+    return () => {
+      cancelled = true
+      clearTimeout(timeoutId)
+      controller.abort()
+    }
+  }, [metadata.predicted_text, pronunciation.expected_text])
 
   const wordScores = (pronunciation.words || []).map((w: { word_text: any; word_score: any; phonemes?: any[] }) => ({
     name: w.word_text,
@@ -77,97 +139,51 @@ export function SpeechAssessmentResults({ data }) {
     return predicted.split(/\s+/).filter((w) => w.trim().length > 0)
   }
 
-  const getUniqueFilteredWords = () => {
+  const getDisplayWordScores = () => {
     const predictedWords = getPredictedTextArray()
-    
-    // If no predicted text or no wordScores, return empty array (don't show anything)
-    if (predictedWords.length === 0 || wordScores.length === 0) {
-      return []
+    const displayWords = (verifiedDisplayWords && verifiedDisplayWords.length > 0) ? verifiedDisplayWords : predictedWords
+
+    if (displayWords.length === 0) return []
+
+    // If we don't have per-word scores from the API, just render the verified/predicted words with score=0
+    if (wordScores.length === 0) {
+      return displayWords.map((w) => ({ name: w, score: 0, phonemes: [] }))
     }
 
-    // Simple approach: Find where predicted_text starts in wordScores
-    // Then take exactly predictedWords.length words from that starting point
-    // This ensures we show ALL words in sequence without skipping any
-    
-    const firstPredictedWord = normalizeWord(predictedWords[0])
-    
-    if (firstPredictedWord.length === 0) {
-      return []
-    }
+    // Try to map display words to the API's wordScores (best-effort sequential match).
+    // If we can't find a match, keep score=0 and no phoneme data.
+    const out: Array<{ name: string; score: number; phonemes: any[] }> = []
+    let wsIdx = 0
+    const lookahead = 12
 
-    // Find the first occurrence of the first word from predicted_text in wordScores
-    let startIndex = -1
-    for (let i = 0; i < wordScores.length; i++) {
-      const word = wordScores[i]
-      if (!word?.name) continue
-      
-      const normalized = normalizeWord(word.name)
-      if (normalized === firstPredictedWord) {
-        startIndex = i
-        break
+    for (const w of displayWords) {
+      const nw = normalizeWord(w)
+      if (!nw) continue
+
+      let matchIdx = -1
+      for (let j = wsIdx; j < Math.min(wsIdx + lookahead, wordScores.length); j++) {
+        if (normalizeWord(wordScores[j].name) === nw) {
+          matchIdx = j
+          break
+        }
+      }
+
+      if (matchIdx !== -1) {
+        out.push({
+          name: w,
+          score: wordScores[matchIdx].score,
+          phonemes: wordScores[matchIdx].phonemes || [],
+        })
+        wsIdx = matchIdx + 1
+      } else {
+        out.push({ name: w, score: 0, phonemes: [] })
       }
     }
 
-    // If we didn't find the start, return empty array
-    if (startIndex === -1) {
-      return []
-    }
-
-    // Take exactly predictedWords.length words from the start index
-    // This shows ALL words in sequence without skipping any, but limits to predicted_text word count
-    // This prevents showing words from expected_text that weren't spoken
-    const baseWords = wordScores.slice(startIndex, startIndex + predictedWords.length)
-
-    // Check if the last 5 words from wordScores (as a sequence) match the last 5 words of predicted_text
-    // If they match exactly in sequence, add them as extra words
-    const extraCount = 5
-    if (predictedWords.length >= extraCount && wordScores.length >= extraCount) {
-      // Get the last 5 words from predicted_text (normalized)
-      const lastFivePredictedWords = predictedWords.slice(-extraCount).map(w => normalizeWord(w))
-
-      // Get the last 5 words from wordScores (the actual last 5 words in the array)
-      const lastFiveWordScores = wordScores.slice(-extraCount)
-
-      // Check if they match exactly in sequence with the last 5 words of predicted_text
-      if (lastFiveWordScores.length === lastFivePredictedWords.length) {
-        let matchesExactly = true
-        for (let i = 0; i < lastFiveWordScores.length; i++) {
-          const word = lastFiveWordScores[i]
-          if (!word?.name) {
-            matchesExactly = false
-            break
-          }
-          
-          const normalizedWordScore = normalizeWord(word.name)
-          const normalizedPredicted = lastFivePredictedWords[i]
-
-          if (normalizedWordScore !== normalizedPredicted) {
-            matchesExactly = false
-            break
-          }
-        }
-
-        // If they match exactly in sequence, check if they're already in baseWords
-        if (matchesExactly) {
-          // Check if the last 5 words are already at the end of baseWords
-          const baseWordsEnd = baseWords.slice(-extraCount)
-          const lastWordsAlreadyShown = baseWordsEnd.length === lastFiveWordScores.length &&
-            baseWordsEnd.every((word, idx) =>
-              normalizeWord(word.name) === normalizeWord(lastFiveWordScores[idx].name)
-            )
-
-          // Only add if they're NOT already shown at the end of baseWords
-          if (!lastWordsAlreadyShown) {
-            return [...baseWords, ...lastFiveWordScores]
-          }
-        }
-      }
-    }
-
-    return baseWords
+    return out
   }
 
-  const uniqueFilteredWords = getUniqueFilteredWords()
+  const uniqueFilteredWords = getDisplayWordScores()
 
   // Get the display score for a word (use updated score if available, otherwise use original score)
   const getWordDisplayScore = (wordName: string, originalScore: number): number => {
@@ -439,6 +455,7 @@ export function SpeechAssessmentResults({ data }) {
     { id: "fluency" as NavigationItem, label: "Fluency", icon: Brain, score: fluency.overall_score || 0 },
     { id: "vocabulary" as NavigationItem, label: "Vocabulary", icon: BookOpen, score: vocabulary.overall_score || 0 },
     { id: "grammar" as NavigationItem, label: "Grammar", icon: Award, score: grammar.overall_score || 0 },
+    { id: "phoneme-guide" as NavigationItem, label: "Phoneme Guide", icon: BookText, score: null },
   ]
 
   const overallScore = overall.overall_score || 0
@@ -596,7 +613,18 @@ export function SpeechAssessmentResults({ data }) {
                       {item.label}
                     </span>
                   </div>
-                  {isActive && <ChevronDown className="w-4 h-4" style={{ color: "white" }} />}
+                  {item.score !== null && (
+                    <span 
+                      className="text-xs font-semibold px-2 py-0.5 rounded"
+                      style={{
+                        backgroundColor: isActive ? "rgba(255, 255, 255, 0.2)" : "#e5e7eb",
+                        color: isActive ? "white" : "#6b7280"
+                      }}
+                    >
+                      {item.score}
+                    </span>
+                  )}
+                  {isActive && item.score === null && <ChevronDown className="w-4 h-4" style={{ color: "white" }} />}
                 </button>
               )
             })}
@@ -807,19 +835,79 @@ export function SpeechAssessmentResults({ data }) {
                     <Volume2 className="w-5 h-5 text-blue-600" />
                   </button>
                 </div>
-                <div
-                  style={{
-                    backgroundColor: getScoreColor(getWordDisplayScore(selectedWord, wordScores.find((w) => w.name === selectedWord)?.score || 0)).bg,
-                    borderColor: getScoreColor(getWordDisplayScore(selectedWord, wordScores.find((w) => w.name === selectedWord)?.score || 0)).border,
-                    color: getScoreColor(getWordDisplayScore(selectedWord, wordScores.find((w) => w.name === selectedWord)?.score || 0)).text,
-                    padding: "8px 16px",
-                    borderRadius: "8px",
-                    borderWidth: "2px",
-                    fontWeight: "600",
-                  }}
-                >
-                  Score: {getWordDisplayScore(selectedWord, wordScores.find((w) => w.name === selectedWord)?.score || 0)}
-                </div>
+                <Dialog>
+                  <div className="flex flex-col items-end gap-2">
+                    <div
+                      style={{
+                        backgroundColor: getScoreColor(getWordDisplayScore(selectedWord, wordScores.find((w) => w.name === selectedWord)?.score || 0)).bg,
+                        borderColor: getScoreColor(getWordDisplayScore(selectedWord, wordScores.find((w) => w.name === selectedWord)?.score || 0)).border,
+                        color: getScoreColor(getWordDisplayScore(selectedWord, wordScores.find((w) => w.name === selectedWord)?.score || 0)).text,
+                        padding: "8px 16px",
+                        borderRadius: "8px",
+                        borderWidth: "2px",
+                        fontWeight: "600",
+                      }}
+                    >
+                      Score: {getWordDisplayScore(selectedWord, wordScores.find((w) => w.name === selectedWord)?.score || 0)}
+                    </div>
+
+                    <DialogTrigger asChild>
+                      <button
+                        type="button"
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: "8px",
+                          borderRadius: "9999px",
+                          padding: "8px 14px",
+                          fontSize: "12px",
+                          fontWeight: 700,
+                          letterSpacing: "0.2px",
+                          color: "#FFFFFF",
+                          border: "1px solid rgba(255, 255, 255, 0.0)",
+                          background: "linear-gradient(90deg, #2563EB 0%, #06B6D4 100%)",
+                          boxShadow: "0 6px 16px rgba(37, 99, 235, 0.25)",
+                          cursor: "pointer",
+                          transition: "transform 150ms ease, box-shadow 150ms ease, filter 150ms ease",
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.transform = "translateY(-1px)"
+                          e.currentTarget.style.boxShadow = "0 10px 22px rgba(37, 99, 235, 0.32)"
+                          e.currentTarget.style.filter = "brightness(0.98)"
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.transform = "translateY(0)"
+                          e.currentTarget.style.boxShadow = "0 6px 16px rgba(37, 99, 235, 0.25)"
+                          e.currentTarget.style.filter = "none"
+                        }}
+                      >
+                        <BookText className="size-4" />
+                        Phoneme Guide
+                      </button>
+                    </DialogTrigger>
+                  </div>
+
+                  <DialogContent className="sm:max-w-5xl p-0 overflow-hidden">
+                    <DialogHeader className="p-6 pb-4">
+                      <DialogTitle>Phoneme Guide</DialogTitle>
+                      <DialogDescription>
+                        Click on any phoneme to hear its pronunciation. Click legend items to highlight categories.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="px-6 pb-6">
+                      <div className="rounded-xl bg-[#1E3A8A] p-6">
+                        <div className="text-white text-lg font-bold text-center mb-2">Phonemic Chart</div>
+                        <div className="text-white/90 text-xs text-center mb-5">
+                          Click on any phoneme to hear its pronunciation. Click legend items to highlight categories.
+                        </div>
+                        <div style={{ width: "100%", overflow: "visible" }}>
+                          <EmbeddedPhonemeChart />
+                        </div>
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
               </div>
 
               <div className="mb-4">
@@ -829,22 +917,18 @@ export function SpeechAssessmentResults({ data }) {
                     wordScores
                       .find((w) => w.name === selectedWord)
                       ?.phonemes?.map((p: any, idx: any) => (
-                        <div
+                        <button
                           key={idx}
-                          className="flex items-center gap-2 border border-blue-300 bg-white px-3 py-2 rounded-lg"
+                          type="button"
+                          onClick={() => playPhonemeSound(p.ipa_label || p)}
+                          title="Play sound"
+                          className="inline-flex items-center gap-2 border border-blue-300 bg-white px-3 py-2 rounded-lg hover:bg-blue-50 transition-colors"
                         >
                           <span className="font-mono text-blue-700">{p.ipa_label || p}</span>
                           {p.phoneme_score !== undefined && (
                             <span className="text-sm text-gray-600">({p.phoneme_score})</span>
                           )}
-                          <button
-                            onClick={() => playPhonemeSound(p.ipa_label || p)}
-                            className="p-1 hover:bg-blue-100 rounded transition-colors"
-                            title="Play sound"
-                          >
-                            <Volume2 className="w-4 h-4 text-blue-600" />
-                          </button>
-                        </div>
+                        </button>
                       ))
                   ) : (
                     <p className="text-sm text-gray-500">No phoneme data available for this word.</p>
@@ -1012,16 +1096,6 @@ export function SpeechAssessmentResults({ data }) {
             </div>
           )}
 
-          <div className="flex flex-wrap gap-2 mt-6">
-            <p className="text-sm font-semibold text-gray-700 w-full mb-2">Lowest Scoring Phonemes:</p>
-            {(pronunciation.lowest_scoring_phonemes || []).map(
-              (p: { ipa_label: any; phoneme_score: any }, idx: any) => (
-                <span key={idx} className="border border-red-300 text-red-600 bg-red-50 px-3 py-1 rounded-full text-sm">
-                  {p.ipa_label}: {p.phoneme_score}
-                </span>
-              ),
-            )}
-              </div>
             </CardContent>
           </Card>
         )}
@@ -1058,26 +1132,26 @@ export function SpeechAssessmentResults({ data }) {
                 <span className="text-xl font-bold">Fluency & Rhythm</span>
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-6 space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div className="p-3 bg-emerald-50 rounded-lg text-center border border-emerald-100">
+            <CardContent className="p-6 space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="p-4 bg-emerald-50 rounded-xl text-center border border-emerald-100">
               <p className="text-sm text-gray-600">Speech Rate (wpm)</p>
               <p className="text-2xl font-semibold text-emerald-600">{fluency.metrics?.speech_rate}</p>
             </div>
-            <div className="p-3 bg-emerald-50 rounded-lg text-center border border-emerald-100">
+            <div className="p-4 bg-emerald-50 rounded-xl text-center border border-emerald-100">
               <p className="text-sm text-gray-600">Pauses</p>
               <p className="text-2xl font-semibold text-emerald-600">{fluency.metrics?.pauses}</p>
             </div>
-            <div className="p-3 bg-emerald-50 rounded-lg text-center border border-emerald-100">
+            <div className="p-4 bg-emerald-50 rounded-xl text-center border border-emerald-100">
               <p className="text-sm text-gray-600">Filler Words</p>
               <p className="text-2xl font-semibold text-emerald-600">{fluency.metrics?.filler_words}</p>
             </div>
           </div>
 
-          <div className="grid gap-2 mt-4">
+          <div className="grid gap-3">
             {Object.entries(fluency.feedback || {}).map(([key, value]) =>
               key !== "tagged_transcript" ? (
-                <div key={key} className="bg-white border border-gray-200 p-3 rounded-lg shadow-sm">
+                <div key={key} className="bg-white border border-gray-200 p-4 rounded-lg shadow-sm">
                   <p className="text-sm font-semibold text-emerald-700 capitalize">{key.replace(/_/g, " ")}</p>
                   <p className="text-gray-700 text-sm">{(value as any)?.feedback_text ?? "-"}</p>
                 </div>
@@ -1214,10 +1288,10 @@ export function SpeechAssessmentResults({ data }) {
                 <span className="text-xl font-bold">Grammar</span>
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-6">
+            <CardContent className="p-6 space-y-6">
               {grammar && Object.keys(grammar).length > 0 ? (
                 <>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div className="text-center bg-emerald-50 border border-emerald-200 rounded-xl p-4">
                       <p className="text-sm text-gray-600">Overall</p>
                       <p className="text-2xl font-semibold text-emerald-600">{grammar.overall_score ?? "-"}</p>
@@ -1236,11 +1310,11 @@ export function SpeechAssessmentResults({ data }) {
                     </div>
                   </div>
                   {(grammar.feedback?.corrected_text || (grammar.metrics?.grammar_errors || []).length > 0 || (grammar.feedback?.grammar_errors || []).length > 0 || grammar.feedback?.grammar_feedback) && (
-                    <div className="mt-4 bg-white border border-emerald-200 p-4 rounded-lg">
+                    <div className="bg-white border border-emerald-200 p-6 rounded-lg">
                       {grammar.feedback?.corrected_text && (
                         <div className="mb-4">
                           <p className="text-sm font-semibold text-gray-700 mb-2">Corrected Text:</p>
-                          <p className="text-sm text-gray-700 bg-emerald-50 p-3 rounded border border-emerald-100">{grammar.feedback.corrected_text}</p>
+                          <p className="text-sm text-gray-700 bg-emerald-50 p-4 rounded border border-emerald-100">{grammar.feedback.corrected_text}</p>
                         </div>
                       )}
                       
@@ -1254,7 +1328,7 @@ export function SpeechAssessmentResults({ data }) {
                       {((grammar.metrics?.grammar_errors || []).length > 0 || (grammar.feedback?.grammar_errors || []).length > 0) && (
                         <div>
                           <p className="text-sm font-semibold text-gray-700 mb-2">Grammar Errors:</p>
-                          <ul className="list-disc pl-5 text-sm text-gray-700 space-y-1">
+                          <ul className="list-disc pl-6 text-sm text-gray-700 space-y-2">
                             {/* Merge and deduplicate errors if possible, or just show both lists */}
                             {[...(grammar.metrics?.grammar_errors || []), ...(grammar.feedback?.grammar_errors || [])].map((err: any, i: number) => {
                               if (typeof err === "string") {
@@ -1288,8 +1362,76 @@ export function SpeechAssessmentResults({ data }) {
           </Card>
         )}
 
-        {/* Additional Information - shown in all sections */}
-        {(Object.keys(warnings).length > 0 || metadata.predicted_text) && (
+        {/* Phoneme Guide Section */}
+        {activeSection === "phoneme-guide" && (
+          <Card 
+            className={cardBase}
+            style={{
+              borderRadius: "1rem",
+              boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+              border: "1px solid #f3f4f6",
+              backgroundColor: "white",
+              backdropFilter: "blur(4px)",
+            }}
+          >
+            <CardHeader 
+              className="border-b rounded-t-2xl"
+              style={{
+                background: "linear-gradient(to right, #1e3a8a, #3b82f6)",
+                borderBottomColor: "#3b82f6",
+              }}
+            >
+              <CardTitle className="flex items-center gap-3 text-white">
+                <div 
+                  className="p-2 rounded-lg"
+                  style={{
+                    background: "rgba(255, 255, 255, 0.2)",
+                    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
+                  }}
+                >
+                  <BookText className="w-5 h-5 text-white" />
+                </div>
+                <span className="text-xl font-bold">Phoneme Guide</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent style={{ padding: "24px" }}>
+              <div style={{ 
+                padding: "0",
+                backgroundColor: "#1E3A8A",
+                borderRadius: "12px"
+              }}>
+                <div style={{ 
+                  padding: "24px",
+                }}>
+                  <div style={{ 
+                    color: "white", 
+                    fontSize: "20px", 
+                    fontWeight: "bold", 
+                    textAlign: "center", 
+                    marginBottom: "12px" 
+                  }}>
+                    Phonemic Chart
+                  </div>
+                  <div style={{ 
+                    color: "white", 
+                    fontSize: "12px", 
+                    textAlign: "center", 
+                    marginBottom: "20px",
+                    opacity: 0.9
+                  }}>
+                    Click on any phoneme to hear its pronunciation. Click legend items to highlight categories.
+                  </div>
+                  <div style={{ width: "100%", overflow: "visible" }}>
+                    <EmbeddedPhonemeChart />
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Additional Information - shown in all sections except phoneme-guide */}
+        {activeSection !== "phoneme-guide" && (Object.keys(warnings).length > 0 || metadata.predicted_text) && (
           <Card 
             className={cardBase}
             style={{

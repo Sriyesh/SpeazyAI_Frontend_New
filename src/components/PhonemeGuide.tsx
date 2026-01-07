@@ -82,6 +82,7 @@ export function PhonemeGuide() {
   const location = useLocation()
   const backRoute = (location.state as any)?.backRoute || "/reading-modules"
   const [playingSymbol, setPlayingSymbol] = useState<string | null>(null)
+  const [highlightedCategory, setHighlightedCategory] = useState<Phoneme['type'] | null>(null)
   const audioRefs = useRef<{ [key: string]: HTMLAudioElement }>({})
 
   const playAudio = (symbol: string) => {
@@ -137,6 +138,38 @@ export function PhonemeGuide() {
       default:
         return '#FFFFFF'
     }
+  }
+
+  const isHighlighted = (type: Phoneme['type']): boolean => {
+    return highlightedCategory === type
+  }
+
+  const getBorderStyle = (
+    type: Phoneme['type'],
+    isPlaying: boolean,
+    index: number,
+    row: Phoneme[],
+    isLeftEdge: boolean,
+    isRightEdge: boolean,
+    isLeftHighlighted: boolean,
+    isRightHighlighted: boolean
+  ): string => {
+    if (isPlaying) {
+      // Solid cyan border when playing - all sides, thicker and more visible
+      return '5px solid #00FFFF'
+    }
+    
+    if (isHighlighted(type)) {
+      // Build border string: top right bottom left - using red for better visibility
+      const top = '3px solid #FF0000'
+      const bottom = '3px solid #FF0000'
+      const left = (isLeftEdge || !isLeftHighlighted) ? '3px solid #FF0000' : 'none'
+      const right = (isRightEdge || !isRightHighlighted) ? '3px solid #FF0000' : 'none'
+      
+      return `${top} ${right} ${bottom} ${left}`
+    }
+    
+    return '1px solid rgba(0, 0, 0, 0.2)'
   }
 
 
@@ -238,9 +271,14 @@ export function PhonemeGuide() {
     flexWrap: 'nowrap',
   }
 
-  const phonemeBoxStyle = (type: Phoneme['type'], isPlaying: boolean, borderColor: string): CSSProperties => ({
+  const phonemeBoxStyle = (
+    type: Phoneme['type'],
+    isPlaying: boolean,
+    borderStyle: string,
+    isHighlighted: boolean
+  ): CSSProperties => ({
     backgroundColor: getPhonemeColor(type),
-    border: isPlaying ? '2px solid #FFD700' : borderColor,
+    border: borderStyle,
     borderRadius: '0',
     padding: '12px 8px',
     width: '100%',
@@ -248,8 +286,13 @@ export function PhonemeGuide() {
     maxWidth: '140px',
     cursor: 'pointer',
     transition: 'all 0.15s ease',
-    boxShadow: isPlaying ? '0 2px 8px rgba(255, 215, 0, 0.4)' : 'none',
+    boxShadow: isPlaying 
+      ? '0 0 12px rgba(0, 255, 255, 0.8), 0 0 24px rgba(0, 255, 255, 0.6), 0 0 36px rgba(0, 255, 255, 0.4)' 
+      : isHighlighted 
+        ? '0 0 16px rgba(255, 0, 0, 0.8), 0 0 32px rgba(255, 0, 0, 0.6), 0 0 48px rgba(255, 0, 0, 0.4), inset 0 0 8px rgba(255, 0, 0, 0.2)' 
+        : 'none',
     position: 'relative',
+    zIndex: isHighlighted ? 10 : 1,
   })
 
   const symbolStyle: CSSProperties = {
@@ -308,11 +351,17 @@ export function PhonemeGuide() {
     gap: '10px',
   }
 
-  const legendItemStyle: CSSProperties = {
+  const legendItemStyle = (isSelected: boolean): CSSProperties => ({
     display: 'flex',
     alignItems: 'center',
     gap: '10px',
-  }
+    cursor: 'pointer',
+    padding: '8px',
+    borderRadius: '6px',
+    backgroundColor: isSelected ? 'rgba(255, 0, 0, 0.15)' : 'transparent',
+    border: isSelected ? '2px solid rgba(255, 0, 0, 0.5)' : '2px solid transparent',
+    transition: 'all 0.2s ease',
+  })
 
   const legendColorBoxStyle = (color: string): CSSProperties => ({
     width: '32px',
@@ -330,13 +379,34 @@ export function PhonemeGuide() {
 
   const renderPhonemeBox = (phoneme: Phoneme, index: number, allPhonemes: Phoneme[], rowIndex: number) => {
     const isPlaying = playingSymbol === phoneme.symbol
-    const borderStyle = '1px solid rgba(0, 0, 0, 0.2)'
+    const highlighted = isHighlighted(phoneme.type)
+    const isLeftEdge = index === 0
+    const isRightEdge = index === allPhonemes.length - 1
+    const leftPhoneme = index > 0 ? allPhonemes[index - 1] : null
+    const rightPhoneme = index < allPhonemes.length - 1 ? allPhonemes[index + 1] : null
+    const isLeftHighlighted = leftPhoneme ? isHighlighted(leftPhoneme.type) : false
+    const isRightHighlighted = rightPhoneme ? isHighlighted(rightPhoneme.type) : false
     
-    return (
+    const borderStyle = getBorderStyle(
+      phoneme.type,
+      isPlaying,
+      index,
+      allPhonemes,
+      isLeftEdge,
+      isRightEdge,
+      isLeftHighlighted,
+      isRightHighlighted
+    )
+    
+      return (
       <div
         key={`${phoneme.symbol}-${index}`}
-        style={phonemeBoxStyle(phoneme.type, isPlaying, borderStyle)}
-        onClick={() => playAudio(phoneme.symbol)}
+        data-phoneme-box="true"
+        style={phonemeBoxStyle(phoneme.type, isPlaying, borderStyle, highlighted)}
+        onClick={(e) => {
+          e.stopPropagation()
+          playAudio(phoneme.symbol)
+        }}
         onMouseEnter={(e) => {
           if (!isPlaying) {
             e.currentTarget.style.backgroundColor = getPhonemeColor(phoneme.type)
@@ -405,7 +475,20 @@ export function PhonemeGuide() {
         </div>
       </header>
 
-      <div style={contentStyle}>
+      <div 
+        style={contentStyle}
+        onClick={(e) => {
+          // Clear highlight when clicking outside legend items
+          const target = e.target as HTMLElement
+          const isLegendClick = target.closest('[data-legend-item]')
+          const isPhonemeBoxClick = target.closest('[data-phoneme-box]')
+          
+          // Only clear if clicking on the background, not on legend items or phoneme boxes
+          if (!isLegendClick && !isPhonemeBoxClick) {
+            setHighlightedCategory(null)
+          }
+        }}
+      >
         <div style={wrapperStyle}>
           <h2 style={chartTitleStyle}>Phonemic Chart</h2>
 
@@ -468,23 +551,108 @@ export function PhonemeGuide() {
             <div style={legendStyle}>
               <h3 style={legendTitleStyle}>Phonemic Chart</h3>
               <div style={legendListStyle}>
-                <div style={legendItemStyle}>
+                <div
+                  data-legend-item="true"
+                  style={legendItemStyle(highlightedCategory === 'short-vowel')}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setHighlightedCategory(highlightedCategory === 'short-vowel' ? null : 'short-vowel')
+                  }}
+                  onMouseEnter={(e) => {
+                    if (highlightedCategory !== 'short-vowel') {
+                      e.currentTarget.style.backgroundColor = 'rgba(255, 0, 0, 0.1)'
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (highlightedCategory !== 'short-vowel') {
+                      e.currentTarget.style.backgroundColor = 'transparent'
+                    }
+                  }}
+                >
                   <div style={legendColorBoxStyle('#F5E6D3')} />
                   <span style={legendTextStyle}>short</span>
                 </div>
-                <div style={legendItemStyle}>
+                <div
+                  data-legend-item="true"
+                  style={legendItemStyle(highlightedCategory === 'long-vowel')}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setHighlightedCategory(highlightedCategory === 'long-vowel' ? null : 'long-vowel')
+                  }}
+                  onMouseEnter={(e) => {
+                    if (highlightedCategory !== 'long-vowel') {
+                      e.currentTarget.style.backgroundColor = 'rgba(255, 0, 0, 0.1)'
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (highlightedCategory !== 'long-vowel') {
+                      e.currentTarget.style.backgroundColor = 'transparent'
+                    }
+                  }}
+                >
                   <div style={legendColorBoxStyle('#FFE4B5')} />
                   <span style={legendTextStyle}>long</span>
                 </div>
-                <div style={legendItemStyle}>
+                <div
+                  data-legend-item="true"
+                  style={legendItemStyle(highlightedCategory === 'diphthong')}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setHighlightedCategory(highlightedCategory === 'diphthong' ? null : 'diphthong')
+                  }}
+                  onMouseEnter={(e) => {
+                    if (highlightedCategory !== 'diphthong') {
+                      e.currentTarget.style.backgroundColor = 'rgba(255, 0, 0, 0.1)'
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (highlightedCategory !== 'diphthong') {
+                      e.currentTarget.style.backgroundColor = 'transparent'
+                    }
+                  }}
+                >
                   <div style={legendColorBoxStyle('#FFA500')} />
                   <span style={legendTextStyle}>diphthongs</span>
                 </div>
-                <div style={legendItemStyle}>
+                <div
+                  data-legend-item="true"
+                  style={legendItemStyle(highlightedCategory === 'voiced-consonant')}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setHighlightedCategory(highlightedCategory === 'voiced-consonant' ? null : 'voiced-consonant')
+                  }}
+                  onMouseEnter={(e) => {
+                    if (highlightedCategory !== 'voiced-consonant') {
+                      e.currentTarget.style.backgroundColor = 'rgba(255, 0, 0, 0.1)'
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (highlightedCategory !== 'voiced-consonant') {
+                      e.currentTarget.style.backgroundColor = 'transparent'
+                    }
+                  }}
+                >
                   <div style={legendColorBoxStyle('#ADD8E6')} />
                   <span style={legendTextStyle}>voiced</span>
                 </div>
-                <div style={legendItemStyle}>
+                <div
+                  data-legend-item="true"
+                  style={legendItemStyle(highlightedCategory === 'unvoiced-consonant')}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setHighlightedCategory(highlightedCategory === 'unvoiced-consonant' ? null : 'unvoiced-consonant')
+                  }}
+                  onMouseEnter={(e) => {
+                    if (highlightedCategory !== 'unvoiced-consonant') {
+                      e.currentTarget.style.backgroundColor = 'rgba(255, 0, 0, 0.1)'
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (highlightedCategory !== 'unvoiced-consonant') {
+                      e.currentTarget.style.backgroundColor = 'transparent'
+                    }
+                  }}
+                >
                   <div style={legendColorBoxStyle('#90EE90')} />
                   <span style={legendTextStyle}>unvoiced</span>
                 </div>

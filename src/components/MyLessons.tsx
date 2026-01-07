@@ -673,7 +673,7 @@ export function MyLessons() {
       
       // Navigate to SpeechAssessmentResults page with the API response
       if (apiResponse && !apiResponse.error) {
-        navigate("/academic-samples/results", {
+        navigate("/my-lessons/results", {
           state: {
             apiResponse: apiResponse,
             backRoute: location.pathname || "/my-lessons",

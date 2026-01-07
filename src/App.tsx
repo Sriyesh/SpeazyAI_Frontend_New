@@ -67,6 +67,7 @@ export default function App() {
             <Route path="/academic-samples/chapter/:chapterId" element={<ProtectedRoute><ChapterView /></ProtectedRoute>} />
             <Route path="/academic-samples/results" element={<ProtectedRoute><SpeechAssessmentResultsPage /></ProtectedRoute>} />
             <Route path="/custom-content/results" element={<ProtectedRoute><SpeechAssessmentResultsPage /></ProtectedRoute>} />
+            <Route path="/my-lessons/results" element={<ProtectedRoute><SpeechAssessmentResultsPage /></ProtectedRoute>} />
             <Route path="/my-lessons" element={<ProtectedRoute><MyLessons /></ProtectedRoute>} />
             <Route path="/custom-content" element={<ProtectedRoute><CustomContent /></ProtectedRoute>} />
             <Route path="/chat" element={<ProtectedRoute><ChatWithAI /></ProtectedRoute>} />
