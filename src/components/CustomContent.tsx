@@ -1,48 +1,127 @@
-import { useState } from "react";
+"use client"
+
+import { useState, useEffect, useRef, CSSProperties } from "react"
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
-} from "./ui/card";
-import { Button } from "./ui/button";
-import { Input } from "./ui/input";
-import { Label } from "./ui/label";
-import { Textarea } from "./ui/textarea";
-import { ThemeToggle } from "./ThemeToggle";
+} from "./ui/card"
+import { Button } from "./ui/button"
+import { Input } from "./ui/input"
+import { Label } from "./ui/label"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogClose,
+} from "./ui/dialog"
 import {
   ArrowLeft,
   Plus,
-  Edit,
   Trash2,
-  Mic,
-  Save,
   FileText,
   Sparkles,
   Star,
   Book,
-  Play,
-} from "lucide-react";
-import { motion } from "motion/react";
-import { MelloAssistant } from "./MelloAssistant";
-import { useNavigate, useLocation } from "react-router-dom";
+  Upload,
+  CheckCircle2,
+  XCircle,
+  BookOpen,
+  GraduationCap,
+  School,
+  BookMarked,
+  Notebook,
+  BookCheck,
+  BookA,
+  BookX,
+  Award,
+  Rocket,
+  Globe,
+  Lightbulb,
+  Target,
+  Zap,
+} from "lucide-react"
+import { ScrollArea } from "./ui/scroll-area"
+import { AudioRecorder } from "./audioRecorder"
+import { useNavigate, useLocation } from "react-router-dom"
+import { useAuth } from "../contexts/AuthContext"
+import { toast } from "sonner"
+import { PdfLoadingScreen } from "./PdfLoadingScreen"
+import { getPdfTextForLesson, getPdfText, truncateTextToWords } from "../utils/pdfTextExtractor"
 
 interface CustomContentProps {
-  onBack?: () => void;
+  onBack?: () => void
 }
 
-type CustomLesson = {
-  id: number;
-  title: string;
-  content: string;
-  difficulty: "Easy" | "Medium" | "Hard";
-  createdAt: Date;
-};
+type View = "list" | "detail"
+
+interface CustomContentItem {
+  id: string
+  title: string
+  pdfUrl: string
+  uploadDate: string
+}
+
+// Array of icons for random assignment
+const contentIcons = [
+  BookOpen,
+  GraduationCap,
+  School,
+  BookMarked,
+  Notebook,
+  BookCheck,
+  BookA,
+  Book,
+  FileText,
+  Award,
+  Star,
+  Rocket,
+  Globe,
+  Lightbulb,
+  Target,
+  Zap,
+]
+
+// Array of gradient colors for icon backgrounds
+const iconGradients = [
+  "from-[#3B82F6] to-[#00B9FC]",
+  "from-[#1E3A8A] to-[#3B82F6]",
+  "from-[#00B9FC] to-[#3B82F6]",
+  "from-[#6366F1] to-[#8B5CF6]",
+  "from-[#EC4899] to-[#F43F5E]",
+  "from-[#F59E0B] to-[#EF4444]",
+  "from-[#10B981] to-[#059669]",
+  "from-[#8B5CF6] to-[#EC4899]",
+]
+
+// Get icon and gradient based on item ID (consistent per item)
+const getItemIcon = (itemId: string) => {
+  let hash = 0
+  for (let i = 0; i < itemId.length; i++) {
+    hash = itemId.charCodeAt(i) + ((hash << 5) - hash)
+  }
+  const index = Math.abs(hash) % contentIcons.length
+  return contentIcons[index]
+}
+
+const getItemGradient = (itemId: string) => {
+  let hash = 0
+  for (let i = 0; i < itemId.length; i++) {
+    hash = itemId.charCodeAt(i) + ((hash << 5) - hash)
+  }
+  const index = Math.abs(hash) % iconGradients.length
+  return iconGradients[index]
+}
 
 export function CustomContent({ onBack }: CustomContentProps) {
   const navigate = useNavigate()
   const location = useLocation()
   const backRoute = (location.state as any)?.backRoute || "/speaking-modules"
+  const { token, authData } = useAuth()
   
   const handleBack = () => {
     if (onBack) {
@@ -52,663 +131,1080 @@ export function CustomContent({ onBack }: CustomContentProps) {
     }
   }
   
-  const [view, setView] = useState<
-    "list" | "create" | "practice"
-  >("list");
-  const [customLessons, setCustomLessons] = useState<
-    CustomLesson[]
-  >([
-    {
-      id: 1,
-      title: "My Favorite Story",
-      content:
-        "Once upon a time, there was a brave little rabbit who loved adventures. Every day, the rabbit would explore new places and make new friends.",
-      difficulty: "Easy",
-      createdAt: new Date("2025-01-05"),
-    },
-  ]);
+  const [currentView, setCurrentView] = useState<View>("list")
+  const [contentItems, setContentItems] = useState<CustomContentItem[]>([])
+  const [isLoadingContent, setIsLoadingContent] = useState(true)
+  const [selectedItem, setSelectedItem] = useState<CustomContentItem | null>(null)
+  const [isExtractingPdf, setIsExtractingPdf] = useState(false)
 
-  const [newTitle, setNewTitle] = useState("");
-  const [newContent, setNewContent] = useState("");
-  const [newDifficulty, setNewDifficulty] = useState<
-    "Easy" | "Medium" | "Hard"
-  >("Easy");
-  const [selectedLesson, setSelectedLesson] =
-    useState<CustomLesson | null>(null);
-  const [isPracticing, setIsPracticing] = useState(false);
-  const [showMelloMessage, setShowMelloMessage] =
-    useState(true);
+  // Upload dialog state
+  const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false)
+  const [newTitle, setNewTitle] = useState("")
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [uploadProgress, setUploadProgress] = useState(0)
+  const [isUploading, setIsUploading] = useState(false)
+  const [uploadStatus, setUploadStatus] = useState<"idle" | "uploading" | "success" | "error">("idle")
+  const [errorMessage, setErrorMessage] = useState<string>("")
 
-  const handleCreateLesson = () => {
-    if (!newTitle.trim() || !newContent.trim()) {
-      alert("Please fill in both title and content!");
-      return;
+  const BLURRY_BLUE_BG: CSSProperties = {
+    backgroundColor: "#123A8A",
+    backgroundImage: `
+      radial-gradient(900px 700px at 78% 28%, rgba(21,86,197,0.75) 0%, rgba(21,86,197,0.10) 55%, rgba(21,86,197,0) 70%),
+      radial-gradient(880px 680px at 20% 20%, rgba(18,59,150,0.75) 0%, rgba(18,59,150,0.10) 55%, rgba(18,59,150,0) 70%),
+      radial-gradient(900px 700px at 80% 78%, rgba(13,52,152,0.80) 0%, rgba(13,52,152,0.10) 55%, rgba(13,52,152,0) 70%),
+      radial-gradient(820px 640px at 18% 82%, rgba(0,185,252,0.35) 0%, rgba(0,185,252,0.06) 55%, rgba(0,185,252,0) 70%),
+      radial-gradient(700px 560px at 60% 12%, rgba(59,130,246,0.55) 0%, rgba(59,130,246,0.06) 55%, rgba(59,130,246,0) 72%),
+      radial-gradient(900px 700px at 92% 50%, rgba(8,44,132,0.85) 0%, rgba(8,44,132,0.10) 55%, rgba(8,44,132,0) 75%)
+    `,
+    backgroundBlendMode: "normal",
+    backgroundAttachment: "fixed",
+    backgroundRepeat: "no-repeat",
+    backgroundSize: "cover",
+  }
+
+  const TEXT_LIGHT = "#F2F6FF"
+  const TEXT_MUTED = "rgba(242,246,255,0.78)"
+  const CARD_TEXT = "#0F1F47"
+
+  // Helper function to map API response to CustomContentItem
+  const mapApiItemToContentItem = (item: any): CustomContentItem => {
+    console.log("Mapping item:", item)
+    const mapped = {
+      id: item.id?.toString() || item.content_id?.toString() || item.custom_pdf_id?.toString() || Date.now().toString(),
+      title: item.title || item.name || "",
+      pdfUrl: item.pdf_url || item.pdfUrl || item.pdf_url || "",
+      uploadDate: item.upload_date || item.uploadDate || item.created_at || item.date_created || new Date().toISOString().split("T")[0],
+    }
+    console.log("Mapped result:", mapped)
+    return mapped
+  }
+
+  // Fetch custom content items from API
+  useEffect(() => {
+    const fetchContentItems = async () => {
+      if (!token) {
+        setIsLoadingContent(false)
+        return
+      }
+
+      try {
+        setIsLoadingContent(true)
+        // Use the custom PDF list API endpoint
+        const response = await fetch("https://api.exeleratetechnology.com/api/speaking/custom-pdf/list.php", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`,
+          },
+          body: JSON.stringify({}),
+        })
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch content: ${response.status}`)
+        }
+
+        const data = await response.json()
+        console.log("Custom PDF list API response (full):", JSON.stringify(data, null, 2))
+
+        // Handle different response formats
+        let items: CustomContentItem[] = []
+        let rawItems: any[] = []
+        
+        // Try different possible response structures
+        if (data.success && Array.isArray(data.data)) {
+          rawItems = data.data
+        } else if (Array.isArray(data)) {
+          rawItems = data
+        } else if (data.data && Array.isArray(data.data)) {
+          rawItems = data.data
+        } else if (data.custom_pdfs && Array.isArray(data.custom_pdfs)) {
+          rawItems = data.custom_pdfs
+        } else if (data.items && Array.isArray(data.items)) {
+          rawItems = data.items
+        } else if (data.result && Array.isArray(data.result)) {
+          rawItems = data.result
+        } else {
+          // If it's an object with keys that might be arrays, try to find any array
+          console.warn("Unexpected response format, trying to find array in:", Object.keys(data))
+          for (const key in data) {
+            if (Array.isArray(data[key])) {
+              console.log(`Found array in key: ${key}`)
+              rawItems = data[key]
+              break
+            }
+          }
+        }
+
+        console.log("Raw items found:", rawItems.length, rawItems)
+        
+        if (rawItems.length > 0) {
+          items = rawItems.map(mapApiItemToContentItem)
+        }
+
+        // Don't filter - show all items even if pdfUrl is missing for debugging
+        console.log("All mapped items (before filter):", items)
+        
+        // Filter out items without PDF URL but log them
+        const validItems = items.filter(item => {
+          if (!item.pdfUrl) {
+            console.warn("Item without pdfUrl (will be filtered):", item)
+            return false
+          }
+          return true
+        })
+
+        console.log("Final valid items:", validItems.length, validItems)
+        setContentItems(validItems)
+        
+        if (validItems.length === 0 && rawItems.length > 0) {
+          console.error("All items were filtered out! Check pdfUrl field names.")
+          toast.error("Items found but pdfUrl field is missing. Check console for details.")
+        }
+      } catch (error) {
+        console.error("Error fetching custom content:", error)
+        toast.error("Failed to load custom content. Please try again.")
+        setContentItems([])
+      } finally {
+        setIsLoadingContent(false)
+      }
     }
 
-    const newLesson: CustomLesson = {
-      id: customLessons.length + 1,
-      title: newTitle,
-      content: newContent,
-      difficulty: newDifficulty,
-      createdAt: new Date(),
-    };
+    fetchContentItems()
+  }, [token])
 
-    setCustomLessons([...customLessons, newLesson]);
-    setNewTitle("");
-    setNewContent("");
-    setNewDifficulty("Easy");
-    setView("list");
-    setShowMelloMessage(true);
-  };
+  // Debug: Log when contentItems changes
+  useEffect(() => {
+    console.log("Content items updated:", contentItems.length, "items", contentItems)
+  }, [contentItems])
 
-  const handleDeleteLesson = (id: number) => {
-    if (
-      confirm("Are you sure you want to delete this lesson?")
-    ) {
-      setCustomLessons(
-        customLessons.filter((lesson) => lesson.id !== id),
-      );
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (file) {
+      if (file.type !== "application/pdf") {
+        toast.error("Please select a PDF file only")
+        event.target.value = ""
+        setSelectedFile(null)
+        return
+      }
+      setSelectedFile(file)
+      setErrorMessage("")
     }
-  };
+  }
 
-  const handlePracticeLesson = (lesson: CustomLesson) => {
-    setSelectedLesson(lesson);
-    setView("practice");
-    setIsPracticing(false);
-    setShowMelloMessage(true);
-  };
+  // Smooth progress animation helper
+  const animateProgress = (targetProgress: number, duration: number = 1000) => {
+    return new Promise<void>((resolve) => {
+      const startProgress = uploadProgress
+      const startTime = Date.now()
+      
+      const animate = () => {
+        const elapsed = Date.now() - startTime
+        const progress = Math.min(elapsed / duration, 1)
+        const currentProgress = startProgress + (targetProgress - startProgress) * progress
+        setUploadProgress(currentProgress)
+        
+        if (progress < 1) {
+          requestAnimationFrame(animate)
+        } else {
+          resolve()
+        }
+      }
+      animate()
+    })
+  }
 
-  const handleStartPractice = () => {
-    setIsPracticing(true);
+  const handleUpload = async () => {
+    if (!newTitle.trim()) {
+      toast.error("Please enter a title")
+      return
+    }
+    if (!selectedFile) {
+      toast.error("Please select a PDF file")
+      return
+    }
+
+    if (selectedFile.type !== "application/pdf") {
+      toast.error("Only PDF files are allowed")
+      return
+    }
+
+    setIsUploading(true)
+    setUploadStatus("uploading")
+    setUploadProgress(0)
+    setErrorMessage("")
+
+    try {
+      await animateProgress(30, 800)
+      
+      const formData = new FormData()
+      formData.append("file", selectedFile)
+      // Add folder path for Custom-Content (pdfs/Custom-Content in DigitalOcean Spaces)
+      formData.append("folder", "pdfs/Custom-Content")
+
+      const uploadResponse = await fetch("https://api.exeleratetechnology.com/upload-pdf", {
+        method: "POST",
+        body: formData,
+      })
+
+      if (!uploadResponse.ok) {
+        throw new Error("PDF upload failed")
+      }
+
+      const { publicUrl } = await uploadResponse.json()
+
+      await animateProgress(70, 800)
+
+      if (!token) {
+        throw new Error("Authentication token not available. Please log in again.")
+      }
+
+      // Use the custom PDF save endpoint
+      const saveMetadataResponse = await fetch("https://api.exeleratetechnology.com/api/speaking/custom-pdf/save.php", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          title: newTitle.trim(),
+          pdf_url: publicUrl,
+        }),
+      })
+
+      if (!saveMetadataResponse.ok) {
+        const errorText = await saveMetadataResponse.text()
+        console.error("Save error:", errorText)
+        throw new Error("Failed to save custom PDF metadata")
+      }
+
+      await animateProgress(100, 800)
+
+      const savedData = await saveMetadataResponse.json()
+      console.log("Save API response:", savedData)
+
+      setUploadStatus("success")
+      
+      const newItem: CustomContentItem = {
+        id: savedData.id?.toString() || savedData.data?.id?.toString() || Date.now().toString(),
+        title: newTitle.trim(),
+        pdfUrl: publicUrl,
+        uploadDate: savedData.created_at || savedData.upload_date || new Date().toISOString().split("T")[0],
+      }
+      
+      console.log("New item created:", newItem)
+      
+      setContentItems(prevItems => {
+        const exists = prevItems.some(item => item.id === newItem.id)
+        if (exists) {
+          console.log("Item already exists, not adding duplicate")
+          return prevItems
+        }
+        console.log("Adding new item to list, current items:", prevItems.length)
+        return [newItem, ...prevItems]
+      })
+      
+      toast.success("Content uploaded successfully!")
+      
+      // Refresh the list from API after a short delay
+      setTimeout(async () => {
+        if (!token) return
+        
+        try {
+          const response = await fetch("https://api.exeleratetechnology.com/api/speaking/custom-pdf/list.php", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${token}`,
+            },
+            body: JSON.stringify({}),
+          })
+          
+          if (response.ok) {
+            const data = await response.json()
+            console.log("Refresh - Custom PDF list API response (full):", JSON.stringify(data, null, 2))
+            
+            // Handle different response formats (same as initial fetch)
+            let items: CustomContentItem[] = []
+            let rawItems: any[] = []
+            
+            if (data.success && Array.isArray(data.data)) {
+              rawItems = data.data
+            } else if (Array.isArray(data)) {
+              rawItems = data
+            } else if (data.data && Array.isArray(data.data)) {
+              rawItems = data.data
+            } else if (data.custom_pdfs && Array.isArray(data.custom_pdfs)) {
+              rawItems = data.custom_pdfs
+            } else if (data.items && Array.isArray(data.items)) {
+              rawItems = data.items
+            } else if (data.result && Array.isArray(data.result)) {
+              rawItems = data.result
+            } else {
+              // Try to find any array in the response
+              for (const key in data) {
+                if (Array.isArray(data[key])) {
+                  console.log(`Refresh - Found array in key: ${key}`)
+                  rawItems = data[key]
+                  break
+                }
+              }
+            }
+
+            console.log("Refresh - Raw items found:", rawItems.length, rawItems)
+            
+            if (rawItems.length > 0) {
+              items = rawItems.map(mapApiItemToContentItem)
+            }
+            
+            console.log("Refresh - All mapped items (before filter):", items)
+            
+            const validItems = items.filter(item => {
+              if (!item.pdfUrl) {
+                console.warn("Refresh - Item without pdfUrl (will be filtered):", item)
+                return false
+              }
+              return true
+            })
+            
+            console.log("Refresh - Final valid items:", validItems.length, validItems)
+            
+            // Only update if we got valid items from the API
+            // This ensures we don't clear the optimistic update if the API hasn't synced yet
+            if (validItems.length > 0) {
+              console.log("Refresh - Updating content items from API")
+              setContentItems(validItems)
+            } else if (rawItems.length > 0) {
+              console.error("Refresh - All items were filtered out! Keeping current items.")
+              // Don't clear items if they were filtered out - keep the optimistic update
+            } else {
+              console.warn("Refresh - No items found in response, keeping current items")
+              // Don't clear items - keep the optimistic update
+            }
+          } else {
+            console.error("Refresh - API call failed:", response.status, response.statusText)
+            // Don't clear items on API failure
+          }
+        } catch (error) {
+          console.error("Error refreshing content list:", error)
+          // Don't clear items on error
+        }
+      }, 2000) // Increased delay to ensure backend has processed the upload
+      
     setTimeout(() => {
-      setIsPracticing(false);
-      alert(
-        "Great job! 🌟 You completed your practice session!",
-      );
-    }, 5000);
-  };
+        resetForm()
+      }, 2000)
+
+    } catch (error) {
+      setUploadStatus("error")
+      setUploadProgress(0)
+      const errorMsg = error instanceof Error ? error.message : "Upload failed. Please try again."
+      setErrorMessage(errorMsg)
+      toast.error(errorMsg)
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
+  const resetForm = () => {
+    setNewTitle("")
+    setSelectedFile(null)
+    setUploadProgress(0)
+    setUploadStatus("idle")
+    setErrorMessage("")
+    setIsUploadDialogOpen(false)
+  }
+
+  const handleItemSelect = async (item: CustomContentItem) => {
+    if (item.pdfUrl) {
+      try {
+        setIsExtractingPdf(true)
+        
+        await getPdfTextForLesson(item.id, item.pdfUrl, {
+          onProgress: (stage) => {
+            if (stage === 'complete') {
+              setIsExtractingPdf(false)
+            }
+          }
+        })
+
+        setSelectedItem(item)
+        setCurrentView("detail")
+      } catch (error) {
+        console.error('Error extracting PDF text:', error)
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        if (!errorMessage.includes('Failed to fetch') && !errorMessage.includes('ERR_CONNECTION_REFUSED')) {
+          toast.error('Failed to process PDF. Showing content anyway.')
+        }
+        setSelectedItem(item)
+        setCurrentView("detail")
+        setIsExtractingPdf(false)
+      }
+    } else {
+      setSelectedItem(item)
+      setCurrentView("detail")
+    }
+  }
+
+  const handleDeleteItem = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this content?")) {
+      return
+    }
+
+    try {
+      if (!token) {
+        toast.error("Authentication required")
+        return
+      }
+
+      const response = await fetch("https://api.exeleratetechnology.com/api/speaking/custom-pdf/delete.php", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          id: parseInt(id) || id,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error("Delete error:", errorText)
+        throw new Error("Failed to delete content")
+      }
+
+      setContentItems(prevItems => prevItems.filter(item => item.id !== id))
+      toast.success("Content deleted successfully!")
+    } catch (error) {
+      console.error("Error deleting content:", error)
+      toast.error("Failed to delete content. Please try again.")
+    }
+  }
+
+  const handleApiResponse = (apiResponse: any) => {
+    console.log("AudioRecorder API response:", apiResponse)
+    
+    if (apiResponse && !apiResponse.error) {
+      navigate("/custom-content/results", {
+        state: {
+          apiResponse: apiResponse,
+          backRoute: location.pathname || "/custom-content",
+          lessonTitle: selectedItem?.title,
+          lessonId: selectedItem?.id,
+        }
+      })
+    }
+  }
 
   const renderList = () => (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="text-center mb-12">
-        <h2
-          className="text-4xl font-bold flex items-center justify-center gap-3"
-          style={{ color: "#F2F6FF" }}
-        >
-          Create Your Own Content ✨
-          <Sparkles
-            className="w-10 h-10 kid-pulse"
-            style={{ color: "#FFD600" }}
-          />
-        </h2>
-        <p
-          className="text-xl"
-          style={{ color: "rgba(242, 246, 255, 0.7)" }}
-        >
-          Write your own stories and practice speaking them!
-        </p>
-      </div>
+    <div className="min-h-screen relative overflow-hidden">
+      <div className="absolute inset-0 -z-10" style={BLURRY_BLUE_BG} />
 
-      <div className="mb-8 text-center">
-        <Button
-          onClick={() => setView("create")}
-          className="bg-gradient-to-r from-[#3B82F6] to-[#00B9FC] hover:opacity-90 text-white rounded-xl px-8 py-6 text-lg shadow-lg hover:scale-105 transition-all duration-300"
-        >
-          <Plus className="w-6 h-6 mr-2" />
-          Create New Lesson
-        </Button>
-      </div>
+      <style>{`
+        @keyframes float {
+          0%, 100% { transform: translateY(0px); }
+          50% { transform: translateY(-10px); }
+        }
+        @keyframes glow {
+          0%, 100% { box-shadow: 0 0 10px rgba(59, 130, 246, 0.4); }
+          50% { box-shadow: 0 0 30px rgba(59, 130, 246, 0.8); }
+        }
+        .animated-star {
+          animation: float 3s ease-in-out infinite;
+        }
+        .glow-blue {
+          animation: glow 2s ease-in-out infinite;
+        }
+      `}</style>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {customLessons.map((lesson, index) => (
-          <motion.div
-            key={lesson.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: index * 0.1 }}
-          >
-            <Card
-              className="group bg-[#FFFFFF] border-0 hover:shadow-xl transition-all duration-300"
-              style={{
-                borderRadius: "16px",
-                boxShadow:
-                  "0 8px 32px rgba(59, 130, 246, 0.15)",
-              }}
-            >
-              <CardHeader className="pb-4">
-                <div className="flex items-start justify-between mb-4">
-                  <div
-                    className={`w-12 h-12 rounded-xl flex items-center justify-center bg-gradient-to-br from-[#3B82F6] to-[#00B9FC] group-hover:scale-110 transition-transform duration-300`}
-                  >
-                    <FileText className="w-6 h-6 text-white" />
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-10 left-10 w-3 h-3 bg-[#3B82F6] rounded-full opacity-70 animated-star glow-blue" />
+        <div className="absolute top-32 right-20 w-2 h-2 bg-[#00B9FC] rounded-full opacity-60 animated-star" />
+        <Sparkles className="absolute top-20 left-1/3 w-6 h-6 text-[#00B9FC] opacity-70 animated-star" />
                   </div>
-                  <div className="flex space-x-2">
+
+      <header className="sticky top-0 z-50 backdrop-blur-sm bg-white/10 border-b border-white/10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() =>
-                        handleDeleteLesson(lesson.id)
-                      }
-                      className="text-[#1E3A8A] hover:text-[#FFD600] hover:bg-[#3B82F6]/10"
-                    >
-                      <Trash2 className="w-4 h-4" />
+              onClick={handleBack}
+              className="text-white hover:text-[#CFE2FF] hover:bg-white/10"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back
                     </Button>
+            <h1 className="text-xl font-bold text-white">Custom Content</h1>
+            <div />
                   </div>
                 </div>
+      </header>
 
-                <CardTitle
-                  className="text-lg group-hover:text-[#FFD600] transition-colors"
-                  style={{ color: "#1E3A8A" }}
-                >
-                  {lesson.title}
-                </CardTitle>
-                <p
-                  className="text-sm mt-2 line-clamp-3"
-                  style={{ color: "rgba(30, 58, 138, 0.7)" }}
-                >
-                  {lesson.content}
-                </p>
-              </CardHeader>
-
-              <CardContent className="pt-0">
-                <div className="flex items-center justify-between mb-4">
-                  <span
-                    className="px-3 py-1 rounded-full text-xs font-medium bg-[#3B82F6]/20"
-                    style={{ color: "#FFD600" }}
-                  >
-                    {lesson.difficulty}
-                  </span>
-                  <span
-                    className="text-xs"
-                    style={{ color: "rgba(30, 58, 138, 0.7)" }}
-                  >
-                    {lesson.createdAt.toLocaleDateString()}
-                  </span>
+      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '32px 16px', position: 'relative', zIndex: 10 }}>
+        <div style={{ textAlign: 'center', marginBottom: '48px' }}>
+          <h2 style={{ 
+            fontSize: '36px', 
+            fontWeight: '700', 
+            color: '#FFFFFF', 
+            marginBottom: '16px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '12px'
+          }}>
+            Your Custom Content
+            <BookOpen style={{ width: '40px', height: '40px', color: '#00B9FC' }} />
+          </h2>
+          <p style={{ fontSize: '20px', color: TEXT_MUTED, fontWeight: '400' }}>
+            Upload PDFs and practice your speaking skills!
+          </p>
                 </div>
 
+        <div className="mb-8 text-center">
+          <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
+            <DialogTrigger asChild>
                 <Button
-                  onClick={() => handlePracticeLesson(lesson)}
-                  className="w-full bg-gradient-to-r from-[#3B82F6] to-[#00B9FC] hover:opacity-90 text-white rounded-lg transition-all duration-200"
-                >
-                  <Mic className="w-4 h-4 mr-2" />
-                  Practice Now
+                style={{
+                  background: "linear-gradient(135deg, #3B82F6 0%, #00B9FC 100%)",
+                  color: "#FFFFFF",
+                  borderRadius: "12px",
+                  padding: "12px 24px",
+                  boxShadow: "0 10px 15px -3px rgba(59, 130, 246, 0.3), 0 4px 6px -2px rgba(59, 130, 246, 0.2)",
+                  border: "none",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  fontWeight: 500,
+                }}
+              >
+                <Upload style={{ width: "20px", height: "20px" }} />
+                Upload PDF
                 </Button>
-              </CardContent>
-            </Card>
-          </motion.div>
-        ))}
-
-        {customLessons.length === 0 && (
-          <Card
-            className="col-span-full bg-[#FFFFFF] border-0 p-12 text-center"
-            style={{
+            </DialogTrigger>
+            <DialogContent style={{
+              backgroundColor: "#FFFFFF",
+              maxWidth: "600px",
+              width: "90vw",
+              maxHeight: "90vh",
+              overflowY: "auto",
               borderRadius: "16px",
-              boxShadow: "0 8px 32px rgba(59, 130, 246, 0.15)",
-            }}
-          >
-            <Book
-              className="w-16 h-16 mx-auto mb-4"
-              style={{ color: "rgba(30, 58, 138, 0.7)" }}
-            />
-            <h3
-              className="text-xl font-bold"
-              style={{ color: "#1E3A8A" }}
-            >
-              No custom content yet
-            </h3>
-            <p
-              className="mb-6"
-              style={{ color: "rgba(30, 58, 138, 0.7)" }}
-            >
-              Create your first lesson to get started!
-            </p>
-            <Button
-              onClick={() => setView("create")}
-              className="bg-gradient-to-r from-[#3B82F6] to-[#00B9FC] hover:opacity-90 text-white rounded-lg"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Create First Lesson
-            </Button>
-          </Card>
-        )}
+            }}>
+              <DialogHeader>
+                <DialogTitle style={{ color: "#0F1F47", fontSize: "20px", fontWeight: 600 }}>
+                  <Upload style={{ width: "20px", height: "20px", color: "#3B82F6", display: "inline", marginRight: "12px" }} />
+                  Upload Custom Content
+                </DialogTitle>
+                <DialogDescription style={{ color: "rgba(15, 31, 71, 0.7)", fontSize: "14px", marginTop: "8px" }}>
+                  Upload a PDF file to practice your speaking skills
+                </DialogDescription>
+              </DialogHeader>
+              
+              <div style={{ padding: "24px", display: "flex", flexDirection: "column", gap: "20px" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                  <Label htmlFor="title" style={{ color: "#0F1F47", fontWeight: 500, fontSize: "14px" }}>
+                    Title <span style={{ color: "#EF4444" }}>*</span>
+                  </Label>
+                  <Input
+                    id="title"
+                    placeholder="Enter content title"
+                    value={newTitle}
+                    onChange={(e) => setNewTitle(e.target.value)}
+                    disabled={isUploading}
+            style={{
+                      border: "1px solid #E5E7EB",
+                      borderRadius: "8px",
+                      height: "44px",
+                      padding: "0 12px",
+                      fontSize: "14px",
+                      backgroundColor: isUploading ? "#F3F4F6" : "#FFFFFF",
+                      color: "#0F1F47",
+                    }}
+                  />
       </div>
 
-      <motion.div
-        animate={
-          showMelloMessage
-            ? { y: [0, -15, 0], scale: [1, 1.1, 1] }
-            : { x: [0, 10, -10, 0] }
-        }
-        transition={{
-          duration: 2,
-          repeat: Infinity,
-          ease: "easeInOut",
-          times: showMelloMessage
-            ? [0, 0.5, 1]
-            : [0, 0.33, 0.66, 1],
-        }}
-        style={{
-          position: "fixed",
-          bottom: "20px",
-          right: "20px",
-          zIndex: 100,
-        }}
-      >
-        <MelloAssistant
-          state={showMelloMessage ? "celebrating" : "idle"}
-          message="Create or practice your own stories! You're the star! 😄✨"
-          showMessage={showMelloMessage}
-          onMessageDismiss={() => setShowMelloMessage(false)}
-          position="bottom-right"
-          style={{
-            background:
-              "linear-gradient(135deg, #3B82F6 0%, #00B9FC 100%)",
-            borderRadius: "24px",
-            boxShadow: "0 8px 32px rgba(59, 130, 246, 0.3)",
-            padding: "12px",
-            maxWidth: "300px",
-          }}
-          messageClassName="typewriter"
-        />
-      </motion.div>
-    </div>
-  );
-
-  const renderCreate = () => (
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <Card
-        className="bg-[#FFFFFF] border-0 shadow-2xl"
-        style={{
-          borderRadius: "24px",
-          boxShadow: "0 8px 32px rgba(59, 130, 246, 0.15)",
-        }}
-      >
-        <CardHeader>
-          <CardTitle
-            className="text-2xl flex items-center"
-            style={{ color: "#1E3A8A" }}
-          >
-            <Sparkles
-              className="w-6 h-6 mr-2"
-              style={{ color: "#FFD600" }}
-            />
-            Create New Lesson
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="space-y-2">
-            <Label style={{ color: "#1E3A8A" }}>
-              Lesson Title
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                  <Label htmlFor="file" style={{ color: "#0F1F47", fontWeight: 500, fontSize: "14px" }}>
+                    PDF File <span style={{ color: "#EF4444" }}>*</span>
             </Label>
-            <Input
-              value={newTitle}
-              onChange={(e) => setNewTitle(e.target.value)}
-              placeholder="Give your lesson an exciting title..."
-              className="bg-[#F2F6FF] border-[#3B82F6]/20 focus:border-[#3B82F6]"
-              style={{ color: "#1E3A8A" }}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label style={{ color: "#1E3A8A" }}>
-              Difficulty Level
-            </Label>
-            <div className="grid grid-cols-3 gap-3">
-              {(["Easy", "Medium", "Hard"] as const).map(
-                (level) => (
-                  <Button
-                    key={level}
-                    variant={
-                      newDifficulty === level
-                        ? "default"
-                        : "outline"
-                    }
-                    onClick={() => setNewDifficulty(level)}
-                    className={`${
-                      newDifficulty === level
-                        ? "bg-gradient-to-r from-[#3B82F6] to-[#00B9FC] text-white"
-                        : "bg-[#F2F6FF] border-[#3B82F6]/20 text-[#1E3A8A] hover:bg-[#3B82F6]/10"
-                    }`}
-                  >
-                    {level}
-                  </Button>
-                ),
-              )}
+                  <div style={{ position: "relative" }}>
+                    <input
+                      id="file"
+                      type="file"
+                      accept=".pdf"
+                      onChange={handleFileUpload}
+                      disabled={isUploading}
+        style={{
+                        position: "absolute",
+                        width: "0.1px",
+                        height: "0.1px",
+                        opacity: 0,
+                        overflow: "hidden",
+                        zIndex: -1,
+                      }}
+                    />
+                    <label
+                      htmlFor="file"
+        style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        width: "100%",
+                        height: "44px",
+                        border: "1px solid #E5E7EB",
+                        borderRadius: "8px",
+                        padding: "0 16px",
+                        fontSize: "14px",
+                        backgroundColor: isUploading ? "#F3F4F6" : "#FFFFFF",
+                        cursor: isUploading ? "not-allowed" : "pointer",
+                        color: selectedFile ? "#0F1F47" : "rgba(15, 31, 71, 0.6)",
+                        fontWeight: selectedFile ? 500 : 400,
+                      }}
+                    >
+                      {selectedFile ? selectedFile.name : (
+                        <>
+                          <Upload style={{ width: "16px", height: "16px", marginRight: "8px", color: "#3B82F6" }} />
+                          Choose file
+                        </>
+                      )}
+                    </label>
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label style={{ color: "#1E3A8A" }}>
-              Lesson Content
-            </Label>
-            <Textarea
-              value={newContent}
-              onChange={(e) => setNewContent(e.target.value)}
-              placeholder="Write your story or text here. This is what you'll practice speaking..."
-              rows={10}
-              className="bg-[#F2F6FF] border-[#3B82F6]/20 focus:border-[#3B82F6]"
-              style={{ color: "#1E3A8A" }}
-            />
-            <p
-              className="text-xs"
-              style={{ color: "rgba(30, 58, 138, 0.7)" }}
-            >
-              {newContent.length} characters •{" "}
-              {newContent.split(" ").filter((w) => w).length}{" "}
-              words
+                {isUploading && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "14px" }}>
+                      <span style={{ color: "#0F1F47", fontWeight: 500 }}>Upload Progress</span>
+                      <span style={{ color: "#3B82F6", fontWeight: 600 }}>{Math.round(uploadProgress)}%</span>
+                    </div>
+                    <div style={{
+                      position: "relative",
+                      height: "12px",
+                      width: "100%",
+                      backgroundColor: "#E5E7EB",
+                      borderRadius: "9999px",
+                      overflow: "hidden",
+                    }}>
+                      <div style={{
+                        height: "100%",
+                        background: "linear-gradient(90deg, #3B82F6 0%, #00B9FC 100%)",
+                        borderRadius: "9999px",
+                        transition: "width 0.3s ease-out",
+                        width: `${uploadProgress}%`,
+                      }} />
+                    </div>
+                  </div>
+                )}
+
+                {uploadStatus === "error" && errorMessage && (
+                  <div style={{
+                    padding: "16px",
+                    backgroundColor: "#FEF2F2",
+                    border: "1px solid #FECACA",
+                    borderRadius: "8px",
+                  }}>
+                    <div style={{ display: "flex", alignItems: "flex-start", gap: "12px" }}>
+                      <XCircle style={{ width: "20px", height: "20px", color: "#EF4444", flexShrink: 0, marginTop: "2px" }} />
+                      <div style={{ flex: 1 }}>
+                        <p style={{ fontSize: "14px", fontWeight: 500, color: "#991B1B", margin: "0 0 4px 0" }}>
+                          Upload Failed
+                        </p>
+                        <p style={{ fontSize: "12px", color: "#B91C1C", margin: 0 }}>
+                          {errorMessage}
             </p>
+            </div>
+          </div>
+                  </div>
+                )}
+
+                {uploadStatus === "success" && (
+                  <div style={{
+                    padding: "16px",
+                    backgroundColor: "#F0FDF4",
+                    border: "1px solid #BBF7D0",
+                    borderRadius: "8px",
+                  }}>
+                    <div style={{ display: "flex", alignItems: "flex-start", gap: "12px" }}>
+                      <CheckCircle2 style={{ width: "20px", height: "20px", color: "#10B981", flexShrink: 0, marginTop: "2px" }} />
+                      <p style={{ fontSize: "14px", fontWeight: 500, color: "#065F46", margin: 0 }}>
+                        Content uploaded successfully!
+                      </p>
+                    </div>
+                  </div>
+                )}
           </div>
 
-          <div className="flex space-x-3">
+              <div style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: "12px",
+                padding: "16px 24px 24px 24px",
+                borderTop: "1px solid #E5E7EB",
+              }}>
             <Button
-              onClick={handleCreateLesson}
-              className="flex-1 bg-gradient-to-r from-[#3B82F6] to-[#00B9FC] hover:opacity-90 text-white rounded-lg"
-            >
-              <Save className="w-4 h-4 mr-2" />
-              Save Lesson
+                  variant="outline"
+                  onClick={resetForm}
+                  disabled={isUploading}
+                  style={{
+                    border: "1px solid #E5E7EB",
+                    color: "#0F1F47",
+                    backgroundColor: "#FFFFFF",
+                    borderRadius: "8px",
+                    padding: "8px 16px",
+                    fontSize: "14px",
+                    fontWeight: 500,
+                    cursor: isUploading ? "not-allowed" : "pointer",
+                    opacity: isUploading ? 0.5 : 1,
+                  }}
+                >
+                  {uploadStatus === "success" ? "Close" : "Cancel"}
             </Button>
             <Button
-              variant="outline"
-              onClick={() => {
-                setView("list");
-                setNewTitle("");
-                setNewContent("");
-                setNewDifficulty("Easy");
-              }}
-              className="border-[#3B82F6]/20 text-[#1E3A8A] hover:bg-[#3B82F6]/10"
-            >
-              Cancel
+                  onClick={handleUpload}
+                  disabled={isUploading || !newTitle.trim() || !selectedFile || uploadStatus === "success"}
+                  style={{
+                    background: "linear-gradient(135deg, #3B82F6 0%, #00B9FC 100%)",
+                    color: "#FFFFFF",
+                    borderRadius: "12px",
+                    padding: "8px 20px",
+                    boxShadow: "0 10px 15px -3px rgba(59, 130, 246, 0.3), 0 4px 6px -2px rgba(59, 130, 246, 0.2)",
+                    border: "none",
+                    fontSize: "14px",
+                    fontWeight: 500,
+                    cursor: (isUploading || !newTitle.trim() || !selectedFile || uploadStatus === "success") ? "not-allowed" : "pointer",
+                    opacity: (isUploading || !newTitle.trim() || !selectedFile || uploadStatus === "success") ? 0.5 : 1,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                  }}
+                >
+                  {isUploading ? (
+                    <>
+                      <Upload style={{ width: "16px", height: "16px" }} />
+                      Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <Upload style={{ width: "16px", height: "16px" }} />
+                      Upload
+                    </>
+                  )}
             </Button>
           </div>
-        </CardContent>
-      </Card>
+            </DialogContent>
+          </Dialog>
+        </div>
 
-      <motion.div
-        animate={
-          showMelloMessage
-            ? { y: [0, -15, 0], scale: [1, 1.1, 1] }
-            : { x: [0, 10, -10, 0] }
-        }
-        transition={{
-          duration: 2,
-          repeat: Infinity,
-          ease: "easeInOut",
-          times: showMelloMessage
-            ? [0, 0.5, 1]
-            : [0, 0.33, 0.66, 1],
-        }}
+        {isLoadingContent ? (
+          <div style={{ textAlign: 'center', padding: '48px 0' }}>
+            <p style={{ color: '#FFFFFF', fontSize: '18px', fontWeight: '500' }}>Loading content...</p>
+          </div>
+        ) : contentItems.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '48px 0' }}>
+            <Book style={{ width: '64px', height: '64px', color: '#FFFFFF', opacity: 0.5, margin: '0 auto 16px' }} />
+            <p style={{ color: '#FFFFFF', fontSize: '18px', fontWeight: '500' }}>No custom content yet.</p>
+            <p style={{ color: TEXT_MUTED, fontSize: '14px', marginTop: '8px' }}>Upload your first PDF to get started!</p>
+          </div>
+        ) : (
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+            gap: '32px',
+            width: '100%'
+          }}>
+            {contentItems.map((item) => {
+              const IconComponent = getItemIcon(item.id)
+              const gradient = getItemGradient(item.id)
+              
+              const gradientMap: { [key: string]: { from: string; to: string } } = {
+                "from-[#3B82F6] to-[#00B9FC]": { from: "#3B82F6", to: "#00B9FC" },
+                "from-[#1E3A8A] to-[#3B82F6]": { from: "#1E3A8A", to: "#3B82F6" },
+                "from-[#00B9FC] to-[#3B82F6]": { from: "#00B9FC", to: "#3B82F6" },
+                "from-[#6366F1] to-[#8B5CF6]": { from: "#6366F1", to: "#8B5CF6" },
+                "from-[#EC4899] to-[#F43F5E]": { from: "#EC4899", to: "#F43F5E" },
+                "from-[#F59E0B] to-[#EF4444]": { from: "#F59E0B", to: "#EF4444" },
+                "from-[#10B981] to-[#059669]": { from: "#10B981", to: "#059669" },
+                "from-[#8B5CF6] to-[#EC4899]": { from: "#8B5CF6", to: "#EC4899" },
+              }
+              const gradientColors = gradientMap[gradient] || { from: "#3B82F6", to: "#00B9FC" }
+              
+              return (
+                <Card
+                  key={item.id}
+                  style={{
+                    backgroundColor: '#FFFFFF',
+                    border: 'none',
+                    borderRadius: '20px',
+                    boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1), 0 4px 10px rgba(0, 0, 0, 0.05)',
+                    cursor: 'pointer',
+                    overflow: 'hidden',
+                    position: 'relative',
+                    transition: 'all 0.3s ease',
+                    transform: 'translateY(0)',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-12px) scale(1.02)'
+                    e.currentTarget.style.boxShadow = '0 20px 40px rgba(59, 130, 246, 0.3), 0 8px 16px rgba(0, 0, 0, 0.1)'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0) scale(1)'
+                    e.currentTarget.style.boxShadow = '0 10px 25px rgba(0, 0, 0, 0.1), 0 4px 10px rgba(0, 0, 0, 0.05)'
+                  }}
+                  onClick={() => handleItemSelect(item)}
+                >
+                  <CardHeader style={{ padding: '24px 24px 16px 24px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+                      <div
         style={{
-          position: "fixed",
-          bottom: "20px",
-          right: "20px",
-          zIndex: 100,
-        }}
-      >
-        <MelloAssistant
-          state={showMelloMessage ? "celebrating" : "idle"}
-          message="Write a fun story to practice! Make it exciting! 😄✨"
-          showMessage={showMelloMessage}
-          onMessageDismiss={() => setShowMelloMessage(false)}
-          position="bottom-right"
+                          width: '80px',
+                          height: '80px',
+                          background: `linear-gradient(135deg, ${gradientColors.from} 0%, ${gradientColors.to} 100%)`,
+                          borderRadius: '24px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          boxShadow: '0 8px 16px rgba(59, 130, 246, 0.3)',
+                          transition: 'all 0.5s ease',
+                        }}
+                      >
+                        <IconComponent 
           style={{
-            background:
-              "linear-gradient(135deg, #3B82F6 0%, #00B9FC 100%)",
-            borderRadius: "24px",
-            boxShadow: "0 8px 32px rgba(59, 130, 246, 0.3)",
-            padding: "12px",
-            maxWidth: "300px",
-          }}
-          messageClassName="typewriter"
-        />
-      </motion.div>
+                            width: '40px', 
+                            height: '40px', 
+                            color: '#FFFFFF',
+                            display: 'block'
+                          }} 
+                        />
     </div>
-  );
-
-  const renderPractice = () => {
-    if (!selectedLesson) return null;
-
-    return (
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Card
-          className="bg-[#FFFFFF] border-0 shadow-2xl"
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleDeleteItem(item.id)
+                        }}
           style={{
-            borderRadius: "24px",
-            boxShadow: "0 8px 32px rgba(59, 130, 246, 0.15)",
+                          color: '#EF4444',
+                          padding: '4px 8px',
           }}
         >
-          <CardHeader className="text-center">
-            <div className="w-20 h-20 mx-auto mb-6 rounded-full flex items-center justify-center bg-gradient-to-br from-[#3B82F6] to-[#00B9FC] shadow-lg kid-pulse">
-              <FileText className="w-10 h-10 text-white" />
+                        <Trash2 style={{ width: '16px', height: '16px' }} />
+                      </Button>
             </div>
             <CardTitle
-              className="text-3xl"
-              style={{ color: "#1E3A8A" }}
-            >
-              {selectedLesson.title}
+                      style={{
+                        fontSize: '20px',
+                        fontWeight: '700',
+                        color: CARD_TEXT,
+                        marginTop: '8px',
+                        marginBottom: '8px',
+                        lineHeight: '1.4',
+                      }}
+                    >
+                      {item.title}
             </CardTitle>
-            <span
-              className="inline-block px-4 py-1 rounded-full text-sm font-medium bg-[#3B82F6]/20"
-              style={{ color: "#FFD600" }}
-            >
-              {selectedLesson.difficulty}
-            </span>
+                    <p
+                      style={{
+                        fontSize: '12px',
+                        color: 'rgba(15, 31, 71, 0.6)',
+                        marginTop: '8px',
+                      }}
+                    >
+                      {new Date(item.uploadDate).toLocaleDateString()}
+                    </p>
           </CardHeader>
-
-          <CardContent className="space-y-6">
-            <div
-              className="bg-[#F2F6FF] rounded-xl p-6"
+                  <CardContent style={{ padding: '0 24px 24px 24px', textAlign: 'center' }}>
+                    <button
               style={{
-                border: "1px solid rgba(59, 130, 246, 0.2)",
-              }}
-            >
-              <h3
-                className="text-lg font-bold"
-                style={{ color: "#1E3A8A" }}
-              >
-                📖 Your Content
-              </h3>
-              <p
-                className="leading-relaxed whitespace-pre-line"
-                style={{ color: "#1E3A8A" }}
-              >
-                {selectedLesson.content}
-              </p>
-            </div>
-
-            <div className="text-center space-y-4">
-              {!isPracticing ? (
-                <Button
-                  onClick={handleStartPractice}
-                  className="bg-gradient-to-r from-[#3B82F6] to-[#00B9FC] hover:opacity-90 text-white rounded-xl px-12 py-6 text-lg shadow-lg hover:scale-105 transition-all duration-300"
-                >
-                  <Mic className="w-6 h-6 mr-2" />
-                  Start Practice Reading
-                </Button>
-              ) : (
-                <div className="space-y-4">
-                  <div className="w-32 h-32 mx-auto bg-gradient-to-r from-[#3B82F6] to-[#00B9FC] rounded-full flex items-center justify-center kid-pulse shadow-2xl">
-                    <Mic className="w-16 h-16 text-white" />
-                  </div>
-                  <p
-                    className="text-xl kid-pulse"
-                    style={{ color: "#F2F6FF" }}
-                  >
-                    🎤 Recording... Speak clearly!
-                  </p>
-                  <div className="flex justify-center items-end space-x-1 h-12">
-                    <div
-                      className="w-3 bg-[#3B82F6] rounded recording-bar"
-                      style={{ animationDelay: "0ms" }}
-                    ></div>
-                    <div
-                      className="w-3 bg-[#00B9FC] rounded recording-bar"
-                      style={{ animationDelay: "100ms" }}
-                    ></div>
-                    <div
-                      className="w-3 bg-[#3B82F6] rounded recording-bar"
-                      style={{ animationDelay: "200ms" }}
-                    ></div>
-                    <div
-                      className="w-3 bg-[#00B9FC] rounded recording-bar"
-                      style={{ animationDelay: "300ms" }}
-                    ></div>
-                    <div
-                      className="w-3 bg-[#3B82F6] rounded recording-bar"
-                      style={{ animationDelay: "400ms" }}
-                    ></div>
-                  </div>
+                        background: `linear-gradient(135deg, ${gradientColors.from} 0%, ${gradientColors.to} 100%)`,
+                        color: '#FFFFFF',
+                        border: 'none',
+                        borderRadius: '25px',
+                        padding: '10px 24px',
+                        fontSize: '14px',
+                        fontWeight: '600',
+                        cursor: 'pointer',
+                        boxShadow: '0 4px 12px rgba(59, 130, 246, 0.4)',
+                        transition: 'all 0.2s ease',
+                        width: '100%',
+                        minHeight: '40px',
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleItemSelect(item)
+                      }}
+                    >
+                      Start Practicing!
+                    </button>
+                  </CardContent>
+                </Card>
+              )
+            })}
                 </div>
               )}
             </div>
+    </div>
+  )
 
-            <Button
-              variant="outline"
-              onClick={() => setView("list")}
-              className="w-full border-[#3B82F6]/20 text-[#1E3A8A] hover:bg-[#3B82F6]/10"
-            >
-              Back to Lessons
-            </Button>
-          </CardContent>
-        </Card>
+  const renderDetail = () => {
+    if (!selectedItem) return null
 
-        <motion.div
-          animate={
-            showMelloMessage
-              ? { y: [0, -15, 0], scale: [1, 1.1, 1] }
-              : { x: [0, 10, -10, 0] }
-          }
-          transition={{
-            duration: 2,
-            repeat: Infinity,
-            ease: "easeInOut",
-            times: showMelloMessage
-              ? [0, 0.5, 1]
-              : [0, 0.33, 0.66, 1],
-          }}
-          style={{
-            position: "fixed",
-            bottom: "20px",
-            right: "20px",
-            zIndex: 100,
-          }}
-        >
-          <MelloAssistant
-            state={showMelloMessage ? "celebrating" : "idle"}
-            message="Read your story aloud! Speak clearly and have fun! 😄✨"
-            showMessage={showMelloMessage}
-            onMessageDismiss={() => setShowMelloMessage(false)}
-            position="bottom-right"
-            style={{
-              background:
-                "linear-gradient(135deg, #3B82F6 0%, #00B9FC 100%)",
-              borderRadius: "24px",
-              boxShadow: "0 8px 32px rgba(59, 130, 246, 0.3)",
-              padding: "12px",
-              maxWidth: "300px",
-            }}
-            messageClassName="typewriter"
-          />
-        </motion.div>
-      </div>
-    );
-  };
+    const IconComponent = getItemIcon(selectedItem.id)
+    const gradient = getItemGradient(selectedItem.id)
+    
+    // Get extracted PDF text for this item
+    const fullPdfText = getPdfText(selectedItem.id) || ""
+    
+    // Truncate to 300 words max (API requirement) while preserving sentences
+    const extractedPdfText = fullPdfText ? truncateTextToWords(fullPdfText, 300) : ""
+    
+    // Determine endpoint based on whether we have extracted text
+    const speechEndpoint = extractedPdfText 
+      ? "https://apis.languageconfidence.ai/speech-assessment/scripted/uk"
+      : "https://apis.languageconfidence.ai/speech-assessment/unscripted/uk"
+
+    // Extract gradient colors for lessonColor prop
+    const gradientMap: { [key: string]: string } = {
+      "from-[#3B82F6] to-[#00B9FC]": "from-blue-500 to-cyan-400",
+      "from-[#1E3A8A] to-[#3B82F6]": "from-blue-700 to-blue-500",
+      "from-[#00B9FC] to-[#3B82F6]": "from-cyan-400 to-blue-500",
+      "from-[#6366F1] to-[#8B5CF6]": "from-indigo-500 to-purple-500",
+      "from-[#EC4899] to-[#F43F5E]": "from-pink-500 to-rose-500",
+      "from-[#F59E0B] to-[#EF4444]": "from-amber-500 to-red-500",
+      "from-[#10B981] to-[#059669]": "from-emerald-500 to-emerald-600",
+      "from-[#8B5CF6] to-[#EC4899]": "from-purple-500 to-pink-500",
+    }
+    const lessonColor = gradientMap[gradient] || "from-blue-500 to-cyan-400"
 
   return (
-    <div
-      className="min-h-screen relative overflow-hidden"
-      style={{ background: "#1E3A8A" }}
-    >
-      <style>
-        {`
-          .typewriter {
-            overflow: hidden;
-            white-space: nowrap;
-            animation: typing 2s steps(40, end);
-          }
-          @keyframes typing {
-            from { width: 0; }
-            to { width: 100%; }
-          }
-          .recording-bar {
-            height: 20px;
-            animation: recording 800ms ease-in-out infinite alternate;
-          }
-          @keyframes recording {
-            from { height: 10px; }
-            to { height: 30px; }
-          }
-          .kid-pulse {
-            animation: pulse 1.5s ease-in-out infinite;
-          }
-          @keyframes pulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.1); }
-          }
-          .kid-bounce {
-            animation: bounce 0.5s ease-in-out;
-          }
-          @keyframes bounce {
-            0%, 100% { transform: translateY(0); }
+      <div className="min-h-screen relative overflow-hidden">
+        <div className="absolute inset-0 -z-10" style={BLURRY_BLUE_BG} />
+
+        <style>{`
+          @keyframes float {
+            0%, 100% { transform: translateY(0px); }
             50% { transform: translateY(-10px); }
           }
-        `}
-      </style>
+          @keyframes glow {
+            0%, 100% { box-shadow: 0 0 10px rgba(59, 130, 246, 0.4); }
+            50% { box-shadow: 0 0 30px rgba(59, 130, 246, 0.8); }
+          }
+          .animated-star {
+            animation: float 3s ease-in-out infinite;
+          }
+          .glow-blue {
+            animation: glow 2s ease-in-out infinite;
+          }
+          @media (max-width: 768px) {
+            .content-wrapper {
+              flex-direction: column !important;
+              gap: 1rem !important;
+              padding-bottom: 120px !important;
+            }
+            .pdf-wrapper {
+              width: 100% !important;
+              padding-right: 0 !important;
+            }
+            .desktop-audio-recorder {
+              display: none !important;
+            }
+          }
+        `}</style>
 
-      <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-20">
-        <Star
-          className="absolute top-10 left-10 w-4 h-4 animate-pulse"
-          style={{ color: "#FFD600" }}
-        />
-        <Sparkles
-          className="absolute top-40 right-20 w-5 h-5 animate-pulse"
-          style={{ color: "#FFD600", animationDelay: "0.5s" }}
-        />
-        <Star
-          className="absolute bottom-40 left-40 w-4 h-4 animate-pulse"
-          style={{ color: "#FFD600", animationDelay: "1s" }}
-        />
-        <Sparkles
-          className="absolute bottom-20 right-40 w-5 h-5 animate-pulse"
-          style={{ color: "#FFD600", animationDelay: "1.5s" }}
-        />
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute top-10 left-10 w-3 h-3 bg-[#3B82F6] rounded-full opacity-70 animated-star" />
+          <Sparkles className="absolute top-20 left-1/3 w-6 h-6 text-[#00B9FC] opacity-70 animated-star" />
       </div>
 
-      <header
-        className="backdrop-blur-lg border-b sticky top-0 z-50"
-        style={{
-          background: "rgba(30, 58, 138, 0.95)",
-          borderColor: "rgba(255, 255, 255, 0.1)",
-        }}
-      >
+        <header className="sticky top-0 z-50 backdrop-blur-sm bg-white/10 border-b border-white/10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            <div className="flex items-center space-x-4">
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={handleBack}
-                className="text-[#F2F6FF] hover:text-[#FFD600] hover:bg-white/10 transition-all duration-300"
+                onClick={() => setCurrentView("list")}
+                className="text-white hover:text-[#CFE2FF] hover:bg-white/10"
               >
                 <ArrowLeft className="w-4 h-4 mr-2" />
-                Back
+                Back to Content
               </Button>
+              <h1 className="text-xl font-bold text-white truncate max-w-md">{selectedItem.title}</h1>
+              <div className="w-32"></div>
             </div>
-            <h1
-              className="text-lg font-semibold"
-              style={{ color: "#F2F6FF" }}
-            >
-              Custom Content 📝✨
-            </h1>
-            <ThemeToggle />
           </div>
-        </div>
-      </header>
+        </header>
 
-      <div className="relative z-10">
-        {view === "list" && renderList()}
-        {view === "create" && renderCreate()}
-        {view === "practice" && renderPractice()}
+        <div>
+          <ScrollArea className="h-[calc(100vh-64px)]">
+            <div className="max-w-[1600px] mx-auto px-4 sm:px-8 lg:px-12 py-8">
+              <div className="flex gap-12 items-center content-wrapper min-h-[calc(100vh-64px)]">
+                {/* PDF Viewer - Left side */}
+                <div className="flex-1 min-w-0 pr-4 pdf-wrapper">
+                  <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 shadow-xl border border-white/20">
+                    {/* Header Card */}
+                    <Card className="bg-white border-0 shadow-xl mb-6">
+                      <CardHeader className="text-center">
+                        <div
+                          className={`w-15 h-15 bg-gradient-to-br ${gradient} rounded-full flex items-center justify-center mb-5 mx-auto shadow-lg glow-blue animated-star`}
+                          style={{ width: '60px', height: '60px' }}
+                        >
+                          <IconComponent className="w-12 h-12 text-white" />
+          </div>
+                        <CardTitle className="text-2xl mb-2" style={{ color: CARD_TEXT }}>
+                          {selectedItem.title}
+                        </CardTitle>
+                        <p style={{ color: "rgba(15,31,71,0.75)" }}>Custom Content</p>
+                      </CardHeader>
+                    </Card>
+
+                    {/* PDF Viewer */}
+                    <Card className="bg-white border-0 shadow-xl">
+                      <CardContent className="p-6">
+                        {selectedItem.pdfUrl ? (
+                          <div className="w-full" style={{ height: "calc(100vh - 350px)", minHeight: "600px" }}>
+                            <iframe
+                              src={`${selectedItem.pdfUrl}#toolbar=0&navpanes=0&zoom=100&scrollbar=1&view=FitH`}
+                              className="w-full h-full border-0 rounded-lg"
+                              title={selectedItem.title}
+                            />
+        </div>
+                        ) : (
+                          <div className="text-center py-12">
+                            <p style={{ color: "rgba(15,31,71,0.75)" }}>PDF not available</p>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </div>
+                </div>
+
+                {/* AudioRecorder - Right side */}
+                <div className="w-[400px] flex-shrink-0 desktop-audio-recorder">
+                  <div className="bg-white/95 rounded-2xl shadow-2xl p-8 border-0 audio-recorder-card w-full">
+                    <h2 className="text-2xl font-bold text-[#1E3A8A] mb-6 text-center audio-recorder-title">Practice Your Speaking</h2>
+                    <AudioRecorder 
+                      expectedText={extractedPdfText}
+                      lessonColor={lessonColor}
+                      endpoint={speechEndpoint}
+                      onApiResponse={handleApiResponse}
+                    />
       </div>
     </div>
-  );
+              </div>
+            </div>
+          </ScrollArea>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <>
+      {isExtractingPdf && (
+        <PdfLoadingScreen lessonTitle={selectedItem?.title} />
+      )}
+      {currentView === "list" ? renderList() : renderDetail()}
+    </>
+  )
 }
