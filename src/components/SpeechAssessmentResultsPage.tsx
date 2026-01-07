@@ -115,9 +115,21 @@ export function SpeechAssessmentResultsPage() {
               }
             },
             reading: {
-              total_time: apiResponse.reading?.total_time ?? 0,
+              reading_total_time: apiResponse.reading?.total_time ?? apiResponse.reading?.reading_time ?? 0,
               words_read: apiResponse.reading?.words_read ?? 0,
-              speed_wpm_correct: apiResponse.reading?.speed_wpm_correct ?? 0,
+              unique_words_read: apiResponse.reading?.unique_words_read ?? 0,
+              correct_words_read: apiResponse.reading?.correct_words_read ?? 0,
+              words_per_minute: apiResponse.reading?.speed_wpm_correct ?? apiResponse.reading?.speed_wpm ?? 0,
+              completion_percent: apiResponse.reading?.completion 
+                ? (apiResponse.reading.completion * 100) 
+                : 0,
+              accuracy_percent: apiResponse.reading?.accuracy 
+                ? (apiResponse.reading.accuracy * 100) 
+                : 0,
+              non_reading_time: apiResponse.reading?.non_reading_time ?? 0,
+              // Legacy fields for backward compatibility
+              total_time: apiResponse.reading?.total_time ?? apiResponse.reading?.reading_time ?? 0,
+              speed_wpm_correct: apiResponse.reading?.speed_wpm_correct ?? apiResponse.reading?.speed_wpm ?? 0,
               completion: apiResponse.reading?.completion ?? 0,
               accuracy: apiResponse.reading?.accuracy ?? 0
             },
@@ -127,6 +139,8 @@ export function SpeechAssessmentResultsPage() {
             }
           }
         }
+
+        console.log("Saving result to database with payload:", JSON.stringify(payload, null, 2))
 
         const response = await fetch("https://api.exeleratetechnology.com/api/speaking/save-result.php", {
           method: "POST",
@@ -138,9 +152,11 @@ export function SpeechAssessmentResultsPage() {
         })
 
         if (!response.ok) {
-          console.error("Failed to save result to database:", response.status, response.statusText)
+          const errorText = await response.text()
+          console.error("Failed to save result to database:", response.status, response.statusText, errorText)
         } else {
-          console.log("Result saved to database successfully")
+          const responseData = await response.json()
+          console.log("Result saved to database successfully:", responseData)
         }
       } catch (error) {
         console.error("Error saving result to database:", error)
