@@ -16,7 +16,7 @@ export function SpeechAssessmentResultsPage() {
   const hasSavedRef = useRef(false)
 
   // Get data from navigation state
-  const { apiResponse, chapter, classData, backRoute } = (location.state as any) || {}
+  const { apiResponse, chapter, classData, backRoute, lessonTitle, lessonId } = (location.state as any) || {}
 
   const handleBack = () => {
     if (backRoute) {
@@ -44,18 +44,40 @@ export function SpeechAssessmentResultsPage() {
         return
       }
 
-      // Only save if we have chapter data (for academic samples)
-      if (!chapter) {
+      // Determine if this is from custom-content or academic-samples
+      const isCustomContent = backRoute?.includes("/custom-content") || lessonId
+      const hasChapter = chapter && chapter.id
+
+      // Only save if we have either chapter data (academic samples) or lesson data (custom content)
+      if (!hasChapter && !isCustomContent) {
         return
       }
 
       try {
         hasSavedRef.current = true
 
-        // Extract module_key from chapter.id (e.g., "ch1" -> "chapter_1" or use as-is if already formatted)
-        const moduleKey = chapter.id?.startsWith("ch") 
-          ? `chapter_${chapter.id.replace("ch", "")}` 
-          : chapter.id || "unknown"
+        let moduleType: string
+        let moduleKey: string
+        let moduleTitle: string
+
+        if (isCustomContent && lessonId) {
+          // Custom content - use lessonId and lessonTitle
+          moduleType = "CUSTOM_CONTENT"
+          // Use lessonId as module_key (could be formatted as needed)
+          moduleKey = lessonId.toString()
+          moduleTitle = lessonTitle || ""
+        } else if (hasChapter) {
+          // Academic sample - use chapter data
+          moduleType = "ACADEMIC_SAMPLE"
+          // Extract module_key from chapter.id (e.g., "ch1" -> "chapter_1" or use as-is if already formatted)
+          moduleKey = chapter.id?.startsWith("ch") 
+            ? `chapter_${chapter.id.replace("ch", "")}` 
+            : chapter.id || "unknown"
+          moduleTitle = chapter.title || ""
+        } else {
+          // Fallback - shouldn't reach here but just in case
+          return
+        }
 
         // Map API response to the format expected by save-result API
         // Handle english_proficiency_scores structure - it might be nested or flat
@@ -65,9 +87,9 @@ export function SpeechAssessmentResultsPage() {
         const mockPte = englishProficiencyScores.mock_pte || apiResponse.overall?.mock_pte
 
         const payload = {
-          module_type: "ACADEMIC_SAMPLE",
+          module_type: moduleType,
           module_key: moduleKey,
-          module_title: chapter.title || "Test Data",
+          module_title: moduleTitle,
           result: {
             pronunciation: {
               overall_score: apiResponse.pronunciation?.overall_score ?? 0
@@ -127,7 +149,7 @@ export function SpeechAssessmentResultsPage() {
     }
 
     saveResultToDatabase()
-  }, [apiResponse, chapter, token])
+  }, [apiResponse, chapter, token, backRoute, lessonId, lessonTitle])
 
   const BLUE_BG: CSSProperties = {
     backgroundColor: "#1E3A8A",
