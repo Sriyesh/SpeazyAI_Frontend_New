@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
     Card,
@@ -61,6 +61,7 @@ import {
     Lightbulb,
     Target,
     Zap,
+    FileSpreadsheet,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { toast } from "sonner";
@@ -215,6 +216,13 @@ export function ContentLibrary({ onBack }: ContentLibraryProps) {
     const [uploadStatus, setUploadStatus] = useState<"idle" | "uploading" | "success" | "error">("idle");
     const [publicUrl, setPublicUrl] = useState<string | null>(null);
     const [errorMessage, setErrorMessage] = useState<string>("");
+
+    // Bulk upload state
+    const [isBulkUploadDialogOpen, setIsBulkUploadDialogOpen] = useState(false);
+    const [selectedCsvFile, setSelectedCsvFile] = useState<File | null>(null);
+    const [isBulkUploading, setIsBulkUploading] = useState(false);
+    const [bulkUploadStatus, setBulkUploadStatus] = useState<"idle" | "uploading" | "success" | "error">("idle");
+    const [bulkUploadErrorMessage, setBulkUploadErrorMessage] = useState<string>("");
 
     // Get user's assigned classes from auth data
     const getUserClasses = (): string[] => {
@@ -459,6 +467,130 @@ export function ContentLibrary({ onBack }: ContentLibraryProps) {
         }
     };
 
+    // Bulk upload handlers
+    const handleCsvFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (file) {
+            // Validate CSV type
+            const validTypes = ["text/csv", "application/vnd.ms-excel", "text/plain"];
+            const isValidType = validTypes.includes(file.type) || file.name.toLowerCase().endsWith(".csv");
+            
+            if (!isValidType) {
+                toast.error("Please select a CSV file only");
+                event.target.value = ""; // Reset input
+                setSelectedCsvFile(null);
+                return;
+            }
+            setSelectedCsvFile(file);
+            setBulkUploadErrorMessage("");
+        }
+    };
+
+    const handleBulkUpload = async () => {
+        if (!selectedCsvFile) {
+            toast.error("Please select a CSV file");
+            return;
+        }
+
+        // Validate CSV type again
+        const validTypes = ["text/csv", "application/vnd.ms-excel", "text/plain"];
+        const isValidType = validTypes.includes(selectedCsvFile.type) || selectedCsvFile.name.toLowerCase().endsWith(".csv");
+        
+        if (!isValidType) {
+            toast.error("Only CSV files are allowed");
+            return;
+        }
+
+        if (!token) {
+            toast.error("Authentication token not available. Please log in again.");
+            return;
+        }
+
+        setIsBulkUploading(true);
+        setBulkUploadStatus("uploading");
+        setBulkUploadErrorMessage("");
+
+        try {
+            const formData = new FormData();
+            formData.append("file", selectedCsvFile);
+
+            const response = await fetch("https://api.exeleratetechnology.com/api/users/bulk_upload.php", {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${token}`,
+                },
+                body: formData,
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.message || `Upload failed with status ${response.status}`);
+            }
+
+            const data = await response.json();
+            
+            setBulkUploadStatus("success");
+            toast.success("Bulk upload completed successfully!");
+            
+            // Refresh the content list after successful upload
+            setTimeout(async () => {
+                if (!token) return;
+                
+                try {
+                    const response = await fetch("https://api.exeleratetechnology.com/api/content/list.php", {
+                        method: "GET",
+                        headers: {
+                            "Content-Type": "application/json",
+                            "Authorization": `Bearer ${token}`,
+                        },
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        let items: ContentItem[] = [];
+                        
+                        if (data.success && Array.isArray(data.data)) {
+                            items = data.data.map(mapApiItemToContentItem);
+                        } else if (Array.isArray(data)) {
+                            items = data.map(mapApiItemToContentItem);
+                        }
+                        
+                        setContentItems(items);
+                    }
+                } catch (error) {
+                    // Silently fail - user already sees success message
+                }
+            }, 1000);
+
+            // Reset form after 2 seconds
+            setTimeout(() => {
+                resetBulkUploadForm();
+            }, 2000);
+
+        } catch (error) {
+            setBulkUploadStatus("error");
+            const errorMsg = error instanceof Error ? error.message : "Bulk upload failed. Please try again.";
+            setBulkUploadErrorMessage(errorMsg);
+            toast.error(errorMsg);
+        } finally {
+            setIsBulkUploading(false);
+        }
+    };
+
+    const resetBulkUploadForm = () => {
+        setSelectedCsvFile(null);
+        setBulkUploadStatus("idle");
+        setBulkUploadErrorMessage("");
+        setIsBulkUploadDialogOpen(false);
+    };
+
+    const handleBulkUploadDialogClose = (open: boolean) => {
+        if (!open && !isBulkUploading) {
+            resetBulkUploadForm();
+        }
+        setIsBulkUploadDialogOpen(open);
+    };
+
     const TEXT_LIGHT = "#F2F6FF";
     const TEXT_MUTED = "rgba(242,246,255,0.78)";
 
@@ -509,36 +641,419 @@ export function ContentLibrary({ onBack }: ContentLibraryProps) {
                             </h1>
                         </div>
 
-                        <Dialog open={isUploadDialogOpen} onOpenChange={handleDialogClose}>
-                            <DialogTrigger asChild>
-                                <Button
+                        <div className="flex items-center gap-3">
+                            <Dialog open={isBulkUploadDialogOpen} onOpenChange={handleBulkUploadDialogClose}>
+                                <DialogTrigger asChild>
+                                    <Button
+                                        style={{
+                                            background: "linear-gradient(135deg, #10B981 0%, #059669 100%)",
+                                            color: "#FFFFFF",
+                                            borderRadius: "12px",
+                                            padding: "8px 16px",
+                                            boxShadow: "0 10px 15px -3px rgba(16, 185, 129, 0.3), 0 4px 6px -2px rgba(16, 185, 129, 0.2)",
+                                            border: "none",
+                                            cursor: "pointer",
+                                            transition: "all 0.2s ease",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            gap: "8px",
+                                            fontWeight: 500,
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            e.currentTarget.style.transform = "scale(1.05)";
+                                            e.currentTarget.style.boxShadow = "0 20px 25px -5px rgba(16, 185, 129, 0.4), 0 10px 10px -5px rgba(16, 185, 129, 0.3)";
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.currentTarget.style.transform = "scale(1)";
+                                            e.currentTarget.style.boxShadow = "0 10px 15px -3px rgba(16, 185, 129, 0.3), 0 4px 6px -2px rgba(16, 185, 129, 0.2)";
+                                        }}
+                                    >
+                                        <FileSpreadsheet style={{ width: "16px", height: "16px" }} />
+                                        Bulk Upload
+                                    </Button>
+                                </DialogTrigger>
+                                <DialogContent 
                                     style={{
-                                        background: "linear-gradient(135deg, #3B82F6 0%, #00B9FC 100%)",
-                                        color: "#FFFFFF",
-                                        borderRadius: "12px",
-                                        padding: "8px 16px",
-                                        boxShadow: "0 10px 15px -3px rgba(59, 130, 246, 0.3), 0 4px 6px -2px rgba(59, 130, 246, 0.2)",
+                                        backgroundColor: "#FFFFFF",
+                                        maxWidth: "500px",
+                                        width: "90vw",
+                                        borderRadius: "16px",
+                                        boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
+                                        padding: "0",
                                         border: "none",
-                                        cursor: "pointer",
-                                        transition: "all 0.2s ease",
-                                        display: "flex",
-                                        alignItems: "center",
-                                        gap: "8px",
-                                        fontWeight: 500,
-                                    }}
-                                    onMouseEnter={(e) => {
-                                        e.currentTarget.style.transform = "scale(1.05)";
-                                        e.currentTarget.style.boxShadow = "0 20px 25px -5px rgba(59, 130, 246, 0.4), 0 10px 10px -5px rgba(59, 130, 246, 0.3)";
-                                    }}
-                                    onMouseLeave={(e) => {
-                                        e.currentTarget.style.transform = "scale(1)";
-                                        e.currentTarget.style.boxShadow = "0 10px 15px -3px rgba(59, 130, 246, 0.3), 0 4px 6px -2px rgba(59, 130, 246, 0.2)";
                                     }}
                                 >
-                                    <Plus style={{ width: "16px", height: "16px" }} />
-                                    Upload Content
-                                </Button>
-                            </DialogTrigger>
+                                    <DialogHeader
+                                        style={{
+                                            padding: "24px 24px 16px 24px",
+                                            borderBottom: "1px solid #E5E7EB",
+                                        }}
+                                    >
+                                        <DialogTitle 
+                                            style={{
+                                                color: "#0F1F47",
+                                                fontSize: "20px",
+                                                fontWeight: 600,
+                                                display: "flex",
+                                                alignItems: "center",
+                                                gap: "12px",
+                                                margin: 0,
+                                            }}
+                                        >
+                                            <FileSpreadsheet style={{ width: "20px", height: "20px", color: "#10B981" }} />
+                                            Bulk Upload PDFs
+                                        </DialogTitle>
+                                        <DialogDescription 
+                                            style={{
+                                                color: "rgba(15, 31, 71, 0.7)",
+                                                fontSize: "14px",
+                                                marginTop: "8px",
+                                                lineHeight: "1.5",
+                                            }}
+                                        >
+                                            Upload a CSV file to bulk upload multiple PDFs. The CSV file should contain the required information for each PDF.
+                                        </DialogDescription>
+                                    </DialogHeader>
+                                    
+                                    <div style={{ padding: "24px", display: "flex", flexDirection: "column", gap: "20px" }}>
+                                        {/* CSV File Upload */}
+                                        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                                            <Label 
+                                                htmlFor="csv-file" 
+                                                style={{
+                                                    color: "#0F1F47",
+                                                    fontWeight: 500,
+                                                    fontSize: "14px",
+                                                }}
+                                            >
+                                                CSV File <span style={{ color: "#EF4444" }}>*</span>
+                                            </Label>
+                                            <div style={{ position: "relative" }}>
+                                                <input
+                                                    id="csv-file"
+                                                    type="file"
+                                                    accept=".csv"
+                                                    onChange={handleCsvFileUpload}
+                                                    disabled={isBulkUploading}
+                                                    style={{
+                                                        position: "absolute",
+                                                        width: "0.1px",
+                                                        height: "0.1px",
+                                                        opacity: 0,
+                                                        overflow: "hidden",
+                                                        zIndex: -1,
+                                                    }}
+                                                />
+                                                <label
+                                                    htmlFor="csv-file"
+                                                    style={{
+                                                        display: "flex",
+                                                        alignItems: "center",
+                                                        justifyContent: "center",
+                                                        width: "100%",
+                                                        height: "44px",
+                                                        border: "1px solid #E5E7EB",
+                                                        borderRadius: "8px",
+                                                        padding: "0 16px",
+                                                        fontSize: "14px",
+                                                        backgroundColor: isBulkUploading ? "#F3F4F6" : "#FFFFFF",
+                                                        cursor: isBulkUploading ? "not-allowed" : "pointer",
+                                                        color: selectedCsvFile ? "#0F1F47" : "rgba(15, 31, 71, 0.6)",
+                                                        fontWeight: selectedCsvFile ? 500 : 400,
+                                                        transition: "all 0.2s ease",
+                                                    }}
+                                                    onMouseEnter={(e) => {
+                                                        if (!isBulkUploading) {
+                                                            e.currentTarget.style.borderColor = "#10B981";
+                                                            e.currentTarget.style.backgroundColor = "#F8F9FA";
+                                                        }
+                                                    }}
+                                                    onMouseLeave={(e) => {
+                                                        if (!isBulkUploading) {
+                                                            e.currentTarget.style.borderColor = "#E5E7EB";
+                                                            e.currentTarget.style.backgroundColor = "#FFFFFF";
+                                                        }
+                                                    }}
+                                                >
+                                                    {selectedCsvFile ? (
+                                                        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, textAlign: "left" }}>
+                                                            {selectedCsvFile.name}
+                                                        </span>
+                                                    ) : (
+                                                        <>
+                                                            <Upload style={{ width: "16px", height: "16px", marginRight: "8px", color: "#10B981" }} />
+                                                            Choose CSV file
+                                                        </>
+                                                    )}
+                                                </label>
+                                                {selectedCsvFile && (
+                                                    <div 
+                                                        style={{
+                                                            marginTop: "12px",
+                                                            padding: "12px",
+                                                            backgroundColor: "#F0FDF4",
+                                                            borderRadius: "8px",
+                                                            border: "1px solid #BBF7D0",
+                                                            display: "flex",
+                                                            alignItems: "center",
+                                                            gap: "12px",
+                                                        }}
+                                                    >
+                                                        <FileSpreadsheet style={{ width: "20px", height: "20px", color: "#10B981", flexShrink: 0 }} />
+                                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                                            <p 
+                                                                style={{
+                                                                    fontSize: "14px",
+                                                                    fontWeight: 500,
+                                                                    color: "#065F46",
+                                                                    margin: 0,
+                                                                    overflow: "hidden",
+                                                                    textOverflow: "ellipsis",
+                                                                    whiteSpace: "nowrap",
+                                                                }}
+                                                            >
+                                                                {selectedCsvFile.name}
+                                                            </p>
+                                                            <p 
+                                                                style={{
+                                                                    fontSize: "12px",
+                                                                    color: "rgba(6, 95, 70, 0.7)",
+                                                                    margin: "4px 0 0 0",
+                                                                }}
+                                                            >
+                                                                {(selectedCsvFile.size / 1024).toFixed(2)} KB
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <p 
+                                                style={{
+                                                    fontSize: "12px",
+                                                    color: "rgba(15, 31, 71, 0.6)",
+                                                    margin: 0,
+                                                }}
+                                            >
+                                                Only CSV files are allowed
+                                            </p>
+                                        </div>
+
+                                        {/* Upload Status */}
+                                        {isBulkUploading && (
+                                            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "14px" }}>
+                                                    <span style={{ color: "#0F1F47", fontWeight: 500 }}>Uploading...</span>
+                                                </div>
+                                                <div 
+                                                    style={{
+                                                        position: "relative",
+                                                        height: "12px",
+                                                        width: "100%",
+                                                        backgroundColor: "#E5E7EB",
+                                                        borderRadius: "9999px",
+                                                        overflow: "hidden",
+                                                    }}
+                                                >
+                                                    <div 
+                                                        className="pulse-animation"
+                                                        style={{
+                                                            height: "100%",
+                                                            background: "linear-gradient(90deg, #10B981 0%, #059669 100%)",
+                                                            borderRadius: "9999px",
+                                                            width: "100%",
+                                                            animation: "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+                                                        }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Success State */}
+                                        {bulkUploadStatus === "success" && (
+                                            <div 
+                                                style={{
+                                                    padding: "16px",
+                                                    backgroundColor: "#F0FDF4",
+                                                    border: "1px solid #BBF7D0",
+                                                    borderRadius: "8px",
+                                                }}
+                                            >
+                                                <div style={{ display: "flex", alignItems: "flex-start", gap: "12px" }}>
+                                                    <CheckCircle2 style={{ width: "20px", height: "20px", color: "#10B981", flexShrink: 0, marginTop: "2px" }} />
+                                                    <div style={{ flex: 1 }}>
+                                                        <p 
+                                                            style={{
+                                                                fontSize: "14px",
+                                                                fontWeight: 500,
+                                                                color: "#065F46",
+                                                                margin: 0,
+                                                            }}
+                                                        >
+                                                            Bulk upload completed successfully!
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Error State */}
+                                        {bulkUploadStatus === "error" && bulkUploadErrorMessage && (
+                                            <div 
+                                                style={{
+                                                    padding: "16px",
+                                                    backgroundColor: "#FEF2F2",
+                                                    border: "1px solid #FECACA",
+                                                    borderRadius: "8px",
+                                                }}
+                                            >
+                                                <div style={{ display: "flex", alignItems: "flex-start", gap: "12px" }}>
+                                                    <XCircle style={{ width: "20px", height: "20px", color: "#EF4444", flexShrink: 0, marginTop: "2px" }} />
+                                                    <div style={{ flex: 1 }}>
+                                                        <p 
+                                                            style={{
+                                                                fontSize: "14px",
+                                                                fontWeight: 500,
+                                                                color: "#991B1B",
+                                                                margin: "0 0 4px 0",
+                                                            }}
+                                                        >
+                                                            Upload Failed
+                                                        </p>
+                                                        <p 
+                                                            style={{
+                                                                fontSize: "12px",
+                                                                color: "#B91C1C",
+                                                                margin: 0,
+                                                            }}
+                                                        >
+                                                            {bulkUploadErrorMessage}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Action Buttons */}
+                                    <div 
+                                        style={{
+                                            display: "flex",
+                                            justifyContent: "flex-end",
+                                            gap: "12px",
+                                            padding: "16px 24px 24px 24px",
+                                            borderTop: "1px solid #E5E7EB",
+                                        }}
+                                    >
+                                        <Button
+                                            variant="outline"
+                                            onClick={() => handleBulkUploadDialogClose(false)}
+                                            disabled={isBulkUploading}
+                                            style={{
+                                                border: "1px solid #E5E7EB",
+                                                color: "#0F1F47",
+                                                backgroundColor: "#FFFFFF",
+                                                borderRadius: "8px",
+                                                padding: "8px 16px",
+                                                fontSize: "14px",
+                                                fontWeight: 500,
+                                                cursor: isBulkUploading ? "not-allowed" : "pointer",
+                                                opacity: isBulkUploading ? 0.5 : 1,
+                                            }}
+                                            onMouseEnter={(e) => {
+                                                if (!isBulkUploading) {
+                                                    e.currentTarget.style.backgroundColor = "#F2F3F4";
+                                                }
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                if (!isBulkUploading) {
+                                                    e.currentTarget.style.backgroundColor = "#FFFFFF";
+                                                }
+                                            }}
+                                        >
+                                            {bulkUploadStatus === "success" ? "Close" : "Cancel"}
+                                        </Button>
+                                        <Button
+                                            onClick={handleBulkUpload}
+                                            disabled={
+                                                isBulkUploading || 
+                                                !selectedCsvFile ||
+                                                bulkUploadStatus === "success"
+                                            }
+                                            style={{
+                                                background: "linear-gradient(135deg, #10B981 0%, #059669 100%)",
+                                                color: "#FFFFFF",
+                                                borderRadius: "12px",
+                                                padding: "8px 20px",
+                                                boxShadow: "0 10px 15px -3px rgba(16, 185, 129, 0.3), 0 4px 6px -2px rgba(16, 185, 129, 0.2)",
+                                                border: "none",
+                                                fontSize: "14px",
+                                                fontWeight: 500,
+                                                cursor: (isBulkUploading || !selectedCsvFile || bulkUploadStatus === "success") ? "not-allowed" : "pointer",
+                                                opacity: (isBulkUploading || !selectedCsvFile || bulkUploadStatus === "success") ? 0.5 : 1,
+                                                display: "flex",
+                                                alignItems: "center",
+                                                gap: "8px",
+                                                transition: "all 0.2s ease",
+                                            }}
+                                            onMouseEnter={(e) => {
+                                                if (!isBulkUploading && selectedCsvFile && bulkUploadStatus !== "success") {
+                                                    e.currentTarget.style.transform = "scale(1.05)";
+                                                    e.currentTarget.style.boxShadow = "0 20px 25px -5px rgba(16, 185, 129, 0.4), 0 10px 10px -5px rgba(16, 185, 129, 0.3)";
+                                                }
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                if (!isBulkUploading && selectedCsvFile && bulkUploadStatus !== "success") {
+                                                    e.currentTarget.style.transform = "scale(1)";
+                                                    e.currentTarget.style.boxShadow = "0 10px 15px -3px rgba(16, 185, 129, 0.3), 0 4px 6px -2px rgba(16, 185, 129, 0.2)";
+                                                }
+                                            }}
+                                        >
+                                            {isBulkUploading ? (
+                                                <>
+                                                    <Upload className="pulse-animation" style={{ width: "16px", height: "16px" }} />
+                                                    Uploading...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Upload style={{ width: "16px", height: "16px" }} />
+                                                    Upload
+                                                </>
+                                            )}
+                                        </Button>
+                                    </div>
+                                </DialogContent>
+                            </Dialog>
+
+                            <Dialog open={isUploadDialogOpen} onOpenChange={handleDialogClose}>
+                                <DialogTrigger asChild>
+                                    <Button
+                                        style={{
+                                            background: "linear-gradient(135deg, #3B82F6 0%, #00B9FC 100%)",
+                                            color: "#FFFFFF",
+                                            borderRadius: "12px",
+                                            padding: "8px 16px",
+                                            boxShadow: "0 10px 15px -3px rgba(59, 130, 246, 0.3), 0 4px 6px -2px rgba(59, 130, 246, 0.2)",
+                                            border: "none",
+                                            cursor: "pointer",
+                                            transition: "all 0.2s ease",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            gap: "8px",
+                                            fontWeight: 500,
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            e.currentTarget.style.transform = "scale(1.05)";
+                                            e.currentTarget.style.boxShadow = "0 20px 25px -5px rgba(59, 130, 246, 0.4), 0 10px 10px -5px rgba(59, 130, 246, 0.3)";
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.currentTarget.style.transform = "scale(1)";
+                                            e.currentTarget.style.boxShadow = "0 10px 15px -3px rgba(59, 130, 246, 0.3), 0 4px 6px -2px rgba(59, 130, 246, 0.2)";
+                                        }}
+                                    >
+                                        <Plus style={{ width: "16px", height: "16px" }} />
+                                        Upload Content
+                                    </Button>
+                                </DialogTrigger>
                             <DialogContent 
                                 style={{
                                     backgroundColor: "#FFFFFF",
@@ -1172,8 +1687,9 @@ export function ContentLibrary({ onBack }: ContentLibraryProps) {
                                         )}
                                     </Button>
                                 </div>
-                            </DialogContent>
+                                </DialogContent>
                         </Dialog>
+                        </div>
                     </div>
                 </div>
             </header>
