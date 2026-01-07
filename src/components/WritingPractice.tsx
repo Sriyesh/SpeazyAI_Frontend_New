@@ -2,6 +2,9 @@ import { useState } from "react";
 import { Button } from "./ui/button";
 import { ArrowLeft, PenTool, Star, Sparkles, BookOpen } from "lucide-react";
 import { PracticeTiles } from "./writing-practice/PracticeTiles";
+import { WritingBeginner } from "./writing-practice/WritingBeginner";
+import { WritingIntermediate } from "./writing-practice/WritingIntermediate";
+import { WritingAdvanced } from "./writing-practice/WritingAdvanced";
 import { beginnerPractices, intermediatePractices, advancedPractices } from "./writing-practice/practiceData";
 import { useNavigate } from "react-router-dom";
 
@@ -45,15 +48,15 @@ export function WritingPractice({ onBack }: WritingPracticeProps) {
   };
 
   if (currentView === "beginner") {
-    return <PracticeTiles level="beginner" practiceTiles={beginnerPractices} onBack={handleBackToLevels} />;
+    return <WritingBeginner onBack={handleBackToLevels} />;
   }
 
   if (currentView === "intermediate") {
-    return <PracticeTiles level="intermediate" practiceTiles={intermediatePractices} onBack={handleBackToLevels} />;
+    return <WritingIntermediate onBack={handleBackToLevels} />;
   }
 
   if (currentView === "advanced") {
-    return <PracticeTiles level="advanced" practiceTiles={advancedPractices} onBack={handleBackToLevels} />;
+    return <WritingAdvanced onBack={handleBackToLevels} />;
   }
 
   // Default view: levels selection

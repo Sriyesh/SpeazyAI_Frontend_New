@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { ArrowLeft, Send, Loader2 } from "lucide-react";
+import { useAuth } from "../../contexts/AuthContext";
 
 interface WritingPracticeQuestionProps {
   question: string;
@@ -216,6 +217,8 @@ export function WritingPracticeQuestion({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [results, setResults] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const { token } = useAuth();
+  const hasSavedRef = useRef(false);
 
   const handleSubmit = async () => {
     if (!answer.trim()) {
@@ -253,6 +256,8 @@ export function WritingPracticeQuestion({
       // Store the original answer in results for display
       data.originalText = answer;
       setResults(data);
+      // Reset the save flag when new results are set
+      hasSavedRef.current = false;
     } catch (err: any) {
       if (err.message?.includes("Failed to fetch") || err.message?.includes("NetworkError") || err.code === "ERR_NETWORK") {
         setError("Cannot connect to the ChatGPT proxy server. Please make sure the server is running on port 4000. Run 'npm run proxy:chatgpt' in a separate terminal.");
@@ -264,6 +269,54 @@ export function WritingPracticeQuestion({
       setIsSubmitting(false);
     }
   };
+
+  // Save results to database when they're displayed
+  useEffect(() => {
+    const saveResults = async () => {
+      // Only save if we have results, a token, and haven't saved yet
+      if (!results || !token || hasSavedRef.current) {
+        return;
+      }
+
+      // Extract IELTS score from results
+      const ieltsScore = results.ieltsScore;
+      
+      // Only save if we have a valid IELTS score
+      if (!ieltsScore || ieltsScore === "N/A") {
+        console.log("No valid IELTS score to save");
+        return;
+      }
+
+      try {
+        const response = await fetch("https://api.exeleratetechnology.com/api/writing/save-result.php", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            title: questionTitle,
+            ielts_score: parseFloat(ieltsScore),
+          }),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error("Failed to save writing result:", errorText);
+          return;
+        }
+
+        const data = await response.json();
+        console.log("Writing result saved successfully:", data);
+        hasSavedRef.current = true;
+      } catch (err: any) {
+        console.error("Error saving writing result:", err);
+        // Don't show error to user, just log it
+      }
+    };
+
+    saveResults();
+  }, [results, token, questionTitle]);
 
   // Styles
   const styles = {

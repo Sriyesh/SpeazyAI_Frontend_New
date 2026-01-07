@@ -1,423 +1,418 @@
 import { useState } from "react";
 import { Button } from "../ui/button";
-import { ArrowLeft, Star, Sparkles, MapPin, Calendar, Mountain } from "lucide-react";
-import { ImageWithFallback } from "../figma/ImageWithFallback";
+import { ArrowLeft, Star, Sparkles, Smartphone, Users, Calendar, GraduationCap, Building2, Target } from "lucide-react";
+import { WritingPracticeQuestion } from "./WritingPracticeQuestion";
+import type { CSSProperties } from "react";
 
 interface WritingIntermediateProps {
   onBack: () => void;
 }
 
-type IntermediateView = "chapters" | "adventure-stories" | "favorite-place" | "special-day";
+type IntermediateView = "topics" | "inter_opinion_technology" | "inter_best_friend" | "inter_memorable_day" | "inter_online_learning" | "inter_city_vs_village" | "inter_future_goals";
 
-type Topic = {
+interface IntermediateTile {
   id: string;
   title: string;
   description: string;
-  content: string[];
-};
-
-type Chapter = {
-  id: string;
-  title: string;
-  description: string;
-  image: string;
+  question: string;
+  minWords: number;
+  analysisPrompt: string;
+  icon: typeof Smartphone;
   color: string;
-  topics: Topic[];
-};
+}
 
-const chapters: Chapter[] = [
+const intermediateTiles: IntermediateTile[] = [
   {
-    id: "adventure-stories",
-    title: "Adventure Stories",
-    description: "Write exciting tales of exploration",
-    image: "https://images.unsplash.com/photo-1631684181713-e697596d2165?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxhZHZlbnR1cmUlMjBtb3VudGFpbiUyMGxhbmRzY2FwZXxlbnwxfHx8fDE3NjQ3NzMyMDd8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-    color: "from-[#3B82F6] to-[#00B9FC]",
-    topics: [
-      {
-        id: "treasure-hunt",
-        title: "The Treasure Hunt",
-        description: "Create an exciting treasure hunting adventure",
-        content: [
-          "Imagine you found an old map in your attic! The map shows the location of a hidden treasure.",
-          "Write about your adventure to find it. Where does the map lead you? What challenges do you face? Do you find the treasure?",
-          "Think about: Who goes with you on this adventure? What tools do you need? What surprises do you encounter along the way?",
-        ],
-      },
-      {
-        id: "lost-forest",
-        title: "Lost in the Forest",
-        description: "Write about surviving in the wilderness",
-        content: [
-          "You went on a hiking trip and got separated from your group. Now you're alone in a big forest.",
-          "Write about how you survive and find your way back. What do you see and hear? How do you stay safe?",
-          "Include details about: The sounds of the forest, how you find food and water, and how you feel during this adventure.",
-        ],
-      },
-      {
-        id: "time-machine",
-        title: "My Time Machine Adventure",
-        description: "Travel through time in your writing",
-        content: [
-          "You discovered a time machine! You can visit any time period in history or go to the future.",
-          "Write about your time-traveling adventure. When do you go? What do you see? Who do you meet?",
-          "Describe: What the place looks like, interesting people or things you encounter, and what you learn from your journey.",
-        ],
-      },
-    ],
-  },
-  {
-    id: "favorite-place",
-    title: "My Favorite Place",
-    description: "Describe places that are special to you",
-    image: "https://images.unsplash.com/photo-1565523925028-812f891b0e8c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxiZWF1dGlmdWwlMjB0cmF2ZWwlMjBkZXN0aW5hdGlvbnxlbnwxfHx8fDE3NjQ3ODI2MDF8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
+    id: "inter_opinion_technology",
+    title: "Technology in Daily Life",
+    description: "Share your opinion on technology",
+    question: "Do you think technology has made life easier or more stressful? Explain your opinion with reasons.",
+    minWords: 120,
+    analysisPrompt: "Analyze the paragraph for grammar, coherence, and paragraph structure. Suggest improvements in sentence variety and vocabulary. Provide constructive feedback.",
+    icon: Smartphone,
     color: "from-[#00B9FC] to-[#246BCF]",
-    topics: [
-      {
-        id: "dream-destination",
-        title: "My Dream Destination",
-        description: "Write about a place you'd love to visit",
-        content: [
-          "If you could travel anywhere in the world, where would you go? It could be a real place or even an imaginary one!",
-          "Describe this special place in detail. What does it look like? What would you do there?",
-          "Think about: The weather, the people, the food, the activities, and why this place is so special to you.",
-        ],
-      },
-      {
-        id: "secret-hideout",
-        title: "My Secret Hideout",
-        description: "Describe your perfect hiding spot",
-        content: [
-          "Everyone needs a special place where they can relax and be themselves. This could be a real place or one you imagine.",
-          "Write about your secret hideout. Where is it? What does it look like? What do you keep there?",
-          "Include: How you decorated it, what you do there, and why it's important to you.",
-        ],
-      },
-      {
-        id: "neighborhood-walk",
-        title: "A Walk Through My Neighborhood",
-        description: "Explore your surroundings through writing",
-        content: [
-          "Take a virtual walk through your neighborhood and describe what you see, hear, and smell.",
-          "Write about the interesting things in your area. What makes your neighborhood special?",
-          "Describe: Your favorite spots, interesting people you see, shops or parks, and what makes it feel like home.",
-        ],
-      },
-    ],
   },
   {
-    id: "special-day",
-    title: "A Special Day",
-    description: "Write about memorable moments",
-    image: "https://images.unsplash.com/photo-1650584997985-e713a869ee77?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjZWxlYnJhdGlvbiUyMGJpcnRoZGF5JTIwcGFydHl8ZW58MXx8fHwxNzY0Nzc5NDEzfDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
+    id: "inter_best_friend",
+    title: "My Best Friend",
+    description: "Describe a person important to you",
+    question: "Write about your best friend. Describe their personality and explain why they are important to you.",
+    minWords: 100,
+    analysisPrompt: "Evaluate grammar, descriptive language, and sentence flow. Suggest better adjectives and sentence connections.",
+    icon: Users,
     color: "from-[#246BCF] to-[#1E3A8A]",
-    topics: [
-      {
-        id: "best-birthday",
-        title: "My Best Birthday Ever",
-        description: "Share your most memorable birthday",
-        content: [
-          "Think about your favorite birthday celebration. It could be from the past or one you dream about having!",
-          "Write about what made it so special. Who was there? What did you do? What gifts did you receive?",
-          "Include details about: The decorations, the cake, fun activities, and the best moments that made you smile.",
-        ],
-      },
-      {
-        id: "achievement-day",
-        title: "The Day I Achieved Something Great",
-        description: "Write about your proudest moment",
-        content: [
-          "Everyone has moments when they accomplish something they worked hard for. Write about one of your achievements!",
-          "What did you achieve? How did you prepare for it? How did you feel when you succeeded?",
-          "Describe: The challenge you faced, how you overcame it, who helped you, and what you learned from the experience.",
-        ],
-      },
-      {
-        id: "surprise-day",
-        title: "An Unexpected Surprise",
-        description: "Tell about a day full of surprises",
-        content: [
-          "Sometimes the best days are the ones we don't plan! Write about a day when something unexpected and wonderful happened.",
-          "What was the surprise? Who was involved? How did it make you feel?",
-          "Think about: How the day started normally, when things changed, what happened, and why it became so memorable.",
-        ],
-      },
-    ],
+  },
+  {
+    id: "inter_memorable_day",
+    title: "A Memorable Day",
+    description: "Narrate a past experience",
+    question: "Describe a memorable day in your life. Explain what happened and why it was special.",
+    minWords: 120,
+    analysisPrompt: "Check past tense consistency, paragraph flow, and clarity. Suggest corrections and a refined version.",
+    icon: Calendar,
+    color: "from-[#1E3A8A] to-[#3B82F6]",
+  },
+  {
+    id: "inter_online_learning",
+    title: "Online Learning",
+    description: "Discuss advantages and disadvantages",
+    question: "What are the advantages and disadvantages of online learning? Share your opinion.",
+    minWords: 130,
+    analysisPrompt: "Analyze logical flow, linking words, and grammar. Suggest improvements in structure and vocabulary.",
+    icon: GraduationCap,
+    color: "from-[#3B82F6] to-[#00B9FC]",
+  },
+  {
+    id: "inter_city_vs_village",
+    title: "City Life vs Village Life",
+    description: "Compare two lifestyles",
+    question: "Compare city life and village life. Which one do you prefer and why?",
+    minWords: 140,
+    analysisPrompt: "Evaluate comparison structure, connectors, and grammar. Suggest better organization and vocabulary.",
+    icon: Building2,
+    color: "from-[#00B9FC] to-[#246BCF]",
+  },
+  {
+    id: "inter_future_goals",
+    title: "My Future Goals",
+    description: "Write about ambitions",
+    question: "Write about your future goals and how you plan to achieve them.",
+    minWords: 120,
+    analysisPrompt: "Check sentence variety, clarity, and coherence. Provide feedback and an improved version.",
+    icon: Target,
+    color: "from-[#246BCF] to-[#1E3A8A]",
   },
 ];
 
 export function WritingIntermediate({ onBack }: WritingIntermediateProps) {
-  const [currentView, setCurrentView] = useState<IntermediateView>("chapters");
-  const [selectedChapter, setSelectedChapter] = useState<Chapter | null>(null);
-  const [selectedTopic, setSelectedTopic] = useState<Topic | null>(null);
+  const [currentView, setCurrentView] = useState<IntermediateView>("topics");
+  const [selectedTile, setSelectedTile] = useState<IntermediateTile | null>(null);
 
-  const handleChapterClick = (chapter: Chapter) => {
-    setSelectedChapter(chapter);
-    setSelectedTopic(null);
-    setCurrentView(chapter.id as IntermediateView);
-  };
-
-  const handleTopicClick = (topic: Topic) => {
-    setSelectedTopic(topic);
-  };
-
-  const handleBackToChapters = () => {
-    setCurrentView("chapters");
-    setSelectedChapter(null);
-    setSelectedTopic(null);
+  const handleTopicClick = (tile: IntermediateTile) => {
+    setSelectedTile(tile);
+    setCurrentView(tile.id as IntermediateView);
   };
 
   const handleBackToTopics = () => {
-    setSelectedTopic(null);
+    setCurrentView("topics");
+    setSelectedTile(null);
   };
 
-  // If a specific topic is selected, render its content
-  if (selectedTopic && selectedChapter) {
+  // Render WritingPracticeQuestion for any selected tile
+  if (currentView !== "topics" && selectedTile) {
     return (
-      <div className="min-h-screen relative bg-[#1E3A8A]">
-        <Star className="absolute top-20 right-1/4 w-8 h-8 text-[#FFD600] animate-bounce" />
-        <Star className="absolute top-1/3 left-16 w-6 h-6 text-white/60 animate-pulse" style={{ animationDelay: "0.5s" }} />
-        <Sparkles className="absolute top-1/4 right-16 w-7 h-7 text-white/70 animate-pulse" />
-
-        <header className="bg-[#1E3A8A]/90 backdrop-blur-lg border-b border-white/10 sticky top-0 z-50 shadow-md">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between h-16">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleBackToTopics}
-                className="text-white hover:bg-white/10 hover:text-amber-300 transition-all duration-300"
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Topics
-              </Button>
-              <h1 className="text-xl text-white">{selectedChapter.title}</h1>
-              <div className="w-32" />
-            </div>
-          </div>
-        </header>
-
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          {/* Topic header with image */}
-          <div className="text-center mb-12">
-            <div className="relative inline-block mb-6">
-<div className="w-16 h-16 mx-auto rounded-full overflow-hidden shadow-lg border-2 border-white">
-                <ImageWithFallback 
-                  src={selectedChapter.image}
-                  alt={selectedTopic.title}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-              
-            </div>
-
-            <h2 className="text-5xl text-white mb-4">{selectedTopic.title}</h2>
-            <p className="text-xl text-white/70">{selectedTopic.description}</p>
-          </div>
-
-          {/* Content card */}
-          <div className="bg-white rounded-[2.5rem] shadow-2xl overflow-hidden relative">
-            <div className="h-6 bg-gradient-to-r from-[#3B82F6] via-[#00B9FC] to-[#FFD600] relative">
-              <div className="absolute inset-0 flex justify-around items-center">
-                {[...Array(15)].map((_, i) => (
-                  <div key={i} className="w-2 h-2 bg-white rounded-full" />
-                ))}
-              </div>
-            </div>
-
-            <div className="p-10 md:p-14">
-              <div className="space-y-6">
-                {selectedTopic.content.map((paragraph, idx) => (
-                  <div
-                    key={idx}
-                    className="bg-gradient-to-r from-[#DBEAFE] to-[#BFDBFE] rounded-2xl p-6 border-4 border-[#3B82F6]/20"
-                  >
-                    <p className="text-lg text-[#1E3A8A] leading-relaxed">{paragraph}</p>
-                  </div>
-                ))}
-              </div>
-
-              <div className="mt-10 text-center">
-                <div className="inline-flex items-center gap-3 bg-gradient-to-r from-[#3B82F6] to-[#00B9FC] px-10 py-5 rounded-full shadow-xl">
-                  <Star className="w-8 h-8 text-[#FFD600] animate-spin" style={{ animationDuration: "3s" }} />
-                  <span className="text-2xl text-white">Start Writing Your Story!</span>
-                  <Sparkles className="w-8 h-8 text-white animate-pulse" />
-                </div>
-              </div>
-            </div>
-
-            <div className="h-6 bg-gradient-to-r from-[#FFD600] via-[#00B9FC] to-[#3B82F6]" />
-          </div>
-        </div>
-      </div>
+      <WritingPracticeQuestion
+        question={selectedTile.question}
+        questionTitle={selectedTile.title}
+        onBack={handleBackToTopics}
+        level="intermediate"
+      />
     );
   }
 
-  // If a chapter is selected, show its topics
-  if (selectedChapter && currentView !== "chapters") {
-    return (
-      <div className="min-h-screen relative bg-[#1E3A8A]">
-        <Star className="absolute top-24 right-1/4 w-6 h-6 text-[#FFD600] animate-pulse" />
-        <Star className="absolute bottom-32 left-1/3 w-5 h-5 text-white/60 animate-pulse" />
-        <Sparkles className="absolute top-1/4 left-12 w-6 h-6 text-white/70 animate-pulse" />
+  // Styles
+  const styles = {
+    container: {
+      minHeight: "100vh",
+      position: "relative" as const,
+      backgroundColor: "#1E3A8A",
+    },
+    header: {
+      backgroundColor: "rgba(30, 58, 138, 0.9)",
+      backdropFilter: "blur(12px)",
+      borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
+      position: "sticky" as const,
+      top: 0,
+      zIndex: 50,
+      boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+    },
+    headerContent: {
+      maxWidth: "1280px",
+      margin: "0 auto",
+      padding: "0 24px",
+    },
+    headerInner: {
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      height: "64px",
+    },
+    mainContent: {
+      maxWidth: "1280px",
+      margin: "0 auto",
+      padding: "64px 24px",
+    },
+    headingContainer: {
+      textAlign: "center" as const,
+      marginBottom: "56px",
+    },
+    heading: {
+      fontSize: "48px",
+      fontWeight: "bold",
+      color: "white",
+      marginBottom: "16px",
+      textShadow: "0 2px 4px rgba(0, 0, 0, 0.2)",
+    },
+    subheading: {
+      fontSize: "20px",
+      color: "rgba(255, 255, 255, 0.8)",
+    },
+    gridContainer: {
+      display: "grid",
+      gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+      gap: "32px",
+      maxWidth: "1152px",
+      margin: "0 auto",
+    },
+    card: {
+      backgroundColor: "white",
+      borderRadius: "24px",
+      padding: "32px",
+      boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+      cursor: "pointer",
+      transition: "all 0.3s ease",
+      position: "relative" as const,
+      border: "2px solid transparent",
+      display: "flex",
+      flexDirection: "column" as const,
+      height: "100%",
+    },
+    cardHover: {
+      transform: "scale(1.05)",
+      boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
+      borderColor: "rgba(255, 215, 0, 0.4)",
+    },
+    iconContainer: {
+      position: "relative" as const,
+      marginBottom: "24px",
+      display: "flex",
+      justifyContent: "center",
+      zIndex: 10,
+    },
+    iconWrapper: (color: string) => ({
+      width: "80px",
+      height: "80px",
+      borderRadius: "24px",
+      background: color.includes("from-[#00B9FC]") && color.includes("to-[#246BCF]")
+        ? "linear-gradient(to bottom right, #00B9FC, #246BCF)"
+        : color.includes("from-[#246BCF]") && color.includes("to-[#1E3A8A]")
+        ? "linear-gradient(to bottom right, #246BCF, #1E3A8A)"
+        : color.includes("from-[#1E3A8A]") && color.includes("to-[#3B82F6]")
+        ? "linear-gradient(to bottom right, #1E3A8A, #3B82F6)"
+        : color.includes("from-[#3B82F6]") && color.includes("to-[#00B9FC]")
+        ? "linear-gradient(to bottom right, #3B82F6, #00B9FC)"
+        : "linear-gradient(to bottom right, #246BCF, #1E3A8A)",
+      boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      transition: "all 0.3s ease",
+    }),
+    iconWrapperHover: {
+      transform: "rotate(6deg) scale(1.1)",
+    },
+    title: {
+      fontSize: "24px",
+      fontWeight: "bold",
+      color: "#1E3A8A",
+      textAlign: "center" as const,
+      marginBottom: "8px",
+      zIndex: 10,
+      transition: "color 0.3s ease",
+    },
+    titleHover: {
+      color: "#00B9FC",
+    },
+    description: {
+      fontSize: "16px",
+      color: "rgba(30, 58, 138, 0.7)",
+      textAlign: "center" as const,
+      zIndex: 10,
+      flexGrow: 1,
+    },
+    bulletsContainer: {
+      marginTop: "24px",
+      display: "flex",
+      justifyContent: "center",
+      gap: "8px",
+      zIndex: 10,
+    },
+    bullet: {
+      width: "12px",
+      height: "12px",
+      borderRadius: "50%",
+      backgroundColor: "rgba(59, 130, 246, 0.4)",
+      transition: "background-color 0.3s ease",
+    },
+    bulletHover: (index: number) => ({
+      backgroundColor: index === 0 ? "#3B82F6" : index === 1 ? "#00B9FC" : "#FFD600",
+    }),
+    encouragementContainer: {
+      marginTop: "80px",
+      textAlign: "center" as const,
+    },
+    encouragementBox: {
+      display: "inline-flex",
+      alignItems: "center",
+      gap: "12px",
+      backgroundColor: "rgba(255, 255, 255, 0.1)",
+      padding: "16px 32px",
+      borderRadius: "9999px",
+      border: "1px solid rgba(255, 255, 255, 0.3)",
+      backdropFilter: "blur(4px)",
+    },
+    encouragementText: {
+      fontSize: "18px",
+      color: "white",
+      fontWeight: 600,
+    },
+    decorativeStar: {
+      position: "absolute" as const,
+      color: "#FFD600",
+      animation: "pulse 2s ease-in-out infinite",
+    },
+    decorativeSparkles: {
+      position: "absolute" as const,
+      color: "rgba(255, 255, 255, 0.7)",
+      animation: "pulse 2s ease-in-out infinite",
+    },
+  };
 
-        <header className="bg-[#1E3A8A]/90 backdrop-blur-lg border-b border-white/10 sticky top-0 z-50 shadow-md">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between h-16">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleBackToChapters}
-                className="text-white hover:bg-white/10 hover:text-amber-300 transition-all duration-300"
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Chapters
-              </Button>
-              <h1 className="text-xl text-white">{selectedChapter.title}</h1>
-              <div className="w-32" />
-            </div>
-          </div>
-        </header>
-
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          {/* Chapter header with image */}
-          <div className="text-center mb-12">
-            <div className="relative inline-block mb-6">
-              <div className="w-48 h-48 mx-auto rounded-full overflow-hidden shadow-2xl border-8 border-white">
-                <ImageWithFallback 
-                  src={selectedChapter.image}
-                  alt={selectedChapter.title}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-              <Star className="absolute -top-4 -right-4 w-12 h-12 text-[#FFD600] animate-spin" style={{ animationDuration: "4s" }} />
-              <Sparkles className="absolute -bottom-3 -left-3 w-10 h-10 text-white animate-bounce" />
-            </div>
-
-            <h2 className="text-5xl text-white mb-4">{selectedChapter.title}</h2>
-            <p className="text-xl text-white/70">{selectedChapter.description}</p>
-          </div>
-
-          {/* Topic tiles */}
-          <div className="grid md:grid-cols-3 gap-6">
-            {selectedChapter.topics.map((topic, index) => (
-              <div
-                key={topic.id}
-                onClick={() => handleTopicClick(topic)}
-                className="group cursor-pointer"
-                style={{ animationDelay: `${index * 0.1}s` }}
-              >
-                <div className="bg-white rounded-3xl p-6 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 relative overflow-hidden">
-                  <div className={`absolute top-0 left-0 right-0 h-2 bg-gradient-to-r ${selectedChapter.color}`} />
-                  
-                  <div className="mb-4">
-                    <div className={`w-16 h-16 mx-auto rounded-2xl bg-gradient-to-r ${selectedChapter.color} flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform`}>
-                      <span className="text-3xl text-white">{index + 1}</span>
-                    </div>
-                  </div>
-
-                  <h3 className="text-xl text-[#1E3A8A] text-center mb-2 group-hover:text-[#3B82F6] transition-colors">
-                    {topic.title}
-                  </h3>
-                  <p className="text-sm text-[#1E3A8A]/70 text-center">
-                    {topic.description}
-                  </p>
-
-                  <div className="mt-4 flex justify-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-[#3B82F6]/30 group-hover:bg-[#3B82F6] transition-colors" />
-                    <div className="w-2 h-2 rounded-full bg-[#00B9FC]/30 group-hover:bg-[#00B9FC] transition-colors" />
-                    <div className="w-2 h-2 rounded-full bg-[#FFD600]/30 group-hover:bg-[#FFD600] transition-colors" />
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Default view: chapters selection
   return (
-    <div className="min-h-screen relative bg-[#1E3A8A]">
-      <Star className="absolute top-24 right-1/4 w-6 h-6 text-[#FFD600] animate-pulse" />
-      <Star className="absolute top-1/3 left-20 w-4 h-4 text-white/60 animate-pulse" style={{ animationDelay: "0.5s" }} />
-      <Sparkles className="absolute bottom-1/4 right-12 w-5 h-5 text-white/70 animate-pulse" />
+    <div style={styles.container}>
+      {/* Decorative elements */}
+      <Star style={{ ...styles.decorativeStar, top: "96px", right: "25%", width: "24px", height: "24px" }} />
+      <Star style={{ ...styles.decorativeStar, top: "33%", left: "80px", width: "16px", height: "16px", opacity: 0.6 }} />
+      <Sparkles style={{ ...styles.decorativeSparkles, top: "25%", right: "48px", width: "20px", height: "20px" }} />
 
-      <header className="bg-[#1E3A8A]/90 backdrop-blur-lg border-b border-white/10 sticky top-0 z-50 shadow-md">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
+      <header style={styles.header}>
+        <div style={styles.headerContent}>
+          <div style={styles.headerInner}>
             <Button
               variant="ghost"
               size="sm"
               onClick={onBack}
-              className="text-white hover:bg-white/10 hover:text-amber-300 transition-all duration-300"
+              style={{
+                color: "white",
+              }}
+              onMouseOver={(e) => {
+                e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.1)";
+                e.currentTarget.style.color = "#FFD600";
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.backgroundColor = "transparent";
+                e.currentTarget.style.color = "white";
+              }}
             >
-              <ArrowLeft className="w-4 h-4 mr-2" />
+              <ArrowLeft style={{ width: "16px", height: "16px", marginRight: "8px" }} />
               Back to Levels
             </Button>
-            <h1 className="text-xl text-white">Intermediate Writing</h1>
-            <div className="w-32" />
+            <h1 style={{ fontSize: "20px", color: "white", fontWeight: "bold", margin: 0 }}>
+              Intermediate Writing
+            </h1>
+            <div style={{ width: "128px" }} />
           </div>
         </div>
       </header>
 
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="text-center mb-12">
-          <h2 className="text-5xl text-white mb-4">Choose Your Writing Topic</h2>
-          <p className="text-xl text-white/70 max-w-2xl mx-auto">
-            Select a chapter to start your creative writing journey
-          </p>
+      <div style={styles.mainContent}>
+        <div style={styles.headingContainer}>
+          <h2 style={styles.heading}>Let's Write Together!</h2>
+          <p style={styles.subheading}>Choose a writing topic to practice your skills</p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-8">
-          {chapters.map((chapter, index) => (
-            <div
-              key={chapter.id}
-              onClick={() => handleChapterClick(chapter)}
-              className="group cursor-pointer"
-              style={{ animationDelay: `${index * 0.1}s` }}
-            >
-              <div className="bg-white rounded-3xl overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-2">
-                <div className="h-48 overflow-hidden relative">
-                  <ImageWithFallback 
-                    src={chapter.image}
-                    alt={chapter.title}
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-                  <Star className="absolute top-4 right-4 w-8 h-8 text-[#FFD600] opacity-0 group-hover:opacity-100 transition-opacity" />
-                </div>
-
-                <div className="p-6">
-                  <h3 className="text-2xl text-[#1E3A8A] mb-2 group-hover:text-[#3B82F6] transition-colors">
-                    {chapter.title}
-                  </h3>
-                  <p className="text-[#1E3A8A]/70 mb-4">
-                    {chapter.description}
-                  </p>
-
-                  <div className="flex items-center justify-between">
-                    <div className="flex gap-2">
-                      <div className="w-3 h-3 rounded-full bg-[#3B82F6]/30 group-hover:bg-[#3B82F6] transition-colors" />
-                      <div className="w-3 h-3 rounded-full bg-[#00B9FC]/30 group-hover:bg-[#00B9FC] transition-colors" />
-                      <div className="w-3 h-3 rounded-full bg-[#FFD600]/30 group-hover:bg-[#FFD600] transition-colors" />
-                    </div>
-                    <span className="text-sm text-[#1E3A8A]/60">{chapter.topics.length} Topics</span>
+        <div style={styles.gridContainer}>
+          {intermediateTiles.map((tile) => {
+            const IconComponent = tile.icon;
+            return (
+              <div
+                key={tile.id}
+                onClick={() => handleTopicClick(tile)}
+                onMouseEnter={(e) => {
+                  const card = e.currentTarget;
+                  card.style.transform = "scale(1.05)";
+                  card.style.boxShadow = "0 25px 50px -12px rgba(0, 0, 0, 0.25)";
+                  card.style.borderColor = "rgba(255, 215, 0, 0.4)";
+                  const iconWrapper = card.querySelector('[data-icon-wrapper]') as HTMLElement;
+                  if (iconWrapper) {
+                    iconWrapper.style.transform = "rotate(6deg) scale(1.1)";
+                  }
+                  const title = card.querySelector('[data-title]') as HTMLElement;
+                  if (title) {
+                    title.style.color = "#00B9FC";
+                  }
+                  const bullets = card.querySelectorAll('[data-bullet]');
+                  bullets.forEach((bullet, index) => {
+                    const el = bullet as HTMLElement;
+                    el.style.backgroundColor = index === 0 ? "#3B82F6" : index === 1 ? "#00B9FC" : "#FFD600";
+                  });
+                }}
+                onMouseLeave={(e) => {
+                  const card = e.currentTarget;
+                  card.style.transform = "scale(1)";
+                  card.style.boxShadow = "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)";
+                  card.style.borderColor = "transparent";
+                  const iconWrapper = card.querySelector('[data-icon-wrapper]') as HTMLElement;
+                  if (iconWrapper) {
+                    iconWrapper.style.transform = "rotate(0deg) scale(1)";
+                  }
+                  const title = card.querySelector('[data-title]') as HTMLElement;
+                  if (title) {
+                    title.style.color = "#1E3A8A";
+                  }
+                  const bullets = card.querySelectorAll('[data-bullet]');
+                  bullets.forEach((bullet) => {
+                    const el = bullet as HTMLElement;
+                    el.style.backgroundColor = "rgba(59, 130, 246, 0.4)";
+                  });
+                }}
+                style={styles.card}
+              >
+                <div style={styles.iconContainer}>
+                  <div
+                    data-icon-wrapper
+                    style={styles.iconWrapper(tile.color)}
+                  >
+                    <IconComponent style={{ width: "40px", height: "40px", color: "white" }} />
                   </div>
                 </div>
+
+                <h3 data-title style={styles.title}>
+                  {tile.title}
+                </h3>
+                <p style={styles.description}>
+                  {tile.description}
+                </p>
+
+                <div style={styles.bulletsContainer}>
+                  <div data-bullet style={styles.bullet} />
+                  <div data-bullet style={styles.bullet} />
+                  <div data-bullet style={styles.bullet} />
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
-        <div className="mt-16 text-center">
-          <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm px-6 py-3 rounded-full">
-            <Sparkles className="w-5 h-5 text-white" />
-            <span className="text-white">Let your creativity shine!</span>
-            <Star className="w-5 h-5 text-[#FFD600]" />
+        <div style={styles.encouragementContainer}>
+          <div style={styles.encouragementBox}>
+            <Star style={{ width: "24px", height: "24px", color: "#FFD600", animation: "spin 3s linear infinite" }} />
+            <span style={styles.encouragementText}>You're going to do great!</span>
+            <Sparkles style={{ width: "24px", height: "24px", color: "white", animation: "pulse 2s ease-in-out infinite" }} />
           </div>
         </div>
       </div>
+
+      <style>{`
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.5; }
+        }
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 }

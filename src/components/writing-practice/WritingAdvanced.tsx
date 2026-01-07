@@ -1,535 +1,404 @@
 import { useState } from "react";
 import { Button } from "../ui/button";
-import { ArrowLeft, Star, Sparkles, FileText, Scale } from "lucide-react";
-import { ImageWithFallback } from "../figma/ImageWithFallback";
+import { ArrowLeft, Star, Sparkles, FileText, Scale, TrendingUp, BarChart3, AlertCircle, Target } from "lucide-react";
+import { WritingPracticeQuestion } from "./WritingPracticeQuestion";
+import type { CSSProperties } from "react";
 
 interface WritingAdvancedProps {
   onBack: () => void;
 }
 
-type AdvancedView =
-  | "chapters"
-  | "opinion-essays"
-  | "descriptive-writing"
-  | "argumentative-writing";
+type AdvancedView = "topics" | "ielts_opinion_essay" | "ielts_discuss_both_views" | "ielts_advantages_disadvantages" | "ielts_problem_solution" | "ielts_task1_graph" | "ielts_agree_disagree";
 
-type Topic = {
+interface AdvancedTile {
   id: string;
   title: string;
   description: string;
-  content: string[];
-  tips: string[];
-};
-
-type Chapter = {
-  id: string;
-  title: string;
-  description: string;
-  image: string;
+  question: string;
+  minWords: number;
+  analysisPrompt: string;
+  icon: typeof FileText;
   color: string;
-  topics: Topic[];
-};
+}
 
-const chapters: Chapter[] = [
+const advancedTiles: AdvancedTile[] = [
   {
-    id: "opinion-essays",
-    title: "Opinion Essays",
-    description: "Express your views on important topics",
-    image:
-      "https://images.unsplash.com/photo-1647417602226-574d7b8b64c8?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxzdHVkeWluZyUyMG5vdGVib29rJTIwZXNzYXl8ZW58MXx8fHwxNzY0NzgyNjAyfDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-    color: "from-[#3B82F6] to-[#00B9FC]",
-    topics: [
-      {
-        id: "technology-education",
-        title: "Technology in Education",
-        description:
-          "Discuss the role of technology in modern learning",
-        content: [
-          "In today's world, technology plays an increasingly important role in education. Students use computers, tablets, and online platforms to learn new skills and access information.",
-          "Write an essay expressing your opinion on this topic: 'Do you think technology improves education, or does it create problems for students?'",
-          "Consider both advantages (easy access to information, interactive learning) and disadvantages (distraction, reduced face-to-face interaction).",
-        ],
-        tips: [
-          "Start with a clear introduction stating your opinion",
-          "Provide 2-3 main points with examples",
-          "Address the opposite viewpoint briefly",
-          "End with a strong conclusion that summarizes your position",
-        ],
-      },
-      {
-        id: "environmental-responsibility",
-        title: "Environmental Responsibility",
-        description:
-          "Share your views on protecting our planet",
-        content: [
-          "Climate change and environmental protection are major global concerns. Many people believe that young people should take an active role in protecting the environment.",
-          "Write an essay on: 'Should schools require students to participate in environmental conservation activities?'",
-          "Think about: The benefits of environmental education, practical ways students can help, and potential challenges.",
-        ],
-        tips: [
-          "Use specific examples from your experience or knowledge",
-          "Connect your ideas with linking words (however, moreover, therefore)",
-          "Keep your paragraphs focused on one main idea each",
-          "Use formal language appropriate for essay writing",
-        ],
-      },
-      {
-        id: "social-media-impact",
-        title: "Social Media Impact",
-        description: "Analyze social media's effect on society",
-        content: [
-          "Social media platforms have transformed how people communicate and share information. While they offer many benefits, they also raise concerns.",
-          "Write an opinion essay: 'Has social media had a mostly positive or negative impact on young people?'",
-          "Consider: Communication benefits, mental health effects, information access, and privacy concerns.",
-        ],
-        tips: [
-          "Balance your argument by acknowledging both sides",
-          "Use statistics or research if you know any relevant facts",
-          "Make your opinion clear from the introduction",
-          "Support each point with reasoning and examples",
-        ],
-      },
-    ],
-  },
-  {
-    id: "descriptive-writing",
-    title: "Descriptive Writing",
-    description: "Paint pictures with your words",
-    image:
-      "https://images.unsplash.com/photo-1763729805496-b5dbf7f00c79?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxmb3JtYWwlMjB3cml0aW5nJTIwYnVzaW5lc3N8ZW58MXx8fHwxNzY0NzgyNjAyfDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-    color: "from-[#00B9FC] to-[#246BCF]",
-    topics: [
-      {
-        id: "memorable-person",
-        title: "A Person Who Influenced You",
-        description:
-          "Describe someone who made a difference in your life",
-        content: [
-          "Think of a person who has had a significant impact on your life. This could be a family member, teacher, friend, or even someone you've never met personally.",
-          "Write a detailed description of this person and explain how they influenced you.",
-          "Include: Their physical appearance, personality traits, specific actions they took, and the lasting impact they've had on you.",
-        ],
-        tips: [
-          "Use vivid adjectives to bring the person to life",
-          "Include specific anecdotes or memories",
-          "Show, don't just tell - use examples of their behavior",
-          "Organize your description logically (appearance, then personality, then impact)",
-        ],
-      },
-      {
-        id: "significant-place",
-        title: "A Place of Significance",
-        description: "Describe a meaningful location in detail",
-        content: [
-          "Write about a place that holds special meaning for you. It could be somewhere you visit often or a place from your past.",
-          "Describe this location using all five senses: what you see, hear, smell, taste, and feel there.",
-          "Explain: Why this place is important to you, what memories are connected to it, and how it makes you feel.",
-        ],
-        tips: [
-          "Use sensory details to make readers feel present in the place",
-          "Vary your sentence structure for better flow",
-          "Create a mood through your word choices",
-          "Include emotional connections to make it personal",
-        ],
-      },
-      {
-        id: "cultural-tradition",
-        title: "A Cultural Tradition",
-        description:
-          "Explain a custom or celebration in detail",
-        content: [
-          "Every culture has unique traditions and celebrations. Choose a cultural tradition that is important to you or your community.",
-          "Describe this tradition in detail, including its origins, how it's celebrated, and what it means to people.",
-          "Consider: The preparation involved, the activities during the celebration, the food, clothing, and the values it represents.",
-        ],
-        tips: [
-          "Provide background information for readers unfamiliar with the tradition",
-          "Use descriptive language to convey the atmosphere",
-          "Explain the significance and symbolism",
-          "Include personal observations or experiences",
-        ],
-      },
-    ],
-  },
-  {
-    id: "argumentative-writing",
-    title: "Argumentative Writing",
-    description: "Build strong arguments with evidence",
-    image:
-      "https://images.unsplash.com/photo-1542725752-e9f7259b3881?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxhY2FkZW1pYyUyMGxlYXJuaW5nJTIwYm9va3N8ZW58MXx8fHwxNzY0NzgyNjAzfDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
+    id: "ielts_opinion_essay",
+    title: "Opinion Essay (Task 2)",
+    description: "Express and justify your opinion",
+    question: "Some people believe that working from home increases productivity, while others disagree. Discuss both views and give your own opinion.",
+    minWords: 250,
+    analysisPrompt: "You are an IELTS examiner. Analyze this essay for Task 2. Give feedback on Task Response, Coherence and Cohesion, Lexical Resource, and Grammatical Range. Provide an estimated IELTS band score and suggestions for improvement.",
+    icon: FileText,
     color: "from-[#246BCF] to-[#1E3A8A]",
-    topics: [
-      {
-        id: "school-uniforms",
-        title: "School Uniforms Debate",
-        description:
-          "Argue for or against mandatory school uniforms",
-        content: [
-          "School uniforms are a controversial topic in education. Some believe they promote equality and discipline, while others argue they limit self-expression.",
-          "Take a position and write an argumentative essay: 'Should all schools require students to wear uniforms?'",
-          "Build your argument with: Statistical evidence if available, logical reasoning, real-world examples, and responses to counterarguments.",
-        ],
-        tips: [
-          "State your position clearly in the thesis statement",
-          "Provide at least three strong supporting arguments",
-          "Address and refute opposing viewpoints",
-          "Use transitions to connect your ideas smoothly",
-          "Conclude by reinforcing your position",
-        ],
-      },
-      {
-        id: "homework-policy",
-        title: "Homework Effectiveness",
-        description:
-          "Debate the value of homework in modern education",
-        content: [
-          "Educators and parents often disagree about the role of homework in learning. Research shows mixed results about its effectiveness.",
-          "Argue your position: 'Is homework beneficial for student learning, or should it be reduced or eliminated?'",
-          "Consider: Time management skills, family time, stress levels, learning reinforcement, and quality vs. quantity.",
-        ],
-        tips: [
-          "Research different perspectives before writing",
-          "Use logical reasoning supported by examples",
-          "Maintain a formal, objective tone",
-          "Acknowledge complexity while defending your position",
-          "Propose solutions or alternatives if relevant",
-        ],
-      },
-      {
-        id: "digital-privacy",
-        title: "Digital Privacy Rights",
-        description: "Argue about privacy in the digital age",
-        content: [
-          "As more of our lives move online, questions about digital privacy become increasingly important. Companies collect vast amounts of data about users.",
-          "Write an argument: 'Should there be stricter laws protecting people's privacy online, even if it limits some conveniences?'",
-          "Discuss: Personal data collection, security risks, corporate responsibility, government regulation, and individual choice.",
-        ],
-        tips: [
-          "Define key terms clearly (privacy, data collection, etc.)",
-          "Use current events or examples to strengthen arguments",
-          "Consider ethical, practical, and legal perspectives",
-          "Anticipate and address counterarguments",
-          "End with a call to action or strong conclusion",
-        ],
-      },
-    ],
+  },
+  {
+    id: "ielts_discuss_both_views",
+    title: "Discuss Both Views",
+    description: "Balanced argument writing",
+    question: "Some people think children should learn at home, while others believe they should attend school. Discuss both views and give your opinion.",
+    minWords: 250,
+    analysisPrompt: "Evaluate the essay using IELTS Task 2 criteria. Identify weaknesses, suggest improvements, and estimate a band score.",
+    icon: Scale,
+    color: "from-[#1E3A8A] to-[#3B82F6]",
+  },
+  {
+    id: "ielts_advantages_disadvantages",
+    title: "Advantages & Disadvantages",
+    description: "Pros and cons essay",
+    question: "What are the advantages and disadvantages of using social media? Give relevant examples.",
+    minWords: 250,
+    analysisPrompt: "Analyze structure, coherence, vocabulary range, and grammar. Provide IELTS-style feedback and a band estimate.",
+    icon: TrendingUp,
+    color: "from-[#3B82F6] to-[#00B9FC]",
+  },
+  {
+    id: "ielts_problem_solution",
+    title: "Problem & Solution Essay",
+    description: "Identify problems and solutions",
+    question: "Many cities face serious traffic congestion problems. What are the causes and what solutions can you suggest?",
+    minWords: 250,
+    analysisPrompt: "Assess this essay using IELTS Task 2 criteria. Suggest improvements and provide a band score estimate.",
+    icon: AlertCircle,
+    color: "from-[#00B9FC] to-[#246BCF]",
+  },
+  {
+    id: "ielts_task1_graph",
+    title: "Report Writing (Task 1)",
+    description: "Describe visual information",
+    question: "The chart shows changes in population growth in three countries over 20 years. Summarize the information by selecting and reporting the main features.",
+    minWords: 150,
+    analysisPrompt: "You are an IELTS examiner. Analyze this Task 1 response for accuracy, overview quality, data comparison, vocabulary, and grammar. Provide an estimated band score.",
+    icon: BarChart3,
+    color: "from-[#246BCF] to-[#1E3A8A]",
+  },
+  {
+    id: "ielts_agree_disagree",
+    title: "Agree or Disagree Essay",
+    description: "Strong opinion writing",
+    question: "Some people think money is the most important factor for happiness. To what extent do you agree or disagree?",
+    minWords: 250,
+    analysisPrompt: "Evaluate the essay according to IELTS Task 2 band descriptors. Provide feedback and an estimated band score.",
+    icon: Target,
+    color: "from-[#1E3A8A] to-[#3B82F6]",
   },
 ];
 
-export function WritingAdvanced({
-  onBack,
-}: WritingAdvancedProps) {
-  const [currentView, setCurrentView] =
-    useState<AdvancedView>("chapters");
-  const [selectedChapter, setSelectedChapter] =
-    useState<Chapter | null>(null);
-  const [selectedTopic, setSelectedTopic] =
-    useState<Topic | null>(null);
+export function WritingAdvanced({ onBack }: WritingAdvancedProps) {
+  const [currentView, setCurrentView] = useState<AdvancedView>("topics");
+  const [selectedTile, setSelectedTile] = useState<AdvancedTile | null>(null);
 
-  const handleChapterClick = (chapter: Chapter) => {
-    setSelectedChapter(chapter);
-    setSelectedTopic(null);
-    setCurrentView(chapter.id as AdvancedView);
-  };
-
-  const handleTopicClick = (topic: Topic) => {
-    setSelectedTopic(topic);
-  };
-
-  const handleBackToChapters = () => {
-    setCurrentView("chapters");
-    setSelectedChapter(null);
-    setSelectedTopic(null);
+  const handleTopicClick = (tile: AdvancedTile) => {
+    setSelectedTile(tile);
+    setCurrentView(tile.id as AdvancedView);
   };
 
   const handleBackToTopics = () => {
-    setSelectedTopic(null);
+    setCurrentView("topics");
+    setSelectedTile(null);
   };
 
-  // TOPIC DETAIL VIEW
-  if (selectedTopic && selectedChapter) {
+  // Render WritingPracticeQuestion for any selected tile
+  if (currentView !== "topics" && selectedTile) {
     return (
-      <div className="min-h-screen relative bg-[#1E3A8A]">
-        <header className="bg-[#1E3A8A]/90 backdrop-blur-lg border-b border-white/10 sticky top-0 z-50 shadow-md">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between h-16">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleBackToTopics}
-                className="text-white hover:bg-white/10 hover:text-amber-300 transition-all duration-300"
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Topics
-              </Button>
-              <h1 className="text-xl text-white">
-                {selectedChapter.title}
-              </h1>
-              <div className="w-32" />
-            </div>
-          </div>
-        </header>
-
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <div className="text-center mb-12">
-            <div className="relative inline-block mb-6">
-              <div className="w-16 h-16 mx-auto rounded-full overflow-hidden shadow-lg border-2 border-white">
-                <ImageWithFallback
-                  src={selectedChapter.image}
-                  alt={selectedTopic.title}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-            </div>
-
-            <h2 className="text-5xl text-white mb-4">
-              {selectedTopic.title}
-            </h2>
-            <p className="text-xl text-white/70">
-              {selectedTopic.description}
-            </p>
-          </div>
-
-          <div className="bg-white rounded-[2.5rem] shadow-2xl overflow-hidden relative">
-            <div className="h-6 bg-gradient-to-r from-[#3B82F6] via-[#00B9FC] to-[#FFD600] relative">
-              <div className="absolute inset-0 flex justify-around items-center">
-                {[...Array(15)].map((_, i) => (
-                  <div
-                    key={i}
-                    className="w-2 h-2 bg-white rounded-full"
-                  />
-                ))}
-              </div>
-            </div>
-
-            <div className="p-10 md:p-14">
-              <div className="space-y-6 mb-8">
-                {selectedTopic.content.map((paragraph, idx) => (
-                  <div
-                    key={idx}
-                    className="bg-gradient-to-r from-[#DBEAFE] to-[#BFDBFE] rounded-2xl p-6 border-4 border-[#3B82F6]/20"
-                  >
-                    <p className="text-lg text-[#1E3A8A] leading-relaxed">
-                      {paragraph}
-                    </p>
-                  </div>
-                ))}
-              </div>
-
-              <div className="bg-gradient-to-r from-[#FEF3C7] to-[#FDE68A] rounded-2xl p-6 border-4 border-[#FFD600]/30">
-                <h4 className="text-xl text-[#FFD700    ] mb-4 flex items-center gap-2">
-                  <Star className="w-6 h-6 text-[#FFD600]" />
-                  Writing Tips
-                </h4>
-                <ul className="space-y-2">
-                  {selectedTopic.tips.map((tip, idx) => (
-                    <li
-                      key={idx}
-                      className="flex gap-3 text-[#FFD700]"
-                    >
-                      <span className="text-[#FFD700] flex-shrink-0">
-                        •
-                      </span>
-                      <span>{tip}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              <div className="mt-10 text-center">
-                <div className="inline-flex items-center gap-3 bg-gradient-to-r from-[#3B82F6] to-[#00B9FC] px-10 py-5 rounded-full shadow-xl">
-                  <span className="text-2xl text-white">
-                    Start Writing Your Essay!
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="h-6 bg-gradient-to-r from-[#FFD600] via-[#00B9FC] to-[#3B82F6]" />
-          </div>
-        </div>
-      </div>
+      <WritingPracticeQuestion
+        question={selectedTile.question}
+        questionTitle={selectedTile.title}
+        onBack={handleBackToTopics}
+        level="advanced"
+      />
     );
   }
 
-  // CHAPTER VIEW (SHOW TOPICS)
-  if (selectedChapter && currentView !== "chapters") {
-    return (
-      <div className="min-h-screen relative bg-[#1E3A8A]">
-        <header className="bg-[#1E3A8A]/90 backdrop-blur-lg border-b border-white/10 sticky top-0 z-50 shadow-md">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between h-16">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleBackToChapters}
-                className="text-white hover:bg-white/10 hover:text-amber-300 transition-all duration-300"
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Topics
-              </Button>
-              <h1 className="text-xl text-white">
-                {selectedChapter.title}
-              </h1>
-              <div className="w-32" />
-            </div>
-          </div>
-        </header>
+  // Styles
+  const styles = {
+    container: {
+      minHeight: "100vh",
+      position: "relative" as const,
+      backgroundColor: "#1E3A8A",
+    },
+    header: {
+      backgroundColor: "rgba(30, 58, 138, 0.9)",
+      backdropFilter: "blur(12px)",
+      borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
+      position: "sticky" as const,
+      top: 0,
+      zIndex: 50,
+      boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+    },
+    headerContent: {
+      maxWidth: "1280px",
+      margin: "0 auto",
+      padding: "0 24px",
+    },
+    headerInner: {
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      height: "64px",
+    },
+    mainContent: {
+      maxWidth: "1280px",
+      margin: "0 auto",
+      padding: "64px 24px",
+    },
+    headingContainer: {
+      textAlign: "center" as const,
+      marginBottom: "56px",
+    },
+    heading: {
+      fontSize: "48px",
+      fontWeight: "bold",
+      color: "white",
+      marginBottom: "16px",
+      textShadow: "0 2px 4px rgba(0, 0, 0, 0.2)",
+    },
+    subheading: {
+      fontSize: "20px",
+      color: "rgba(255, 255, 255, 0.8)",
+    },
+    gridContainer: {
+      display: "grid",
+      gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+      gap: "32px",
+      maxWidth: "1152px",
+      margin: "0 auto",
+    },
+    card: {
+      backgroundColor: "white",
+      borderRadius: "24px",
+      padding: "32px",
+      boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+      cursor: "pointer",
+      transition: "all 0.3s ease",
+      position: "relative" as const,
+      border: "2px solid transparent",
+      display: "flex",
+      flexDirection: "column" as const,
+      height: "100%",
+    },
+    iconContainer: {
+      position: "relative" as const,
+      marginBottom: "24px",
+      display: "flex",
+      justifyContent: "center",
+      zIndex: 10,
+    },
+    iconWrapper: (color: string) => ({
+      width: "80px",
+      height: "80px",
+      borderRadius: "24px",
+      background: color.includes("from-[#246BCF]") && color.includes("to-[#1E3A8A]")
+        ? "linear-gradient(to bottom right, #246BCF, #1E3A8A)"
+        : color.includes("from-[#1E3A8A]") && color.includes("to-[#3B82F6]")
+        ? "linear-gradient(to bottom right, #1E3A8A, #3B82F6)"
+        : color.includes("from-[#3B82F6]") && color.includes("to-[#00B9FC]")
+        ? "linear-gradient(to bottom right, #3B82F6, #00B9FC)"
+        : color.includes("from-[#00B9FC]") && color.includes("to-[#246BCF]")
+        ? "linear-gradient(to bottom right, #00B9FC, #246BCF)"
+        : "linear-gradient(to bottom right, #246BCF, #1E3A8A)",
+      boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      transition: "all 0.3s ease",
+    }),
+    title: {
+      fontSize: "24px",
+      fontWeight: "bold",
+      color: "#1E3A8A",
+      textAlign: "center" as const,
+      marginBottom: "8px",
+      zIndex: 10,
+      transition: "color 0.3s ease",
+    },
+    description: {
+      fontSize: "16px",
+      color: "rgba(30, 58, 138, 0.7)",
+      textAlign: "center" as const,
+      zIndex: 10,
+      flexGrow: 1,
+    },
+    bulletsContainer: {
+      marginTop: "24px",
+      display: "flex",
+      justifyContent: "center",
+      gap: "8px",
+      zIndex: 10,
+    },
+    bullet: {
+      width: "12px",
+      height: "12px",
+      borderRadius: "50%",
+      backgroundColor: "rgba(59, 130, 246, 0.4)",
+      transition: "background-color 0.3s ease",
+    },
+    encouragementContainer: {
+      marginTop: "80px",
+      textAlign: "center" as const,
+    },
+    encouragementBox: {
+      display: "inline-flex",
+      alignItems: "center",
+      gap: "12px",
+      backgroundColor: "rgba(255, 255, 255, 0.1)",
+      padding: "16px 32px",
+      borderRadius: "9999px",
+      border: "1px solid rgba(255, 255, 255, 0.3)",
+      backdropFilter: "blur(4px)",
+    },
+    encouragementText: {
+      fontSize: "18px",
+      color: "white",
+      fontWeight: 600,
+    },
+    decorativeStar: {
+      position: "absolute" as const,
+      color: "#FFD600",
+      animation: "pulse 2s ease-in-out infinite",
+    },
+    decorativeSparkles: {
+      position: "absolute" as const,
+      color: "rgba(255, 255, 255, 0.7)",
+      animation: "pulse 2s ease-in-out infinite",
+    },
+  };
 
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <div className="text-center mb-12">
-            <div className="relative inline-block mb-6">
-              <div className="w-48 h-48 mx-auto rounded-full overflow-hidden shadow-2xl border-8 border-white">
-                <ImageWithFallback
-                  src={selectedChapter.image}
-                  alt={selectedChapter.title}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-            </div>
-
-            <h2 className="text-5xl text-white mb-4">
-              {selectedChapter.title}
-            </h2>
-            <p className="text-xl text-white/70">
-              {selectedChapter.description}
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-6">
-            {selectedChapter.topics.map((topic, index) => (
-              <div
-                key={topic.id}
-                onClick={() => handleTopicClick(topic)}
-                className="group cursor-pointer"
-                style={{ animationDelay: `${index * 0.1}s` }}
-              >
-                <div className="bg-white rounded-3xl p-6 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 relative overflow-hidden h-full">
-                  <div
-                    className={`absolute top-0 left-0 right-0 h-2 bg-gradient-to-r ${selectedChapter.color}`}
-                  />
-
-                  <div className="mb-4">
-                    <div
-                      className={`w-16 h-16 mx-auto rounded-2xl bg-gradient-to-r ${selectedChapter.color} flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform`}
-                    >
-                      <FileText className="w-8 h-8 text-white" />
-                    </div>
-                  </div>
-
-                  <h3 className="text-lg text-[#1E3A8A] text-center mb-2 group-hover:text-[#3B82F6] transition-colors min-h-[3.5rem]">
-                    {topic.title}
-                  </h3>
-                  <p className="text-sm text-[#1E3A8A]/70 text-center mb-4">
-                    {topic.description}
-                  </p>
-
-                  <div className="bg-gradient-to-r from-[#DBEAFE] to-[#BFDBFE] rounded-xl p-4 text-xs text-[#1E3A8A]/80">
-                    <p className="line-clamp-3">
-                      {topic.content[0]}
-                    </p>
-                  </div>
-
-                  <div className="mt-4 flex justify-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-[#3B82F6]/30 group-hover:bg-[#3B82F6] transition-colors" />
-                    <div className="w-2 h-2 rounded-full bg-[#00B9FC]/30 group-hover:bg-[#00B9FC] transition-colors" />
-                    <div className="w-2 h-2 rounded-full bg-[#FFD600]/30 group-hover:bg-[#FFD600] transition-colors" />
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // DEFAULT → CHAPTER LIST
   return (
-    <div className="min-h-screen relative bg-[#1E3A8A]">
-      <header className="bg-[#1E3A8A]/90 backdrop-blur-lg border-b border-white/10 sticky top-0 z-50 shadow-md">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
+    <div style={styles.container}>
+      {/* Decorative elements */}
+      <Star style={{ ...styles.decorativeStar, top: "96px", right: "25%", width: "24px", height: "24px" }} />
+      <Star style={{ ...styles.decorativeStar, top: "33%", left: "80px", width: "16px", height: "16px", opacity: 0.6 }} />
+      <Sparkles style={{ ...styles.decorativeSparkles, top: "25%", right: "48px", width: "20px", height: "20px" }} />
+
+      <header style={styles.header}>
+        <div style={styles.headerContent}>
+          <div style={styles.headerInner}>
             <Button
               variant="ghost"
               size="sm"
               onClick={onBack}
-              className="text-white hover:bg-white/10 hover:text-amber-300 transition-all duration-300"
+              style={{
+                color: "white",
+              }}
+              onMouseOver={(e) => {
+                e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.1)";
+                e.currentTarget.style.color = "#FFD600";
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.backgroundColor = "transparent";
+                e.currentTarget.style.color = "white";
+              }}
             >
-              <ArrowLeft className="w-4 h-4 mr-2" />
+              <ArrowLeft style={{ width: "16px", height: "16px", marginRight: "8px" }} />
               Back to Levels
             </Button>
-            <h1 className="text-xl text-white">
-              Advanced Writing - IELTS Level
+            <h1 style={{ fontSize: "20px", color: "white", fontWeight: "bold", margin: 0 }}>
+              Advanced Writing (IELTS)
             </h1>
-            <div className="w-32" />
+            <div style={{ width: "128px" }} />
           </div>
         </div>
       </header>
 
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="text-center mb-12">
-          <h2 className="text-5xl text-white mb-4">
-            Master Academic Writing
-          </h2>
-          <p className="text-xl text-white/70 max-w-2xl mx-auto">
-            Develop your skills with IELTS-level writing topics
-            and techniques
-          </p>
+      <div style={styles.mainContent}>
+        <div style={styles.headingContainer}>
+          <h2 style={styles.heading}>Master IELTS Writing</h2>
+          <p style={styles.subheading}>Choose an IELTS writing task to practice your skills</p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-8">
-          {chapters.map((chapter, index) => (
-            <div
-              key={chapter.id}
-              onClick={() => handleChapterClick(chapter)}
-              className="group cursor-pointer"
-              style={{ animationDelay: `${index * 0.1}s` }}
-            >
-              <div className="bg-white rounded-3xl overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-2">
-                <div className="h-48 overflow-hidden relative">
-                  <ImageWithFallback
-                    src={chapter.image}
-                    alt={chapter.title}
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                </div>
-
-                <div className="p-6">
-                  <h3 className="text-2xl text-[#1E3A8A] mb-2 group-hover:text-[#3B82F6] transition-colors">
-                    {chapter.title}
-                  </h3>
-                  <p className="text-[#1E3A8A]/70 mb-4">
-                    {chapter.description}
-                  </p>
-
-                  <div className="flex items-center justify-between">
-                    <div className="flex gap-2">
-                      <div className="w-3 h-3 rounded-full bg-[#3B82F6]/30 group-hover:bg-[#3B82F6] transition-colors" />
-                      <div className="w-3 h-3 rounded-full bg-[#00B9FC]/30 group-hover:bg-[#00B9FC] transition-colors" />
-                      <div className="w-3 h-3 rounded-full bg-[#FFD600]/30 group-hover:bg-[#FFD600] transition-colors" />
-                    </div>
-                    <span className="text-sm text-[#1E3A8A]/60">
-                      {chapter.topics.length} Topics
-                    </span>
+        <div style={styles.gridContainer}>
+          {advancedTiles.map((tile) => {
+            const IconComponent = tile.icon;
+            return (
+              <div
+                key={tile.id}
+                onClick={() => handleTopicClick(tile)}
+                onMouseEnter={(e) => {
+                  const card = e.currentTarget;
+                  card.style.transform = "scale(1.05)";
+                  card.style.boxShadow = "0 25px 50px -12px rgba(0, 0, 0, 0.25)";
+                  card.style.borderColor = "rgba(255, 215, 0, 0.4)";
+                  const iconWrapper = card.querySelector('[data-icon-wrapper]') as HTMLElement;
+                  if (iconWrapper) {
+                    iconWrapper.style.transform = "rotate(6deg) scale(1.1)";
+                  }
+                  const title = card.querySelector('[data-title]') as HTMLElement;
+                  if (title) {
+                    title.style.color = "#00B9FC";
+                  }
+                  const bullets = card.querySelectorAll('[data-bullet]');
+                  bullets.forEach((bullet, index) => {
+                    const el = bullet as HTMLElement;
+                    el.style.backgroundColor = index === 0 ? "#3B82F6" : index === 1 ? "#00B9FC" : "#FFD600";
+                  });
+                }}
+                onMouseLeave={(e) => {
+                  const card = e.currentTarget;
+                  card.style.transform = "scale(1)";
+                  card.style.boxShadow = "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)";
+                  card.style.borderColor = "transparent";
+                  const iconWrapper = card.querySelector('[data-icon-wrapper]') as HTMLElement;
+                  if (iconWrapper) {
+                    iconWrapper.style.transform = "rotate(0deg) scale(1)";
+                  }
+                  const title = card.querySelector('[data-title]') as HTMLElement;
+                  if (title) {
+                    title.style.color = "#1E3A8A";
+                  }
+                  const bullets = card.querySelectorAll('[data-bullet]');
+                  bullets.forEach((bullet) => {
+                    const el = bullet as HTMLElement;
+                    el.style.backgroundColor = "rgba(59, 130, 246, 0.4)";
+                  });
+                }}
+                style={styles.card}
+              >
+                <div style={styles.iconContainer}>
+                  <div
+                    data-icon-wrapper
+                    style={styles.iconWrapper(tile.color)}
+                  >
+                    <IconComponent style={{ width: "40px", height: "40px", color: "white" }} />
                   </div>
                 </div>
+
+                <h3 data-title style={styles.title}>
+                  {tile.title}
+                </h3>
+                <p style={styles.description}>
+                  {tile.description}
+                </p>
+
+                <div style={styles.bulletsContainer}>
+                  <div data-bullet style={styles.bullet} />
+                  <div data-bullet style={styles.bullet} />
+                  <div data-bullet style={styles.bullet} />
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
-        <div className="mt-16 text-center">
-          <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm px-6 py-3 rounded-full">
-            <Scale className="w-5 h-5 text-white" />
-            <span className="text-white">
-              Build strong arguments and express yourself
-              clearly
-            </span>
+        <div style={styles.encouragementContainer}>
+          <div style={styles.encouragementBox}>
+            <Star style={{ width: "24px", height: "24px", color: "#FFD600", animation: "spin 3s linear infinite" }} />
+            <span style={styles.encouragementText}>You're going to do great!</span>
+            <Sparkles style={{ width: "24px", height: "24px", color: "white", animation: "pulse 2s ease-in-out infinite" }} />
           </div>
         </div>
       </div>
+
+      <style>{`
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.5; }
+        }
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 }

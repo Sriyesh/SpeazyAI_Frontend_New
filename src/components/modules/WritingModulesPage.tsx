@@ -3,7 +3,7 @@
 import { useNavigate } from "react-router-dom"
 import { Card, CardHeader, CardTitle } from "../ui/card"
 import { Button } from "../ui/button"
-import { ArrowLeft, FileText, BookOpen, PenTool } from "lucide-react"
+import { ArrowLeft, FileText, PenTool } from "lucide-react"
 import { PageHeader } from "../PageHeader"
 import type { CSSProperties } from "react"
 
@@ -14,13 +14,6 @@ const writingModules = [
     description: "Structured writing exercises",
     icon: PenTool,
     color: "from-[#3B82F6] to-[#00B9FC]",
-  },
-  {
-    id: "my-lessons",
-    title: "My Lessons",
-    description: "Continue your learning journey",
-    icon: BookOpen,
-    color: "from-[#00B9FC] to-[#246BCF]",
   },
 ]
 
@@ -61,7 +54,6 @@ export function WritingModulesPage() {
   const handleModuleClick = (moduleId: string) => {
     const navigationMap: Record<string, string> = {
       "writing-practice": "/writing-practice",
-      "my-lessons": "/my-lessons",
     }
     
     const route = navigationMap[moduleId] || `/${moduleId}`
@@ -96,7 +88,7 @@ export function WritingModulesPage() {
           </div>
 
           <div className="flex justify-center py-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl w-full">
+            <div className="grid grid-cols-1 gap-8 max-w-md w-full">
               {writingModules.map((module) => (
               <Card
                 key={module.id}

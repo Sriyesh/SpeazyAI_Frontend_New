@@ -1,48 +1,113 @@
 import { useState } from "react";
 import { Button } from "../ui/button";
-import { ArrowLeft, Star, Sparkles } from "lucide-react";
-import { AboutMe } from "./AboutMe";
-import { AboutMyself } from "./AboutMyself";
+import { ArrowLeft, Star, Sparkles, User, Users, Clock, UtensilsCrossed, MapPin, Heart } from "lucide-react";
+import { WritingPracticeQuestion } from "./WritingPracticeQuestion";
 
 interface WritingBeginnerProps {
   onBack: () => void;
 }
 
-type BeginnerView = "topics" | "about-me" | "about-myself";
+type BeginnerView = "topics" | "beginner_about_me" | "beginner_my_family" | "beginner_daily_routine" | "beginner_favorite_food" | "beginner_favorite_place" | "beginner_hobby";
+
+interface BeginnerTile {
+  id: string;
+  title: string;
+  description: string;
+  question: string;
+  minWords: number;
+  analysisPrompt: string;
+  icon: typeof User;
+  color: string;
+}
+
+const beginnerTiles: BeginnerTile[] = [
+  {
+    id: "beginner_about_me",
+    title: "About Me",
+    description: "Introduce yourself and share basic details",
+    question: "Write a short paragraph about yourself. Include your name, age, where you live, your hobbies, and one special thing about you.",
+    minWords: 50,
+    analysisPrompt: "You are an English teacher helping a beginner learner. Analyze the paragraph for basic grammar, sentence structure, and clarity. Point out simple mistakes and rewrite the paragraph in easy, correct English. Keep feedback encouraging and simple.",
+    icon: User,
+    color: "from-[#3B82F6] to-[#00B9FC]",
+  },
+  {
+    id: "beginner_my_family",
+    title: "My Family",
+    description: "Describe your family members",
+    question: "Write a paragraph about your family. Mention how many people are in your family, who they are, and what you like about them.",
+    minWords: 50,
+    analysisPrompt: "Analyze this beginner-level paragraph for grammar and sentence formation. Highlight errors gently, suggest corrections, and provide a simple improved version.",
+    icon: Users,
+    color: "from-[#00B9FC] to-[#246BCF]",
+  },
+  {
+    id: "beginner_daily_routine",
+    title: "My Daily Routine",
+    description: "Talk about your day",
+    question: "Describe your daily routine from morning to night. Use simple sentences and common words.",
+    minWords: 60,
+    analysisPrompt: "Check for tense usage, sentence order, and basic vocabulary. Suggest simple improvements without using complex grammar terms.",
+    icon: Clock,
+    color: "from-[#246BCF] to-[#1E3A8A]",
+  },
+  {
+    id: "beginner_favorite_food",
+    title: "My Favorite Food",
+    description: "Write about food you love",
+    question: "Write about your favorite food. Explain why you like it and when you usually eat it.",
+    minWords: 50,
+    analysisPrompt: "Evaluate grammar, spelling, and clarity. Suggest better simple words and correct sentence structure.",
+    icon: UtensilsCrossed,
+    color: "from-[#1E3A8A] to-[#3B82F6]",
+  },
+  {
+    id: "beginner_favorite_place",
+    title: "My Favorite Place",
+    description: "Describe a place you like",
+    question: "Describe your favorite place. Explain where it is and why you like going there.",
+    minWords: 60,
+    analysisPrompt: "Analyze sentence clarity and grammar. Rewrite sentences in simple, correct English where needed.",
+    icon: MapPin,
+    color: "from-[#3B82F6] to-[#00B9FC]",
+  },
+  {
+    id: "beginner_hobby",
+    title: "My Hobby",
+    description: "Talk about what you enjoy doing",
+    question: "Write a paragraph about your hobby. Explain what it is, when you do it, and why you enjoy it.",
+    minWords: 50,
+    analysisPrompt: "Identify grammar mistakes and simple vocabulary improvements. Provide a corrected version suitable for a beginner.",
+    icon: Heart,
+    color: "from-[#00B9FC] to-[#246BCF]",
+  },
+];
 
 export function WritingBeginner({ onBack }: WritingBeginnerProps) {
   const [currentView, setCurrentView] = useState<BeginnerView>("topics");
+  const [selectedTile, setSelectedTile] = useState<BeginnerTile | null>(null);
 
-  const topics = [
-   {
-  id: "about-me",
-  title: "About Me",
-  description: "Tell everyone who you are",
-  image: "https://images.unsplash.com/photo-1678822872007-698d622afeb7", // Corrected this line
-  color: "from-[#3B82F6] to-[#00B9FC]",
-  backgroundImage: "/mnt/data/955f16bb-4e9b-45f4-b13f-65430143995e.png", // Use image uploaded by the user
-},
-
-    {
-      id: "about-myself",
-      title: "About Myself",
-      description: "Share your story",
-      image:  "https://images.unsplash.com/photo-1704241370920-e67ce744d8cd", 
-      color: "from-[#00B9FC] to-[#246BCF]",
-      backgroundImage: "/mnt/data/f2c4536d-8b89-4763-ba55-302a23efe0b1.png", // Use image uploaded by the user
-    },
-  ];
-
-  const handleTopicClick = (topicId: string) => {
-    setCurrentView(topicId as BeginnerView);
+  const handleTopicClick = (tile: BeginnerTile) => {
+    setSelectedTile(tile);
+    setCurrentView(tile.id as BeginnerView);
   };
 
   const handleBackToTopics = () => {
     setCurrentView("topics");
+    setSelectedTile(null);
   };
 
-  if (currentView === "about-me") return <AboutMe onBack={handleBackToTopics} />;
-  if (currentView === "about-myself") return <AboutMyself onBack={handleBackToTopics} />;
+  // Render WritingPracticeQuestion for any selected tile
+  if (currentView !== "topics" && selectedTile) {
+    return (
+      <WritingPracticeQuestion
+        question={selectedTile.question}
+        questionTitle={selectedTile.title}
+        onBack={handleBackToTopics}
+        level="beginner"
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen relative bg-[#1E3A8A]">
@@ -81,52 +146,43 @@ export function WritingBeginner({ onBack }: WritingBeginnerProps) {
         </div>
 
         {/* Topic Cards */}
-        <div className="grid md:grid-cols-2 gap-12 max-w-4xl mx-auto"> {/* Increased gap from 10 to 12 */}
-          {topics.map((topic, index) => (
-            <div
-              key={topic.id}
-              onClick={() => handleTopicClick(topic.id)}
-              className="group cursor-pointer transition-all duration-300 hover:scale-105"
-            >
-              <div className="relative bg-white rounded-3xl p-10 shadow-xl hover:shadow-2xl border-2 border-transparent hover:border-[#FFD600]/40 transition-all">
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
+          {beginnerTiles.map((tile) => {
+            const IconComponent = tile.icon;
+            return (
+              <div
+                key={tile.id}
+                onClick={() => handleTopicClick(tile)}
+                className="group cursor-pointer transition-all duration-300 hover:scale-105"
+              >
+                <div className="relative bg-white rounded-3xl p-8 shadow-xl hover:shadow-2xl border-2 border-transparent hover:border-[#FFD600]/40 transition-all h-full flex flex-col">
 
-                {/* Background Image */}
-                <div
-                  className="absolute inset-0 rounded-3xl"
-                  style={{
-                    backgroundImage: `url(${topic.backgroundImage})`,
-                    backgroundSize: "cover",
-                    backgroundPosition: "center",
-                    filter: "brightness(60%)",
-                    borderRadius: "1rem",
-                  }}
-                ></div>
+                  {/* Icon */}
+                  <div className="relative mb-6 flex justify-center z-10">
+                    <div
+                      className={`w-20 h-20 rounded-3xl bg-gradient-to-br ${tile.color} shadow-lg flex items-center justify-center group-hover:rotate-6 group-hover:scale-110 transition-transform`}
+                    >
+                      <IconComponent className="w-10 h-10 text-white" />
+                    </div>
+                  </div>
 
-                {/* Image as Icon */}
-                <div className="relative mb-6 flex justify-center z-10">
-                  <div
-                    className={`w-24 h-24 rounded-3xl bg-gradient-to-r ${topic.color} shadow-lg flex items-center justify-center group-hover:rotate-6 transition-transform`}
-                  >
-                    <img src={topic.image} alt={topic.title} className="w-14 h-14 object-cover rounded-full" />
+                  <h3 className="text-2xl font-bold text-[#1E3A8A] text-center mb-2 group-hover:text-[#00B9FC] z-10 transition-colors">
+                    {tile.title}
+                  </h3>
+                  <p className="text-[#1E3A8A]/70 text-center text-base z-10 flex-grow">
+                    {tile.description}
+                  </p>
+
+                  {/* Decorative bullets */}
+                  <div className="mt-6 flex justify-center gap-2 z-10">
+                    <div className="w-3 h-3 rounded-full bg-[#3B82F6]/40 group-hover:bg-[#3B82F6] transition-colors" />
+                    <div className="w-3 h-3 rounded-full bg-[#00B9FC]/40 group-hover:bg-[#00B9FC] transition-colors" />
+                    <div className="w-3 h-3 rounded-full bg-[#FFD600]/40 group-hover:bg-[#FFD600] transition-colors" />
                   </div>
                 </div>
-
-                <h3 className="text-3xl font-bold text-[#1E3A8A] text-center mb-2 group-hover:text-[#00B9FC] z-10">
-                  {topic.title}
-                </h3>
-                <p className="text-[#1E3A8A]/70 text-center text-lg z-10">
-                  {topic.description}
-                </p>
-
-                {/* Decorative bullets */}
-                <div className="mt-8 flex justify-center gap-2 z-10">
-                  <div className="w-3 h-3 rounded-full bg-[#3B82F6]/40 group-hover:bg-[#3B82F6]" />
-                  <div className="w-3 h-3 rounded-full bg-[#00B9FC]/40 group-hover:bg-[#00B9FC]" />
-                  <div className="w-3 h-3 rounded-full bg-[#FFD600]/40 group-hover:bg-[#FFD600]" />
-                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Encouragement message */}
