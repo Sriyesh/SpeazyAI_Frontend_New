@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback, ReactNode } from 'react';
 import { clearAllPdfTextCache } from '../utils/pdfTextExtractor';
+import useHeartbeat from '../hooks/useHeartbeat';
 
 interface User {
   id: number;
@@ -15,6 +16,7 @@ interface User {
 interface AuthData {
   token: string;
   user: User;
+  session_id?: string; // Session ID for analytics tracking
   tokenExpiry?: number; // Timestamp when token expires
   lastActivity?: number; // Timestamp of last user activity
 }
@@ -44,6 +46,9 @@ export const useAuth = () => {
 interface AuthProviderProps {
   children: ReactNode;
 }
+
+// API base URL for analytics endpoints
+const API_BASE_URL = 'https://api.exeleratetechnology.com/api';
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [authData, setAuthData] = useState<AuthData | null>(null);
@@ -80,6 +85,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
     setLoading(false);
   }, []);
+
+  // Use heartbeat hook when user is authenticated
+  useHeartbeat({
+    token: authData?.token || null,
+    sessionId: authData?.session_id || null,
+    apiBaseUrl: API_BASE_URL,
+    intervalMs: 60000, // 60 seconds
+  });
 
   const refreshToken = useCallback(async (): Promise<boolean> => {
     if (!authData?.token) {
@@ -160,7 +173,25 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   }, [authData]);
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
+    // End session on logout
+    const currentAuthData = authData;
+    if (currentAuthData?.token && currentAuthData?.session_id) {
+      try {
+        await fetch(`${API_BASE_URL}/analytics/end-session.php`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${currentAuthData.token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ session_id: currentAuthData.session_id }),
+        });
+      } catch (e) {
+        // ignore errors on logout
+        console.debug('End session call failed on logout:', e);
+      }
+    }
+
     setAuthData(null);
     localStorage.removeItem('authData');
     // Clear PDF text cache
@@ -169,7 +200,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     } catch (error) {
       console.error('Error clearing PDF cache on logout:', error);
     }
-  }, []);
+  }, [authData]);
 
   // Set up token refresh and inactivity tracking
   useEffect(() => {
@@ -323,11 +354,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         const authData: AuthData = {
           token: data.data.token,
           user: data.data.user,
+          session_id: data.data.session_id, // Store session_id from login response
           tokenExpiry: now + TOKEN_EXPIRY_TIME,
           lastActivity: now,
         };
         setAuthData(authData);
         localStorage.setItem('authData', JSON.stringify(authData));
+        
+        // Also store separately for easy access (as per requirements)
+        if (data.data.session_id) {
+          localStorage.setItem('session_id', data.data.session_id);
+        }
+        if (data.data.token) {
+          localStorage.setItem('token', data.data.token);
+        }
       } else {
         throw new Error(data.message || 'Login failed. Please check your credentials.');
       }
@@ -344,6 +384,39 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+
+  // Set up beforeunload handler to end session on tab close/refresh
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      const token = authData?.token || localStorage.getItem('token');
+      const sessionId = authData?.session_id || localStorage.getItem('session_id');
+      
+      if (!token || !sessionId) return;
+
+      const url = `${API_BASE_URL}/analytics/end-session.php`;
+      const blob = new Blob(
+        [JSON.stringify({ session_id: sessionId })],
+        { type: 'application/json' }
+      );
+
+      // Note: sendBeacon cannot set Authorization header.
+      // The backend may need to accept session_id without token for this case,
+      // or we can try to include token in the body if backend supports it.
+      // For now, we'll send it and let the backend handle it appropriately.
+      try {
+        navigator.sendBeacon(url, blob);
+      } catch (e) {
+        // Fallback: try to send with fetch (may not work on page unload)
+        console.debug('sendBeacon failed, trying fetch:', e);
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [authData]);
 
   const value: AuthContextType = {
     authData,

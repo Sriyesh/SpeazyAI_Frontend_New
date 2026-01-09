@@ -9,6 +9,7 @@ import { MelloAssistant } from "./MelloAssistant"
 import { PageHeader } from "./PageHeader"
 import { useAuth } from "../contexts/AuthContext"
 import { fetchStreakData } from "../utils/streakApi"
+import { fetchUsageTime, formatUsageTime } from "../utils/usageTimeApi"
 import {
   BookOpen,
   PenTool,
@@ -18,6 +19,7 @@ import {
   TrendingUp,
   Headphones,
   Award,
+  Clock,
 } from "lucide-react"
 
 export function NewDashboard() {
@@ -27,6 +29,8 @@ export function NewDashboard() {
   const { authData, token } = useAuth()
   const [streakDays, setStreakDays] = useState<number>(0)
   const [loadingStreak, setLoadingStreak] = useState(true)
+  const [usageTimeSeconds, setUsageTimeSeconds] = useState<number | null>(null)
+  const [loadingUsageTime, setLoadingUsageTime] = useState(true)
 
   useEffect(() => {
     setTimeout(() => setIsLoaded(true), 100)
@@ -54,6 +58,30 @@ export function NewDashboard() {
     }
 
     loadStreakData()
+  }, [token])
+
+  // Fetch usage time on mount and when token changes
+  useEffect(() => {
+    const loadUsageTime = async () => {
+      if (!token) {
+        setLoadingUsageTime(false)
+        return
+      }
+
+      try {
+        setLoadingUsageTime(true)
+        const totalSeconds = await fetchUsageTime(token)
+        if (totalSeconds !== null) {
+          setUsageTimeSeconds(totalSeconds)
+        }
+      } catch (error) {
+        console.error('Error loading usage time:', error)
+      } finally {
+        setLoadingUsageTime(false)
+      }
+    }
+
+    loadUsageTime()
   }, [token])
 
   // Main learning modules (6 tiles in order: Speaking, Writing, Reading, Listening, IELTS, AI Tutor)
@@ -137,9 +165,13 @@ export function NewDashboard() {
       color: "#3B82F6",
     },
     {
-      label: "Lessons Completed",
-      value: "25",
-      icon: Award,
+      label: "App Usage Time",
+      value: loadingUsageTime 
+        ? "..." 
+        : usageTimeSeconds !== null 
+          ? formatUsageTime(usageTimeSeconds)
+          : "0m",
+      icon: Clock,
       color: "#00B9FC",
     },
     {
