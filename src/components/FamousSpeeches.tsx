@@ -9,21 +9,17 @@ import { Button } from "./ui/button";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 import {
   ArrowLeft,
-  Play,
-  Pause,
   Volume2,
   Star,
   Heart,
   CheckCircle,
   RotateCcw,
   Sparkles,
-  Mic,
-  MicOff,
-  Award,
 } from "lucide-react";
 import { motion } from "motion/react";
 import { MelloAssistant } from "./MelloAssistant";
 import { useNavigate, useLocation } from "react-router-dom";
+import { AudioRecorder } from "./audioRecorder";
 
 interface FamousSpeechesProps {
   onBack?: () => void;
@@ -73,7 +69,7 @@ export function FamousSpeeches({
 }: FamousSpeechesProps) {
   const navigate = useNavigate()
   const location = useLocation()
-  const backRoute = (location.state as any)?.backRoute || "/reading-modules"
+  const backRoute = (location.state as any)?.backRoute || "/speaking-modules"
   
   const handleBack = () => {
     if (onBack) {
@@ -87,7 +83,6 @@ export function FamousSpeeches({
   const [selectedSpeech, setSelectedSpeech] = useState<
     (typeof speeches)[0] | null
   >(null);
-  const [isPlaying, setIsPlaying] = useState(false);
   const [quizProgress, setQuizProgress] = useState<string[]>(
     [],
   );
@@ -97,37 +92,38 @@ export function FamousSpeeches({
   const [showMelloMessage, setShowMelloMessage] =
     useState(true);
 
-  // Recording states
-  const [isRecording, setIsRecording] = useState(false);
-  const [hasRecorded, setHasRecorded] = useState(false);
-  const [pronunciationScore, setPronunciationScore] = useState<
-    number | null
-  >(null);
-  const [pronunciationFeedback, setPronunciationFeedback] =
-    useState<string>("");
-
   const handleSpeechSelect = (speech: (typeof speeches)[0]) => {
     setSelectedSpeech(speech);
     setCurrentView("speech-detail");
-    setIsRecording(false);
-    setHasRecorded(false);
-    setPronunciationScore(null);
-    setPronunciationFeedback("");
     setShowMelloMessage(true);
   };
 
-  const handlePlayAudio = () => {
-    setIsPlaying(!isPlaying);
-    setTimeout(() => setIsPlaying(false), 3000);
+  // Handle API response - navigate to results page
+  const handleApiResponse = (responseData: any) => {
+    console.log("handleApiResponse called with:", responseData);
+    const apiResponse = responseData?.apiResponse || responseData;
+    const audioUrl = responseData?.audioUrl || null;
+    
+    if (apiResponse && !apiResponse.error && selectedSpeech) {
+      console.log("Navigating to results page...");
+      // Navigate to results page with the API response data and audio URL
+      navigate("/famous-speeches/results", {
+        state: {
+          apiResponse,
+          audioUrl,
+          speech: selectedSpeech,
+          backRoute: "/famous-speeches",
+        },
+        replace: false, // Allow back button to work
+      });
+    } else {
+      console.log("API response has error or is invalid:", apiResponse);
+    }
   };
 
   const handleStartQuiz = () => {
     setCurrentView("quiz");
     setQuizProgress([]);
-    setIsRecording(false);
-    setHasRecorded(false);
-    setPronunciationScore(null);
-    setPronunciationFeedback("");
     setShowMelloMessage(true);
   };
 
@@ -135,59 +131,6 @@ export function FamousSpeeches({
     const newProgress = [...quizProgress];
     newProgress[position] = word;
     setQuizProgress(newProgress);
-  };
-
-  const handleStartRecording = () => {
-    setIsRecording(true);
-    setHasRecorded(false);
-    setPronunciationScore(null);
-    setPronunciationFeedback("");
-
-    setTimeout(() => {
-      setIsRecording(false);
-      setHasRecorded(true);
-
-      const randomScore = Math.floor(Math.random() * 30) + 70;
-      setPronunciationScore(randomScore);
-
-      if (randomScore >= 90) {
-        setPronunciationFeedback(
-          "Excellent pronunciation! You spoke clearly and confidently.",
-        );
-      } else if (randomScore >= 80) {
-        setPronunciationFeedback(
-          "Great job! Your pronunciation is very good. Keep practicing!",
-        );
-      } else {
-        setPronunciationFeedback(
-          "Good effort! Try to speak a bit more clearly next time.",
-        );
-      }
-    }, 3000);
-  };
-
-  const handleStopRecording = () => {
-    if (isRecording) {
-      setIsRecording(false);
-      setHasRecorded(true);
-
-      const randomScore = Math.floor(Math.random() * 30) + 70;
-      setPronunciationScore(randomScore);
-
-      if (randomScore >= 90) {
-        setPronunciationFeedback(
-          "Excellent pronunciation! You spoke clearly and confidently.",
-        );
-      } else if (randomScore >= 80) {
-        setPronunciationFeedback(
-          "Great job! Your pronunciation is very good. Keep practicing!",
-        );
-      } else {
-        setPronunciationFeedback(
-          "Good effort! Try to speak a bit more clearly next time.",
-        );
-      }
-    }
   };
 
   const renderSpeechSelection = () => (
@@ -206,14 +149,6 @@ export function FamousSpeeches({
           @keyframes typing {
             from { width: 0; }
             to { width: 100%; }
-          }
-          .recording-bar {
-            height: 20px;
-            animation: recording 800ms ease-in-out infinite alternate;
-          }
-          @keyframes recording {
-            from { height: 10px; }
-            to { height: 30px; }
           }
           .kid-pulse {
             animation: pulse 1.5s ease-in-out infinite;
@@ -390,6 +325,21 @@ export function FamousSpeeches({
         className="min-h-screen"
         style={{ background: "#1E3A8A" }}
       >
+        <style>{`
+          @media (max-width: 768px) {
+            .speech-content-wrapper {
+              flex-direction: column !important;
+              gap: 1rem !important;
+            }
+            .speech-recording-sidebar {
+              width: 100% !important;
+              max-width: 100% !important;
+            }
+            .speech-content-main {
+              width: 100% !important;
+            }
+          }
+        `}</style>
         <header
           className="backdrop-blur-lg border-b sticky top-0 z-50"
           style={{
@@ -419,250 +369,114 @@ export function FamousSpeeches({
           </div>
         </header>
 
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <Card
-            className="mb-8 bg-[#FFFFFF] border-0 shadow-xl"
-            style={{
-              borderRadius: "24px",
-              boxShadow: "0 8px 32px rgba(59, 130, 246, 0.15)",
-            }}
-          >
-            <CardHeader className="text-center">
-              <div
-                className={`w-20 h-20 bg-gradient-to-br ${selectedSpeech.color} rounded-xl flex items-center justify-center mb-6 mx-auto`}
-              >
-                <span className="text-3xl">
-                  {selectedSpeech.icon}
-                </span>
-              </div>
-              <CardTitle
-                className="text-2xl"
-                style={{ color: "#1E3A8A" }}
-              >
-                {selectedSpeech.title}
-              </CardTitle>
-              <p style={{ color: "rgba(30, 58, 138, 0.7)" }}>
-                by {selectedSpeech.speaker}
-              </p>
-            </CardHeader>
-
-            <CardContent className="text-center space-y-6">
-              <div
-                className="bg-[#F2F6FF] rounded-xl p-6"
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-8 lg:px-12 py-8">
+          <div className="flex gap-12 items-start min-h-[calc(100vh-64px)] speech-content-wrapper">
+            {/* Content - Left side */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex-1 min-w-0 speech-content-main"
+            >
+              <Card
+                className="bg-[#FFFFFF] border-0 shadow-xl"
                 style={{
-                  border: "1px solid rgba(59, 130, 246, 0.2)",
+                  borderRadius: "24px",
+                  boxShadow: "0 8px 32px rgba(59, 130, 246, 0.15)",
                 }}
               >
-                <h3
-                  className="text-lg font-bold"
-                  style={{ color: "#1E3A8A" }}
-                >
-                  🎧 Listen to the Speech
-                </h3>
-                <Button
-                  size="lg"
-                  onClick={handlePlayAudio}
-                  className={`bg-gradient-to-r ${selectedSpeech.color} hover:opacity-90 text-white rounded-lg px-6 kid-pulse transition-all duration-200 mt-4`}
-                >
-                  {isPlaying ? (
-                    <>
-                      <Pause className="w-5 h-5 mr-2" />
-                      Playing...
-                    </>
-                  ) : (
-                    <>
-                      <Play className="w-5 h-5 mr-2" />
-                      Play Speech
-                    </>
-                  )}
-                </Button>
-              </div>
+                <CardHeader className="text-center">
+                  <div
+                    className={`w-20 h-20 bg-gradient-to-br ${selectedSpeech.color} rounded-xl flex items-center justify-center mb-6 mx-auto`}
+                  >
+                    <span className="text-3xl">
+                      {selectedSpeech.icon}
+                    </span>
+                  </div>
+                  <CardTitle
+                    className="text-2xl"
+                    style={{ color: "#1E3A8A" }}
+                  >
+                    {selectedSpeech.title}
+                  </CardTitle>
+                  <p style={{ color: "rgba(30, 58, 138, 0.7)" }}>
+                    by {selectedSpeech.speaker}
+                  </p>
+                </CardHeader>
 
-              <div
-                className="bg-[#F2F6FF] rounded-xl p-6"
-                style={{
-                  border: "1px solid rgba(59, 130, 246, 0.2)",
-                }}
-              >
-                <h3
-                  className="text-lg font-bold"
-                  style={{ color: "#1E3A8A" }}
-                >
-                  📖 Speech for Kids
-                </h3>
-                <p
-                  className="text-base leading-relaxed italic"
-                  style={{ color: "#1E3A8A" }}
-                >
-                  {selectedSpeech.kidFriendlyText}
-                </p>
-              </div>
-
-              <div
-                className="bg-[#F2F6FF] rounded-xl p-6"
-                style={{
-                  border: "1px solid rgba(59, 130, 246, 0.2)",
-                }}
-              >
-                <h3
-                  className="text-lg font-bold"
-                  style={{ color: "#1E3A8A" }}
-                >
-                  🎤 Practice Reading
-                </h3>
-                <p
-                  className="mb-4"
-                  style={{ color: "rgba(30, 58, 138, 0.7)" }}
-                >
-                  Read the speech aloud and get feedback on your
-                  pronunciation!
-                </p>
-
-                <div className="flex flex-col items-center space-y-4">
-                  {!isRecording && !hasRecorded && (
-                    <Button
-                      size="lg"
-                      onClick={handleStartRecording}
-                      className="bg-gradient-to-r from-[#3B82F6] to-[#00B9FC] hover:opacity-90 text-white rounded-lg px-8 transition-all duration-200"
+                <CardContent className="space-y-6">
+                  <div
+                    className="bg-[#F2F6FF] rounded-xl p-6"
+                    style={{
+                      border: "1px solid rgba(59, 130, 246, 0.2)",
+                    }}
+                  >
+                    <h3
+                      className="text-lg font-bold mb-4"
+                      style={{ color: "#1E3A8A" }}
                     >
-                      <Mic className="w-5 h-5 mr-2" />
-                      Start Reading
-                    </Button>
-                  )}
+                      📖 Speech for Kids
+                    </h3>
+                    <p
+                      className="text-base leading-relaxed italic"
+                      style={{ color: "#1E3A8A" }}
+                    >
+                      {selectedSpeech.kidFriendlyText}
+                    </p>
+                  </div>
 
-                  {isRecording && (
-                    <div className="text-center">
-                      <Button
-                        size="lg"
-                        onClick={handleStopRecording}
-                        className="bg-gradient-to-r from-[#3B82F6] to-[#00B9FC] hover:opacity-90 text-white rounded-lg px-8 transition-all duration-200 kid-pulse"
-                      >
-                        <MicOff className="w-5 h-5 mr-2" />
-                        Stop Reading
-                      </Button>
-                      <div className="mt-4">
-                        <div className="flex justify-center items-end space-x-1 h-12">
-                          <div
-                            className="w-2 bg-[#3B82F6] rounded recording-bar"
-                            style={{ animationDelay: "0ms" }}
-                          ></div>
-                          <div
-                            className="w-2 bg-[#00B9FC] rounded recording-bar"
-                            style={{ animationDelay: "100ms" }}
-                          ></div>
-                          <div
-                            className="w-2 bg-[#3B82F6] rounded recording-bar"
-                            style={{ animationDelay: "200ms" }}
-                          ></div>
-                          <div
-                            className="w-2 bg-[#00B9FC] rounded recording-bar"
-                            style={{ animationDelay: "300ms" }}
-                          ></div>
-                          <div
-                            className="w-2 bg-[#3B82F6] rounded recording-bar"
-                            style={{ animationDelay: "400ms" }}
-                          ></div>
-                          <div
-                            className="w-2 bg-[#00B9FC] rounded recording-bar"
-                            style={{ animationDelay: "500ms" }}
-                          ></div>
-                          <div
-                            className="w-2 bg-[#3B82F6] rounded recording-bar"
-                            style={{ animationDelay: "600ms" }}
-                          ></div>
-                        </div>
-                        <p className="text-[#FFD600] mt-2 kid-pulse">
-                          Recording... Speak clearly!
-                        </p>
-                      </div>
-                    </div>
-                  )}
+                  <Button
+                    size="lg"
+                    onClick={handleStartQuiz}
+                    className="w-full bg-gradient-to-r from-[#3B82F6] to-[#00B9FC] hover:opacity-90 text-white rounded-lg px-6 transition-all duration-200"
+                  >
+                    <Sparkles className="w-5 h-5 mr-2" />
+                    Try Fun Activity
+                  </Button>
+                </CardContent>
+              </Card>
+            </motion.div>
 
-                  {hasRecorded &&
-                    pronunciationScore !== null && (
-                      <div className="text-center space-y-4 w-full max-w-md">
-                        <div className="kid-bounce">
-                          {pronunciationScore >= 90 ? (
-                            <div className="text-6xl">🌟</div>
-                          ) : pronunciationScore >= 80 ? (
-                            <div className="text-6xl">🎉</div>
-                          ) : (
-                            <div className="text-6xl">👏</div>
-                          )}
-                        </div>
-
-                        <div
-                          className="bg-[#F2F6FF] rounded-xl p-4"
-                          style={{
-                            border:
-                              "1px solid rgba(59, 130, 246, 0.2)",
-                          }}
-                        >
-                          <div className="flex justify-between items-center mb-2">
-                            <span
-                              style={{
-                                color: "rgba(30, 58, 138, 0.7)",
-                              }}
-                            >
-                              Pronunciation Score
-                            </span>
-                            <span
-                              className="font-bold"
-                              style={{ color: "#1E3A8A" }}
-                            >
-                              {pronunciationScore}%
-                            </span>
-                          </div>
-                          <div className="w-full bg-[#1E3A8A]/20 rounded-full h-3">
-                            <div
-                              className="h-3 rounded-full bg-gradient-to-r from-[#3B82F6] to-[#00B9FC] transition-all duration-1000"
-                              style={{
-                                width: `${pronunciationScore}%`,
-                              }}
-                            />
-                          </div>
-                        </div>
-
-                        <div
-                          className="bg-[#F2F6FF] rounded-xl p-4"
-                          style={{
-                            border:
-                              "1px solid rgba(59, 130, 246, 0.2)",
-                          }}
-                        >
-                          <div className="flex items-start space-x-3">
-                            <Award className="w-6 h-6 text-[#FFD600] mt-1 flex-shrink-0" />
-                            <p style={{ color: "#1E3A8A" }}>
-                              {pronunciationFeedback}
-                            </p>
-                          </div>
-                        </div>
-
-                        <Button
-                          onClick={() => {
-                            setHasRecorded(false);
-                            setPronunciationScore(null);
-                            setPronunciationFeedback("");
-                          }}
-                          className="bg-gradient-to-r from-[#3B82F6] to-[#00B9FC] hover:opacity-90 text-white rounded-lg px-6"
-                        >
-                          Try Again
-                        </Button>
-                      </div>
-                    )}
-                </div>
-              </div>
-
-              <Button
-                size="lg"
-                onClick={handleStartQuiz}
-                className="bg-gradient-to-r from-[#3B82F6] to-[#00B9FC] hover:opacity-90 text-white rounded-lg px-6 transition-all duration-200"
+            {/* Recording Section - Right side */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="w-[400px] flex-shrink-0 speech-recording-sidebar"
+            >
+              <Card
+                className="bg-[#FFFFFF] border-0 shadow-xl"
+                style={{
+                  borderRadius: "24px",
+                  boxShadow: "0 8px 32px rgba(59, 130, 246, 0.15)",
+                }}
               >
-                <Sparkles className="w-5 h-5 mr-2" />
-                Try Fun Activity
-              </Button>
-            </CardContent>
-          </Card>
+                <CardHeader>
+                  <CardTitle
+                    className="text-xl"
+                    style={{ color: "#1E3A8A" }}
+                  >
+                    🎤 Practice Reading
+                  </CardTitle>
+                  <p
+                    className="text-sm mt-2"
+                    style={{ color: "rgba(30, 58, 138, 0.7)" }}
+                  >
+                    Read the speech aloud and get feedback on your
+                    pronunciation!
+                  </p>
+                </CardHeader>
+
+                <CardContent>
+                  <AudioRecorder 
+                    expectedText={selectedSpeech.kidFriendlyText}
+                    lessonColor={selectedSpeech.color}
+                    endpoint="https://apis.languageconfidence.ai/speech-assessment/scripted/uk"
+                    onApiResponse={handleApiResponse}
+                  />
+                </CardContent>
+              </Card>
+            </motion.div>
+          </div>
 
           <motion.div
             animate={

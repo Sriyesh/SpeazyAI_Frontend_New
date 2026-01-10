@@ -1,12 +1,12 @@
 "use client"
 
 import React, { useState, useRef, useEffect } from "react"
-import { Button } from "./ui/button"
+import { Button } from "../ui/button"
 import { Mic, Square, Play, Pause, RotateCcw } from "lucide-react"
-import { RecordingWaveform } from "./recordingWaveform"
-import { LoadingAssessment } from "./loadingAssessment"
+import { RecordingWaveform } from "../recordingWaveform"
+import { LoadingAssessment } from "../loadingAssessment"
 
-export function AudioRecorder({
+export function SpeakingAudioRecorder({
   expectedText = "",
   lessonColor = "from-blue-500 to-cyan-400",
   endpoint = "https://apis.languageconfidence.ai/speech-assessment/scripted/uk",
@@ -600,3 +600,4 @@ export function AudioRecorder({
     </div>
   )
 }
+

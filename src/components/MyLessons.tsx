@@ -650,10 +650,8 @@ export function MyLessons() {
     // Truncate to 300 words max (API requirement) while preserving sentences
     const extractedPdfText = fullPdfText ? truncateTextToWords(fullPdfText, 300) : ""
     
-    // Determine endpoint based on whether we have extracted text
-    const speechEndpoint = extractedPdfText 
-      ? "https://apis.languageconfidence.ai/speech-assessment/scripted/uk"
-      : "https://apis.languageconfidence.ai/speech-assessment/unscripted/uk"
+    // Always use scripted endpoint (license requirement)
+    const speechEndpoint = "https://apis.languageconfidence.ai/speech-assessment/scripted/uk"
 
     // Extract gradient colors for lessonColor prop
     const gradientMap: { [key: string]: string } = {
@@ -668,14 +666,17 @@ export function MyLessons() {
     }
     const lessonColor = gradientMap[gradient] || "from-blue-500 to-cyan-400"
 
-    const handleApiResponse = (apiResponse: any) => {
-      console.log("AudioRecorder API response:", apiResponse)
+    const handleApiResponse = (responseData: any) => {
+      console.log("AudioRecorder API response:", responseData)
+      const apiResponse = responseData?.apiResponse || responseData
+      const audioUrl = responseData?.audioUrl || null
       
-      // Navigate to SpeechAssessmentResults page with the API response
+      // Navigate to SpeechAssessmentResults page with the API response and audio URL
       if (apiResponse && !apiResponse.error) {
         navigate("/my-lessons/results", {
           state: {
             apiResponse: apiResponse,
+            audioUrl,
             backRoute: location.pathname || "/my-lessons",
             lessonTitle: selectedLesson?.title,
             lessonId: selectedLesson?.id,

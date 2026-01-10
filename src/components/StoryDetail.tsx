@@ -4,7 +4,8 @@ import { useNavigate, useLocation, useParams } from "react-router-dom"
 import { Button } from "./ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card"
 import { ArrowLeft, BookMarked } from "lucide-react"
-import { AudioRecorder } from "./audioRecorder"
+import { ReadingAudioRecorder } from "./reading/ReadingAudioRecorder"
+import { motion } from "motion/react"
 import type { CSSProperties } from "react"
 
 const BLUE_BG: CSSProperties = {
@@ -81,6 +82,36 @@ export function StoryDetail() {
 
   const story = storyId ? storyContents[storyId] : null
 
+  // Handle API response - navigate to results page
+  const handleApiResponse = (responseData: any) => {
+    console.log("handleApiResponse called with:", responseData)
+    const apiResponse = responseData?.apiResponse || responseData
+    const audioUrl = responseData?.audioUrl || null
+    
+    if (apiResponse && !apiResponse.error && story && storyId) {
+      console.log("Navigating to reading results page...")
+      // Navigate to reading results page with the API response data and audio URL
+      navigate("/stories/results", {
+        state: {
+          apiResponse,
+          audioUrl,
+          story: {
+            id: storyId,
+            title: story.title,
+            content: story.content
+          },
+          moduleType: "STORIES",
+          moduleKey: storyId.replace("-", "_"), // story-1 -> story_1
+          moduleTitle: story.title,
+          backRoute: `/story/${storyId}`,
+        },
+        replace: false, // Allow back button to work
+      })
+    } else {
+      console.log("API response has error or is invalid:", apiResponse)
+    }
+  }
+
   if (!story) {
     return (
       <div className="h-screen flex flex-col items-center justify-center" style={BLUE_BG}>
@@ -113,51 +144,104 @@ export function StoryDetail() {
       </header>
 
       <div className="flex-1 overflow-y-auto">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <Card className="mb-6 bg-white border-0 shadow-xl">
-            <CardHeader className="text-center">
-              <div className="w-16 h-16 bg-gradient-to-br from-[#3B82F6] to-[#00B9FC] rounded-3xl flex items-center justify-center mb-4 mx-auto">
-                <BookMarked className="w-8 h-8 text-white" />
-              </div>
-              <CardTitle className="text-3xl text-[#1E3A8A] mb-2">{story.title}</CardTitle>
-            </CardHeader>
-          </Card>
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-8 lg:px-12 py-8">
+          <style>{`
+            @media (max-width: 1024px) {
+              .story-content-wrapper {
+                flex-direction: column !important;
+                gap: 1.5rem !important;
+              }
+              .story-content-main {
+                width: 100% !important;
+              }
+              .story-recording-sidebar {
+                width: 100% !important;
+                margin-top: 0 !important;
+              }
+            }
+          `}</style>
+          <div className="flex gap-12 items-start min-h-[calc(100vh-64px)] story-content-wrapper">
+            {/* Content - Left side */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex-1 min-w-0 story-content-main"
+            >
+              <Card className="bg-white border-0 shadow-xl mb-6">
+                <CardHeader className="text-center">
+                  <div className="w-16 h-16 bg-gradient-to-br from-[#3B82F6] to-[#00B9FC] rounded-3xl flex items-center justify-center mb-4 mx-auto">
+                    <BookMarked className="w-8 h-8 text-white" />
+                  </div>
+                  <CardTitle className="text-3xl text-[#1E3A8A] mb-2">{story.title}</CardTitle>
+                </CardHeader>
+              </Card>
 
-          <Card className="mb-6 bg-white border-0 shadow-xl">
-            <CardHeader>
-              <CardTitle className="text-2xl text-[#1E3A8A]">📖 Story Content</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="prose prose-lg max-w-none">
-                <div className="text-gray-800 leading-relaxed text-justify whitespace-pre-line space-y-4">
-                  {story.content.split("\n\n").map((paragraph, index) => (
-                    <p key={index} className="mb-4">
-                      {paragraph}
-                    </p>
-                  ))}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              <Card className="bg-white border-0 shadow-xl">
+                <CardHeader>
+                  <CardTitle className="text-2xl text-[#1E3A8A] flex items-center gap-2">
+                    <BookMarked className="w-6 h-6" />
+                    Story Content
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="prose prose-lg max-w-none">
+                    <div className="text-gray-800 leading-relaxed text-justify whitespace-pre-line space-y-4">
+                      {story.content.split("\n\n").map((paragraph, index) => (
+                        <p key={index} className="mb-4">
+                          {paragraph}
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
 
-          <Card className="bg-white border-0 shadow-xl">
-            <CardHeader>
-              <CardTitle className="text-2xl text-center text-[#1E3A8A]">
-                🎤 Practice Reading
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center">
-                <p className="text-gray-700 mb-6">
-                  Read the story aloud to practice your pronunciation and speaking skills
-                </p>
-                <AudioRecorder 
-                  expectedText={story.content}
-                  lessonColor="from-[#3B82F6] to-[#00B9FC]"
-                />
-              </div>
-            </CardContent>
-          </Card>
+            {/* Recording Section - Right side, positioned in the middle */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="w-[400px] flex-shrink-0 story-recording-sidebar"
+              style={{
+                position: "relative",
+                alignSelf: "flex-start",
+                marginTop: "120px",
+              }}
+            >
+              <Card
+                className="bg-[#FFFFFF] border-0 shadow-xl"
+                style={{
+                  borderRadius: "24px",
+                  boxShadow: "0 8px 32px rgba(59, 130, 246, 0.15)",
+                }}
+              >
+                <CardHeader>
+                  <CardTitle
+                    className="text-xl"
+                    style={{ color: "#1E3A8A" }}
+                  >
+                    🎤 Practice Reading
+                  </CardTitle>
+                  <p
+                    className="text-sm mt-2"
+                    style={{ color: "rgba(30, 58, 138, 0.7)" }}
+                  >
+                    Read the story aloud and get feedback on your pronunciation!
+                  </p>
+                </CardHeader>
+
+                <CardContent>
+                  <ReadingAudioRecorder
+                    expectedText={story.content}
+                    lessonColor="from-[#3B82F6] to-[#00B9FC]"
+                    endpoint="https://apis.languageconfidence.ai/speech-assessment/scripted/uk"
+                    onApiResponse={handleApiResponse}
+                  />
+                </CardContent>
+              </Card>
+            </motion.div>
+          </div>
         </div>
       </div>
     </div>

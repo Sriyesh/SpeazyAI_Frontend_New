@@ -4,7 +4,8 @@ import { useNavigate, useLocation, useParams } from "react-router-dom"
 import { Button } from "./ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card"
 import { ArrowLeft, BookOpenCheck } from "lucide-react"
-import { AudioRecorder } from "./audioRecorder"
+import { ReadingAudioRecorder } from "./reading/ReadingAudioRecorder"
+import { motion } from "motion/react"
 import type { CSSProperties } from "react"
 
 const BLUE_BG: CSSProperties = {
@@ -121,6 +122,36 @@ export function NovelDetail() {
 
   const novel = novelId ? novelContents[novelId] : null
 
+  // Handle API response - navigate to results page
+  const handleApiResponse = (responseData: any) => {
+    console.log("handleApiResponse called with:", responseData)
+    const apiResponse = responseData?.apiResponse || responseData
+    const audioUrl = responseData?.audioUrl || null
+    
+    if (apiResponse && !apiResponse.error && novel && novelId) {
+      console.log("Navigating to reading results page...")
+      // Navigate to reading results page with the API response data and audio URL
+      navigate("/novels/results", {
+        state: {
+          apiResponse,
+          audioUrl,
+          novel: {
+            id: novelId,
+            title: novel.title,
+            content: novel.content
+          },
+          moduleType: "NOVEL",
+          moduleKey: novelId.replace("-", "_"), // novel-1 -> novel_1
+          moduleTitle: novel.title,
+          backRoute: `/novel/${novelId}`,
+        },
+        replace: false, // Allow back button to work
+      })
+    } else {
+      console.log("API response has error or is invalid:", apiResponse)
+    }
+  }
+
   if (!novel) {
     return (
       <div className="h-screen flex flex-col items-center justify-center" style={BLUE_BG}>
@@ -153,51 +184,104 @@ export function NovelDetail() {
       </header>
 
       <div className="flex-1 overflow-y-auto">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <Card className="mb-6 bg-white border-0 shadow-xl">
-            <CardHeader className="text-center">
-              <div className="w-16 h-16 bg-gradient-to-br from-[#00B9FC] to-[#246BCF] rounded-3xl flex items-center justify-center mb-4 mx-auto">
-                <BookOpenCheck className="w-8 h-8 text-white" />
-              </div>
-              <CardTitle className="text-3xl text-[#1E3A8A] mb-2">{novel.title}</CardTitle>
-            </CardHeader>
-          </Card>
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-8 lg:px-12 py-8">
+          <style>{`
+            @media (max-width: 1024px) {
+              .novel-content-wrapper {
+                flex-direction: column !important;
+                gap: 1.5rem !important;
+              }
+              .novel-content-main {
+                width: 100% !important;
+              }
+              .novel-recording-sidebar {
+                width: 100% !important;
+                margin-top: 0 !important;
+              }
+            }
+          `}</style>
+          <div className="flex gap-12 items-start min-h-[calc(100vh-64px)] novel-content-wrapper">
+            {/* Content - Left side */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex-1 min-w-0 novel-content-main"
+            >
+              <Card className="bg-white border-0 shadow-xl mb-6">
+                <CardHeader className="text-center">
+                  <div className="w-16 h-16 bg-gradient-to-br from-[#00B9FC] to-[#246BCF] rounded-3xl flex items-center justify-center mb-4 mx-auto">
+                    <BookOpenCheck className="w-8 h-8 text-white" />
+                  </div>
+                  <CardTitle className="text-3xl text-[#1E3A8A] mb-2">{novel.title}</CardTitle>
+                </CardHeader>
+              </Card>
 
-          <Card className="mb-6 bg-white border-0 shadow-xl">
-            <CardHeader>
-              <CardTitle className="text-2xl text-[#1E3A8A]">📖 Novel Content</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="prose prose-lg max-w-none">
-                <div className="text-gray-800 leading-relaxed text-justify whitespace-pre-line space-y-4">
-                  {novel.content.split("\n\n").map((paragraph, index) => (
-                    <p key={index} className="mb-4">
-                      {paragraph}
-                    </p>
-                  ))}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              <Card className="bg-white border-0 shadow-xl">
+                <CardHeader>
+                  <CardTitle className="text-2xl text-[#1E3A8A] flex items-center gap-2">
+                    <BookOpenCheck className="w-6 h-6" />
+                    Novel Content
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="prose prose-lg max-w-none">
+                    <div className="text-gray-800 leading-relaxed text-justify whitespace-pre-line space-y-4">
+                      {novel.content.split("\n\n").map((paragraph, index) => (
+                        <p key={index} className="mb-4">
+                          {paragraph}
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
 
-          <Card className="bg-white border-0 shadow-xl">
-            <CardHeader>
-              <CardTitle className="text-2xl text-center text-[#1E3A8A]">
-                🎤 Practice Reading
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center">
-                <p className="text-gray-700 mb-6">
-                  Read the novel aloud to practice your pronunciation and speaking skills
-                </p>
-                <AudioRecorder 
-                  expectedText={novel.content}
-                  lessonColor="from-[#00B9FC] to-[#246BCF]"
-                />
-              </div>
-            </CardContent>
-          </Card>
+            {/* Recording Section - Right side, positioned in the middle */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="w-[400px] flex-shrink-0 novel-recording-sidebar"
+              style={{
+                position: "relative",
+                alignSelf: "flex-start",
+                marginTop: "120px",
+              }}
+            >
+              <Card
+                className="bg-[#FFFFFF] border-0 shadow-xl"
+                style={{
+                  borderRadius: "24px",
+                  boxShadow: "0 8px 32px rgba(59, 130, 246, 0.15)",
+                }}
+              >
+                <CardHeader>
+                  <CardTitle
+                    className="text-xl"
+                    style={{ color: "#1E3A8A" }}
+                  >
+                    🎤 Practice Reading
+                  </CardTitle>
+                  <p
+                    className="text-sm mt-2"
+                    style={{ color: "rgba(30, 58, 138, 0.7)" }}
+                  >
+                    Read the novel aloud and get feedback on your pronunciation!
+                  </p>
+                </CardHeader>
+
+                <CardContent>
+                  <ReadingAudioRecorder
+                    expectedText={novel.content}
+                    lessonColor="from-[#00B9FC] to-[#246BCF]"
+                    endpoint="https://apis.languageconfidence.ai/speech-assessment/scripted/uk"
+                    onApiResponse={handleApiResponse}
+                  />
+                </CardContent>
+              </Card>
+            </motion.div>
+          </div>
         </div>
       </div>
     </div>

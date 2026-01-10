@@ -581,13 +581,16 @@ export function CustomContent({ onBack }: CustomContentProps) {
     }
   }
 
-  const handleApiResponse = (apiResponse: any) => {
-    console.log("AudioRecorder API response:", apiResponse)
+  const handleApiResponse = (responseData: any) => {
+    console.log("AudioRecorder API response:", responseData)
+    const apiResponse = responseData?.apiResponse || responseData
+    const audioUrl = responseData?.audioUrl || null
     
     if (apiResponse && !apiResponse.error) {
       navigate("/custom-content/results", {
         state: {
           apiResponse: apiResponse,
+          audioUrl,
           backRoute: location.pathname || "/custom-content",
           lessonTitle: selectedItem?.title,
           lessonId: selectedItem?.id,
@@ -669,17 +672,19 @@ export function CustomContent({ onBack }: CustomContentProps) {
                   background: "linear-gradient(135deg, #3B82F6 0%, #00B9FC 100%)",
                   color: "#FFFFFF",
                   borderRadius: "12px",
-                  padding: "12px 24px",
+                  padding: "18px 36px",
+                  fontSize: "18px",
                   boxShadow: "0 10px 15px -3px rgba(59, 130, 246, 0.3), 0 4px 6px -2px rgba(59, 130, 246, 0.2)",
                   border: "none",
                   cursor: "pointer",
                   display: "flex",
                   alignItems: "center",
-                  gap: "8px",
-                  fontWeight: 500,
+                  gap: "12px",
+                  fontWeight: 600,
+                  minHeight: "56px",
                 }}
               >
-                <Upload style={{ width: "20px", height: "20px" }} />
+                <Upload style={{ width: "24px", height: "24px" }} />
                 Upload PDF
                 </Button>
             </DialogTrigger>
@@ -1059,10 +1064,8 @@ export function CustomContent({ onBack }: CustomContentProps) {
     // Truncate to 300 words max (API requirement) while preserving sentences
     const extractedPdfText = fullPdfText ? truncateTextToWords(fullPdfText, 300) : ""
     
-    // Determine endpoint based on whether we have extracted text
-    const speechEndpoint = extractedPdfText 
-      ? "https://apis.languageconfidence.ai/speech-assessment/scripted/uk"
-      : "https://apis.languageconfidence.ai/speech-assessment/unscripted/uk"
+    // Always use scripted endpoint (license requirement)
+    const speechEndpoint = "https://apis.languageconfidence.ai/speech-assessment/scripted/uk"
 
     // Extract gradient colors for lessonColor prop
     const gradientMap: { [key: string]: string } = {

@@ -11,7 +11,7 @@ import { EmbeddedPhonemeChart } from "./EmbeddedPhonemeChart"
 
 type NavigationItem = "pronunciation" | "fluency" | "vocabulary" | "grammar" | "phoneme-guide"
 
-export function SpeechAssessmentResults({ data, audioUrl: propAudioUrl }) {
+export function ReadingAssessmentResults({ data, audioUrl: propAudioUrl }) {
   const [activeSection, setActiveSection] = useState<NavigationItem>("pronunciation")
   const [selectedWord, setSelectedWord] = useState<string | null>(null)
   const [isRecording, setIsRecording] = useState(false)
@@ -30,6 +30,8 @@ export function SpeechAssessmentResults({ data, audioUrl: propAudioUrl }) {
   const recordingTimerRef = useRef<NodeJS.Timeout | null>(null)
   const stopTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const recordedAudioRef = useRef<HTMLAudioElement | null>(null)
+  const practiceAudioRef = useRef<HTMLAudioElement | null>(null)
+  const [isPlayingPractice, setIsPlayingPractice] = useState(false)
   
   // Use propAudioUrl if available, otherwise use recordedAudio state
   const playbackAudioUrl = propAudioUrl || recordedAudio
@@ -37,9 +39,9 @@ export function SpeechAssessmentResults({ data, audioUrl: propAudioUrl }) {
   // Debug: Log audio URL to verify it's being passed
   useEffect(() => {
     if (propAudioUrl) {
-      console.log("Audio URL received in SpeechAssessmentResults:", propAudioUrl.substring(0, 50) + "...")
+      console.log("Audio URL received in ReadingAssessmentResults:", propAudioUrl.substring(0, 50) + "...")
     } else {
-      console.log("No audio URL prop received in SpeechAssessmentResults")
+      console.log("No audio URL prop received in ReadingAssessmentResults")
     }
   }, [propAudioUrl])
 
@@ -485,6 +487,52 @@ export function SpeechAssessmentResults({ data, audioUrl: propAudioUrl }) {
       setCurrentTime(newTime)
     }
   }
+
+  // Practice recording audio controls
+  const togglePlayPause = () => {
+    if (practiceAudioRef.current && recordedAudio) {
+      if (isPlayingPractice) {
+        practiceAudioRef.current.pause()
+        setIsPlayingPractice(false)
+      } else {
+        practiceAudioRef.current.play()
+        setIsPlayingPractice(true)
+      }
+    }
+  }
+
+  const handlePracticeTimeUpdate = () => {
+    if (practiceAudioRef.current) {
+      setCurrentTime(practiceAudioRef.current.currentTime)
+    }
+  }
+
+  const handlePracticeLoadedMetadata = () => {
+    if (practiceAudioRef.current) {
+      setDuration(practiceAudioRef.current.duration)
+    }
+  }
+
+  const handlePracticeEnded = () => {
+    setIsPlayingPractice(false)
+    setCurrentTime(0)
+  }
+
+  // Initialize practice audio element when recordedAudio changes
+  useEffect(() => {
+    if (!recordedAudio) {
+      setCurrentTime(0)
+      setDuration(0)
+      setIsPlayingPractice(false)
+      return
+    }
+    
+    // The audio element will be set up when it's rendered
+    // We just need to reset state when recordedAudio changes
+    setCurrentTime(0)
+    setDuration(0)
+    setIsPlayingPractice(false)
+  }, [recordedAudio])
 
   useEffect(() => {
     return () => {
@@ -1215,10 +1263,28 @@ export function SpeechAssessmentResults({ data, audioUrl: propAudioUrl }) {
                       <div className="flex items-center gap-3">
                         <button
                           onClick={togglePlayPause}
-                          className="flex-shrink-0 p-2 bg-red-600 hover:bg-blue-600 text-white rounded-full transition-colors"
-                          title={isPlaying ? "Pause" : "Play"}
+                          style={{
+                            flexShrink: 0,
+                            padding: "8px",
+                            backgroundColor: "#dc2626",
+                            color: "#ffffff",
+                            borderRadius: "50%",
+                            border: "none",
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            transition: "background-color 0.2s",
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = "#2563eb"
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = "#dc2626"
+                          }}
+                          title={isPlayingPractice ? "Pause" : "Play"}
                         >
-                          {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
+                          {isPlayingPractice ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
                         </button>
                         <div className="flex-1">
                           <input
@@ -1227,24 +1293,42 @@ export function SpeechAssessmentResults({ data, audioUrl: propAudioUrl }) {
                             max={duration || 0}
                             value={currentTime}
                             onChange={handleSliderChange}
-                            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                            style={{
+                              width: "100%",
+                              height: "8px",
+                              borderRadius: "8px",
+                              backgroundColor: "#f3f4f6",
+                              accentColor: "#3b82f6",
+                              outline: "none",
+                              border: "none",
+                              cursor: "pointer",
+                            }}
                           />
-                          <div className="flex justify-between text-xs text-gray-500 mt-1">
+                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: "#6b7280", marginTop: "4px" }}>
                             <span>{formatTime(currentTime)}</span>
                             <span>{formatTime(duration)}</span>
                           </div>
                         </div>
                         <audio
-                          ref={audioRef}
+                          ref={practiceAudioRef}
                           src={recordedAudio}
-                          onTimeUpdate={handleTimeUpdate}
-                          onLoadedMetadata={handleLoadedMetadata}
-                          onEnded={handleEnded}
-                          className="hidden"
+                          onTimeUpdate={handlePracticeTimeUpdate}
+                          onLoadedMetadata={handlePracticeLoadedMetadata}
+                          onEnded={handlePracticeEnded}
+                          style={{ display: "none" }}
                         />
                       </div>
                     ) : (
-                      <div className="flex items-center justify-center h-12 text-sm text-gray-400 border border-dashed border-gray-300 rounded-lg">
+                      <div style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        height: "48px",
+                        fontSize: "14px",
+                        color: "#9ca3af",
+                        border: "1px dashed #d1d5db",
+                        borderRadius: "8px",
+                      }}>
                         {isRecording ? "Recording in progress..." : "No recording yet"}
                       </div>
                     )}

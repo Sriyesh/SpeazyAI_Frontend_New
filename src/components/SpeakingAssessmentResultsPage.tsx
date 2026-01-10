@@ -3,13 +3,13 @@
 import { useNavigate, useLocation } from "react-router-dom"
 import { Button } from "./ui/button"
 import { ArrowLeft } from "lucide-react"
-import { SpeechAssessmentResults } from "./SpeechAssessmentResults"
+import { SpeakingAssessmentResults } from "./SpeakingAssessmentResults"
 import { PageHeader } from "./PageHeader"
 import type { CSSProperties } from "react"
 import { useAuth } from "../contexts/AuthContext"
 import { useEffect, useRef } from "react"
 
-export function SpeechAssessmentResultsPage() {
+export function SpeakingAssessmentResultsPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const { token, authData } = useAuth()
@@ -20,7 +20,7 @@ export function SpeechAssessmentResultsPage() {
   const authToken = rawToken && typeof rawToken === 'string' ? rawToken.trim() : null
 
   // Get data from navigation state
-  const { apiResponse, chapter, classData, backRoute, lessonTitle, lessonId, speech, audioUrl } = (location.state as any) || {}
+  const { apiResponse, chapter, classData, backRoute, lessonTitle, lessonId, speech, audioUrl, moduleType, moduleKey, moduleTitle } = (location.state as any) || {}
   
   // Also handle cases where audioUrl might be passed through different state structures
   const finalAudioUrl = audioUrl || (apiResponse?.audioUrl)
@@ -28,9 +28,9 @@ export function SpeechAssessmentResultsPage() {
   // Debug: Log audio URL to verify it's being passed
   useEffect(() => {
     if (finalAudioUrl) {
-      console.log("Audio URL found in SpeechAssessmentResultsPage:", finalAudioUrl.substring(0, 50) + "...")
+      console.log("Audio URL found in SpeakingAssessmentResultsPage:", finalAudioUrl.substring(0, 50) + "...")
     } else {
-      console.log("No audio URL found in SpeechAssessmentResultsPage")
+      console.log("No audio URL found in SpeakingAssessmentResultsPage")
       console.log("Location state:", location.state)
     }
   }, [finalAudioUrl, location.state])
@@ -44,7 +44,7 @@ export function SpeechAssessmentResultsPage() {
         navigate(backRoute, { state: { classData, chapter } })
       }
     } else {
-      navigate("/academic-samples")
+      navigate("/speaking-modules")
     }
   }
 
@@ -58,7 +58,7 @@ export function SpeechAssessmentResultsPage() {
         navigate(backRoute, { state: { classData, chapter } })
       }
     } else {
-      navigate("/academic-samples")
+      navigate("/speaking-modules")
     }
     return null
   }
@@ -76,42 +76,46 @@ export function SpeechAssessmentResultsPage() {
         return
       }
 
-      // Determine if this is from custom-content, academic-samples, or famous-speeches
+      // Determine if this is from custom-content, academic-samples, famous-speeches, or speaking-modules
       const isCustomContent = backRoute?.includes("/custom-content") || lessonId
       const hasChapter = chapter && chapter.id
       const isFamousSpeech = speech && speech.id
+      const isSpeakingModule = moduleType && moduleKey
 
-      // Only save if we have chapter data (academic samples), lesson data (custom content), or speech data (famous speeches)
-      if (!hasChapter && !isCustomContent && !isFamousSpeech) {
+      // Only save if we have chapter data, lesson data, speech data, or module data
+      if (!hasChapter && !isCustomContent && !isFamousSpeech && !isSpeakingModule) {
         return
       }
 
       try {
         hasSavedRef.current = true
 
-        let moduleType: string
-        let moduleKey: string
-        let moduleTitle: string
+        let finalModuleType: string
+        let finalModuleKey: string
+        let finalModuleTitle: string
 
-        if (isFamousSpeech) {
+        if (isSpeakingModule && moduleType && moduleKey) {
+          // Speaking module - use provided module data
+          finalModuleType = moduleType
+          finalModuleKey = moduleKey
+          finalModuleTitle = moduleTitle || ""
+        } else if (isFamousSpeech) {
           // Famous speech - use speech data
-          moduleType = "FAMOUS_SPEECH"
-          moduleKey = speech.id || "unknown"
-          moduleTitle = speech.title || ""
+          finalModuleType = "FAMOUS_SPEECH"
+          finalModuleKey = speech.id || "unknown"
+          finalModuleTitle = speech.title || ""
         } else if (isCustomContent && lessonId) {
           // Custom content - use lessonId and lessonTitle
-          moduleType = "CUSTOM_CONTENT"
-          // Use lessonId as module_key (could be formatted as needed)
-          moduleKey = lessonId.toString()
-          moduleTitle = lessonTitle || ""
+          finalModuleType = "CUSTOM_CONTENT"
+          finalModuleKey = lessonId.toString()
+          finalModuleTitle = lessonTitle || ""
         } else if (hasChapter) {
           // Academic sample - use chapter data
-          moduleType = "ACADEMIC_SAMPLE"
-          // Extract module_key from chapter.id (e.g., "ch1" -> "chapter_1" or use as-is if already formatted)
-          moduleKey = chapter.id?.startsWith("ch") 
+          finalModuleType = "ACADEMIC_SAMPLE"
+          finalModuleKey = chapter.id?.startsWith("ch") 
             ? `chapter_${chapter.id.replace("ch", "")}` 
             : chapter.id || "unknown"
-          moduleTitle = chapter.title || ""
+          finalModuleTitle = chapter.title || ""
         } else {
           // Fallback - shouldn't reach here but just in case
           return
@@ -125,9 +129,9 @@ export function SpeechAssessmentResultsPage() {
         const mockPte = englishProficiencyScores.mock_pte || apiResponse.overall?.mock_pte
 
         const payload = {
-          module_type: moduleType,
-          module_key: moduleKey,
-          module_title: moduleTitle,
+          module_type: finalModuleType,
+          module_key: finalModuleKey,
+          module_title: finalModuleTitle,
           result: {
             pronunciation: {
               overall_score: apiResponse.pronunciation?.overall_score ?? 0
@@ -180,6 +184,7 @@ export function SpeechAssessmentResultsPage() {
 
         console.log("Saving result to database with payload:", JSON.stringify(payload, null, 2))
 
+        // Use the speaking API endpoint as specified by the user
         const response = await fetch("https://api.exeleratetechnology.com/api/speaking/save-result.php", {
           method: "POST",
           headers: {
@@ -212,7 +217,7 @@ export function SpeechAssessmentResultsPage() {
     }
 
     saveResultToDatabase()
-  }, [apiResponse, chapter, authToken, backRoute, lessonId, lessonTitle, speech, authData])
+  }, [apiResponse, chapter, authToken, backRoute, lessonId, lessonTitle, speech, moduleType, moduleKey, moduleTitle, authData])
 
   const BLUE_BG: CSSProperties = {
     backgroundColor: "#1E3A8A",
@@ -287,7 +292,7 @@ export function SpeechAssessmentResultsPage() {
             boxShadow: "0 8px 32px rgba(0, 0, 0, 0.1)",
           }}
         >
-          <SpeechAssessmentResults data={apiResponse} audioUrl={finalAudioUrl} />
+          <SpeakingAssessmentResults data={apiResponse} audioUrl={finalAudioUrl} />
         </div>
       </div>
     </div>

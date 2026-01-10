@@ -13,21 +13,21 @@ const speakingModules = [
     title: "Famous Speeches",
     description: "Learn from great orators",
     icon: MessageCircle,
-    color: "from-[#3B82F6] to-[#00B9FC]",
+    gradient: "linear-gradient(135deg, #3B82F6 0%, #00B9FC 100%)",
   },
   {
     id: "academic-samples",
     title: "Academic Speaking",
     description: "Practice with school presentations",
     icon: GraduationCap,
-    color: "from-[#00B9FC] to-[#246BCF]",
+    gradient: "linear-gradient(135deg, #00B9FC 0%, #246BCF 100%)",
   },
   {
     id: "custom-content",
     title: "Custom Content",
     description: "Your uploaded materials",
     icon: FileText,
-    color: "from-[#246BCF] to-[#1E3A8A]",
+    gradient: "linear-gradient(135deg, #246BCF 0%, #1E3A8A 100%)",
   },
 ]
 
@@ -86,15 +86,49 @@ export function SpeakingModulesPage() {
                 key={module.id}
                 className="group bg-white border-0 cursor-pointer transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl relative overflow-hidden rounded-3xl h-full flex flex-col"
                 onClick={() => handleModuleClick(module.id)}
+                style={{
+                  borderRadius: "24px",
+                }}
               >
                 <CardHeader className="pb-4 pt-6 flex flex-col items-center text-center flex-grow">
                   <div
-                    className={`w-16 h-16 bg-gradient-to-br ${module.color} rounded-3xl flex items-center justify-center mb-4 group-hover:scale-110 group-hover:rotate-3 transition-all duration-300 shadow-lg`}
+                    style={{
+                      width: "64px",
+                      height: "64px",
+                      background: module.gradient,
+                      borderRadius: "24px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      marginBottom: "16px",
+                      boxShadow: "0 4px 12px rgba(59, 130, 246, 0.3)",
+                      transition: "all 0.3s ease",
+                      transform: "scale(1)",
+                    }}
+                    className="group-hover:scale-110 group-hover:rotate-3"
                   >
-                    <module.icon className="w-8 h-8 text-white" />
+                    <module.icon 
+                      className="w-8 h-8 text-white"
+                      style={{ color: "#FFFFFF" }}
+                    />
                   </div>
-                  <CardTitle className="text-[#1E3A8A] text-xl mb-2">{module.title}</CardTitle>
-                  <p className="text-sm text-[#1E3A8A]/70">{module.description}</p>
+                  <CardTitle 
+                    style={{ 
+                      color: "#1E3A8A", 
+                      fontSize: "20px", 
+                      marginBottom: "8px",
+                      fontWeight: 600,
+                    }}
+                  >
+                    {module.title}
+                  </CardTitle>
+                  <p style={{ 
+                    fontSize: "14px", 
+                    color: "rgba(30, 58, 138, 0.7)",
+                    lineHeight: "1.5",
+                  }}>
+                    {module.description}
+                  </p>
                 </CardHeader>
               </Card>
               ))}

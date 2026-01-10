@@ -27,14 +27,18 @@ export function ChapterView() {
   }, [chapter, classData, navigate])
 
   // Handle API response - navigate to results page
-  const handleApiResponse = (apiResponse: any) => {
-    console.log("handleApiResponse called with:", apiResponse)
+  const handleApiResponse = (responseData: any) => {
+    console.log("handleApiResponse called with:", responseData)
+    const apiResponse = responseData?.apiResponse || responseData
+    const audioUrl = responseData?.audioUrl || null
+    
     if (apiResponse && !apiResponse.error) {
       console.log("Navigating to results page...")
-      // Navigate to results page with the API response data
+      // Navigate to results page with the API response data and audio URL
       navigate("/academic-samples/results", {
         state: {
           apiResponse,
+          audioUrl,
           chapter,
           classData,
           backRoute: `/academic-samples/chapter/${chapterId}`,
@@ -281,7 +285,7 @@ export function ChapterView() {
                 <AudioRecorder 
                   expectedText={chapter.content} 
                   lessonColor={classData.gradient} 
-                  endpoint="https://apis.languageconfidence.ai/speech-assessment/unscripted/uk"
+                  endpoint="https://apis.languageconfidence.ai/speech-assessment/scripted/uk"
                   onApiResponse={handleApiResponse}
                 />
               </div>
@@ -302,7 +306,7 @@ export function ChapterView() {
             <AudioRecorder 
               expectedText={chapter.content} 
               lessonColor={classData.gradient} 
-              endpoint="https://apis.languageconfidence.ai/speech-assessment/unscripted/uk"
+              endpoint="https://apis.languageconfidence.ai/speech-assessment/scripted/uk"
               onApiResponse={handleApiResponse}
             />
         </div>

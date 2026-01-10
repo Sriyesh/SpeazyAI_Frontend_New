@@ -37,6 +37,7 @@ import { StoryDetail } from "./components/StoryDetail"
 import { NovelDetail } from "./components/NovelDetail"
 import { AssessmentResultsPage } from "./components/AssessmentResultsPage"
 import { SpeechAssessmentResultsPage } from "./components/SpeechAssessmentResultsPage"
+import { ReadingAssessmentResultsPage } from "./components/ReadingAssessmentResultsPage"
 import { VideoContent } from "./components/VideoContent"
 import { AuthProvider } from "./contexts/AuthContext"
 import { Toaster } from "./components/ui/sonner"
@@ -63,6 +64,7 @@ export default function App() {
             <Route path="/quick-practice" element={<ProtectedRoute><QuickPractice /></ProtectedRoute>} />
             <Route path="/application" element={<Navigate to="/login" replace />} />
             <Route path="/famous-speeches" element={<ProtectedRoute><FamousSpeeches /></ProtectedRoute>} />
+            <Route path="/famous-speeches/results" element={<ProtectedRoute><SpeechAssessmentResultsPage /></ProtectedRoute>} />
             <Route path="/academic-samples" element={<ProtectedRoute><AcademicSamples /></ProtectedRoute>} />
             <Route path="/academic-samples/chapter/:chapterId" element={<ProtectedRoute><ChapterView /></ProtectedRoute>} />
             <Route path="/academic-samples/results" element={<ProtectedRoute><SpeechAssessmentResultsPage /></ProtectedRoute>} />
@@ -89,8 +91,10 @@ export default function App() {
             <Route path="/listening-modules" element={<ProtectedRoute><ListeningModulesPage /></ProtectedRoute>} />
             <Route path="/stories" element={<ProtectedRoute><Stories /></ProtectedRoute>} />
             <Route path="/story/:storyId" element={<ProtectedRoute><StoryDetail /></ProtectedRoute>} />
+            <Route path="/stories/results" element={<ProtectedRoute><ReadingAssessmentResultsPage /></ProtectedRoute>} />
             <Route path="/novel" element={<ProtectedRoute><Novel /></ProtectedRoute>} />
             <Route path="/novel/:novelId" element={<ProtectedRoute><NovelDetail /></ProtectedRoute>} />
+            <Route path="/novels/results" element={<ProtectedRoute><ReadingAssessmentResultsPage /></ProtectedRoute>} />
             <Route path="/phoneme-guide" element={<ProtectedRoute><PhonemeGuide /></ProtectedRoute>} />
             <Route path="/sample-videos" element={<ProtectedRoute><VideoContent /></ProtectedRoute>} />
             
