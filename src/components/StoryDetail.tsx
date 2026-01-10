@@ -156,11 +156,13 @@ export function StoryDetail() {
               }
               .story-recording-sidebar {
                 width: 100% !important;
+                position: relative !important;
+                top: 0 !important;
                 margin-top: 0 !important;
               }
             }
           `}</style>
-          <div className="flex gap-12 items-start min-h-[calc(100vh-64px)] story-content-wrapper">
+          <div className="flex gap-12 items-start story-content-wrapper">
             {/* Content - Left side */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -197,16 +199,17 @@ export function StoryDetail() {
               </Card>
             </motion.div>
 
-            {/* Recording Section - Right side, positioned in the middle */}
+            {/* Recording Section - Right side, positioned to scroll with content */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
               className="w-[400px] flex-shrink-0 story-recording-sidebar"
               style={{
-                position: "relative",
+                position: "sticky",
+                top: "120px",
                 alignSelf: "flex-start",
-                marginTop: "120px",
+                height: "fit-content",
               }}
             >
               <Card
