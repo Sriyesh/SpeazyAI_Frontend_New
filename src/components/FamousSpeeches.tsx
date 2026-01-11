@@ -464,7 +464,7 @@ export function FamousSpeeches({
                       e.currentTarget.style.opacity = "1";
                     }}
                   >
-                    Listen & Learn
+                    Practice Speech
                   </Button>
                 </CardContent>
               </Card>
