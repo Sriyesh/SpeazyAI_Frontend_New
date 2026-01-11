@@ -44,6 +44,8 @@ const speeches = [
       "kind",
       "fairly",
     ],
+    quizSentence: "I have a _____ that all _____ will play _____ and be _____ to each other.",
+    quizCorrectAnswers: ["dream", "children", "together", "kind"],
   },
   {
     id: "peace-speech",
@@ -61,6 +63,8 @@ const speeches = [
       "sharing",
       "love",
     ],
+    quizSentence: "Peace means being _____ to everyone. When we are peaceful, we solve problems by _____, not fighting. We can make the world better by being _____ and choosing _____ over anger.",
+    quizCorrectAnswers: ["kind", "talking", "helpful", "love"],
   },
 ];
 
@@ -91,6 +95,10 @@ export function FamousSpeeches({
   );
   const [showMelloMessage, setShowMelloMessage] =
     useState(true);
+  const [wrongAnswers, setWrongAnswers] = useState<Set<number>>(
+    new Set(),
+  );
+  const [showWrongMessage, setShowWrongMessage] = useState(false);
 
   const handleSpeechSelect = (speech: (typeof speeches)[0]) => {
     setSelectedSpeech(speech);
@@ -124,13 +132,38 @@ export function FamousSpeeches({
   const handleStartQuiz = () => {
     setCurrentView("quiz");
     setQuizProgress([]);
+    setWrongAnswers(new Set());
+    setShowWrongMessage(false);
     setShowMelloMessage(true);
   };
 
   const handleWordDrop = (word: string, position: number) => {
+    if (!selectedSpeech) return;
+    
+    const correctAnswers = selectedSpeech.quizCorrectAnswers || [];
+    const isCorrect = word === correctAnswers[position];
+    
     const newProgress = [...quizProgress];
     newProgress[position] = word;
     setQuizProgress(newProgress);
+    
+    if (!isCorrect) {
+      // Mark this position as wrong
+      const newWrongAnswers = new Set(wrongAnswers);
+      newWrongAnswers.add(position);
+      setWrongAnswers(newWrongAnswers);
+      // Show wrong message
+      setShowWrongMessage(true);
+      // Hide message after 3 seconds
+      setTimeout(() => {
+        setShowWrongMessage(false);
+      }, 3000);
+    } else {
+      // Remove from wrong answers if it was previously wrong
+      const newWrongAnswers = new Set(wrongAnswers);
+      newWrongAnswers.delete(position);
+      setWrongAnswers(newWrongAnswers);
+    }
   };
 
   const renderSpeechSelection = () => (
@@ -526,14 +559,10 @@ export function FamousSpeeches({
   const renderQuiz = () => {
     if (!selectedSpeech) return null;
 
-    const sentence =
-      "I have a _____ that all _____ will play _____ and be _____ to each other.";
-    const correctAnswers = [
-      "dream",
-      "children",
-      "together",
-      "kind",
-    ];
+    const sentence = selectedSpeech.quizSentence || "Complete the sentence by filling in the blanks.";
+    const correctAnswers = selectedSpeech.quizCorrectAnswers || [];
+    const blankCount = (sentence.match(/_____/g) || []).length;
+    
     const isComplete =
       quizProgress.length === correctAnswers.length &&
       quizProgress.every(
@@ -610,9 +639,17 @@ export function FamousSpeeches({
                     .map((part, index) => (
                       <span key={index}>
                         {part}
-                        {index < 4 && (
+                        {index < blankCount && (
                           <span
-                            className="inline-block w-24 h-10 bg-[#1E3A8A]/20 border-2 border-dashed border-[#3B82F6] rounded-lg mx-2 align-middle relative hover:bg-[#1E3A8A]/30 transition-colors"
+                            className="inline-block w-24 h-10 rounded-lg mx-2 align-middle relative transition-colors"
+                            style={{
+                              backgroundColor: wrongAnswers.has(index)
+                                ? "rgba(239, 68, 68, 0.2)"
+                                : "rgba(30, 58, 138, 0.2)",
+                              border: wrongAnswers.has(index)
+                                ? "2px solid #ef4444"
+                                : "2px dashed #3B82F6",
+                            }}
                             onDragOver={(e) =>
                               e.preventDefault()
                             }
@@ -630,7 +667,11 @@ export function FamousSpeeches({
                             {quizProgress[index] && (
                               <span
                                 className="absolute inset-0 flex items-center justify-center font-medium kid-bounce"
-                                style={{ color: "#FFD600" }}
+                                style={{
+                                  color: wrongAnswers.has(index)
+                                    ? "#ef4444"
+                                    : "#FFD600",
+                                }}
                               >
                                 {quizProgress[index]}
                               </span>
@@ -665,6 +706,34 @@ export function FamousSpeeches({
                 </div>
               </div>
 
+              {showWrongMessage && (
+                <div
+                  className="text-center p-4 rounded-xl animate-pulse"
+                  style={{
+                    backgroundColor: "rgba(239, 68, 68, 0.1)",
+                    border: "2px solid #ef4444",
+                  }}
+                >
+                  <div className="flex items-center justify-center gap-2">
+                    <span className="text-2xl">❌</span>
+                    <div>
+                      <p
+                        className="font-bold text-lg"
+                        style={{ color: "#dc2626" }}
+                      >
+                        Wrong Answer!
+                      </p>
+                      <p
+                        className="text-sm mt-1"
+                        style={{ color: "rgba(220, 38, 38, 0.8)" }}
+                      >
+                        Please try again. You can drag another word to replace it.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {isComplete && (
                 <div className="text-center space-y-4">
                   <div className="text-6xl kid-bounce">🎉</div>
@@ -681,7 +750,11 @@ export function FamousSpeeches({
                   </p>
                   <Button
                     size="lg"
-                    onClick={() => setQuizProgress([])}
+                    onClick={() => {
+                      setQuizProgress([]);
+                      setWrongAnswers(new Set());
+                      setShowWrongMessage(false);
+                    }}
                     className="bg-gradient-to-r from-[#3B82F6] to-[#00B9FC] hover:opacity-90 text-white rounded-lg px-6"
                   >
                     <RotateCcw className="w-5 h-5 mr-2" />

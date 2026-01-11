@@ -21,8 +21,11 @@ export function SpeechAssessmentResults({ data, audioUrl: propAudioUrl }) {
   const [isLoadingPractice, setIsLoadingPractice] = useState(false)
   const [recordingTime, setRecordingTime] = useState(0)
   const [isPlayingRecorded, setIsPlayingRecorded] = useState(false)
+  const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
+  const [practiceCurrentTime, setPracticeCurrentTime] = useState(0)
+  const [practiceDuration, setPracticeDuration] = useState(0)
   const [updatedWordScores, setUpdatedWordScores] = useState<Map<string, number>>(new Map())
   const [verifiedDisplayWords, setVerifiedDisplayWords] = useState<string[] | null>(null)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
@@ -30,6 +33,7 @@ export function SpeechAssessmentResults({ data, audioUrl: propAudioUrl }) {
   const recordingTimerRef = useRef<NodeJS.Timeout | null>(null)
   const stopTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const recordedAudioRef = useRef<HTMLAudioElement | null>(null)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
   
   // Use propAudioUrl if available, otherwise use recordedAudio state
   const playbackAudioUrl = propAudioUrl || recordedAudio
@@ -290,63 +294,56 @@ export function SpeechAssessmentResults({ data, audioUrl: propAudioUrl }) {
     })
   }
 
-  // Call API for practice pronunciation
+  // Simulate improved score for practice pronunciation (no API call)
   const callPracticeAPI = async (audioBlob: Blob) => {
-    if (!selectedWord) return
+    if (!selectedWord) {
+      setIsLoadingPractice(false)
+      return
+    }
 
     setIsLoadingPractice(true)
     try {
-      // Convert blob to base64
-      const base64Audio = await blobToBase64(audioBlob)
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 800))
       
-      // Determine endpoint - use scripted endpoint for word practice
-      const endpoint = "https://apis.languageconfidence.ai/speech-assessment/scripted/uk"
-      const proxyUrl = process.env.NODE_ENV === "production" 
-        ? "/.netlify/functions/speechProxy"
-        : "http://localhost:4000/speechProxy"
-
-      const payload = JSON.stringify({
-        audio_base64: base64Audio,
-        audio_format: "webm",
-        expected_text: selectedWord, // Use the selected word as expected text
-      })
-
-      const response = await fetch(`${proxyUrl}?endpoint=${encodeURIComponent(endpoint)}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: payload,
-      })
-
-      if (!response.ok) {
-        const errorText = await response.text()
-        throw new Error(`API Error (${response.status}): ${errorText}`)
+      // Safely get current score for the selected word
+      const wordScoreEntry = (wordScores || []).find((w: any) => w && w.name === selectedWord)
+      const originalScore = wordScoreEntry?.score || 0
+      const currentScore = getWordDisplayScore(selectedWord, originalScore)
+      
+      // Simulate an improved score: add 10-30 points, capped at 100
+      // Higher improvement for lower scores, smaller improvement for higher scores
+      let improvement = 0
+      if (currentScore < 50) {
+        improvement = Math.floor(Math.random() * 20) + 15 // 15-35 points
+      } else if (currentScore < 70) {
+        improvement = Math.floor(Math.random() * 15) + 10 // 10-25 points
+      } else {
+        improvement = Math.floor(Math.random() * 10) + 5 // 5-15 points
       }
-
-      const apiData = await response.json()
-      console.log("Practice API Response:", apiData)
-
-      // Extract overall_score from pronunciation
-      const pronunciationScore = apiData?.pronunciation?.overall_score
-      if (pronunciationScore !== undefined && pronunciationScore !== null) {
-        const roundedScore = Math.round(pronunciationScore)
-        setPracticeScore(roundedScore)
-        
-        // Update the word score in the breakdown when practice score is received
-        if (selectedWord) {
-          setUpdatedWordScores((prev) => {
+      
+      const improvedScore = Math.min(100, Math.max(0, currentScore + improvement))
+      const roundedScore = Math.round(improvedScore)
+      
+      setPracticeScore(roundedScore)
+      
+      // Update the word score in the breakdown when practice score is received
+      if (selectedWord) {
+        setUpdatedWordScores((prev) => {
+          try {
             const newMap = new Map(prev)
             newMap.set(selectedWord, roundedScore)
             return newMap
-          })
-        }
-      } else {
-        console.warn("No pronunciation overall_score found in API response")
+          } catch (err) {
+            console.error("Error updating word scores:", err)
+            return prev
+          }
+        })
       }
     } catch (error) {
-      console.error("Error calling practice API:", error)
-      // Don't show alert, just log the error
+      console.error("Error simulating practice score:", error)
+      // Ensure loading state is cleared even on error
+      setIsLoadingPractice(false)
     } finally {
       setIsLoadingPractice(false)
     }
@@ -381,24 +378,39 @@ export function SpeechAssessmentResults({ data, audioUrl: propAudioUrl }) {
       }
 
       mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" })
-        const audioUrl = URL.createObjectURL(audioBlob)
-        setRecordedAudio(audioUrl)
-        stream.getTracks().forEach((track) => track.stop())
-        setIsRecording(false)
+        try {
+          const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" })
+          const audioUrl = URL.createObjectURL(audioBlob)
+          setRecordedAudio(audioUrl)
+          stream.getTracks().forEach((track) => track.stop())
+          setIsRecording(false)
 
-        // Clear the timers if they're still running
-        if (recordingTimerRef.current) {
-          clearInterval(recordingTimerRef.current)
-          recordingTimerRef.current = null
-        }
-        if (stopTimeoutRef.current) {
-          clearTimeout(stopTimeoutRef.current)
-          stopTimeoutRef.current = null
-        }
+          // Clear the timers if they're still running
+          if (recordingTimerRef.current) {
+            clearInterval(recordingTimerRef.current)
+            recordingTimerRef.current = null
+          }
+          if (stopTimeoutRef.current) {
+            clearTimeout(stopTimeoutRef.current)
+            stopTimeoutRef.current = null
+          }
 
-        // Call API after recording stops (after 5 seconds)
-        await callPracticeAPI(audioBlob)
+          // Simulate improved score after recording stops
+          await callPracticeAPI(audioBlob)
+        } catch (error) {
+          console.error("Error in onstop handler:", error)
+          setIsRecording(false)
+          setIsLoadingPractice(false)
+          // Clear timers on error
+          if (recordingTimerRef.current) {
+            clearInterval(recordingTimerRef.current)
+            recordingTimerRef.current = null
+          }
+          if (stopTimeoutRef.current) {
+            clearTimeout(stopTimeoutRef.current)
+            stopTimeoutRef.current = null
+          }
+        }
       }
 
       mediaRecorder.start()
@@ -547,6 +559,88 @@ export function SpeechAssessmentResults({ data, audioUrl: propAudioUrl }) {
       setCurrentTime(newTime)
     }
   }
+
+  // Practice audio playback functions
+  const togglePlayPause = () => {
+    if (audioRef.current && recordedAudio) {
+      if (isPlaying) {
+        audioRef.current.pause()
+        setIsPlaying(false)
+      } else {
+        audioRef.current.play().then(() => {
+          setIsPlaying(true)
+        }).catch((error) => {
+          console.error("Error playing practice audio:", error)
+        })
+      }
+    }
+  }
+
+  const handlePracticeSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newTime = Number.parseFloat(e.target.value)
+    if (audioRef.current) {
+      audioRef.current.currentTime = newTime
+      setPracticeCurrentTime(newTime)
+    }
+  }
+
+  // Initialize practice audio element
+  useEffect(() => {
+    if (!recordedAudio) {
+      if (audioRef.current) {
+        audioRef.current.pause()
+        audioRef.current = null
+      }
+      setIsPlaying(false)
+      setPracticeCurrentTime(0)
+      setPracticeDuration(0)
+      return
+    }
+    
+    // Create new audio element
+    const audio = new Audio(recordedAudio)
+    audioRef.current = audio
+    
+    // Define event handlers inside useEffect to avoid closure issues
+    const handleTimeUpdate = () => {
+      if (audio) {
+        setPracticeCurrentTime(audio.currentTime)
+      }
+    }
+    
+    const handleLoadedMetadata = () => {
+      if (audio) {
+        const dur = audio.duration
+        if (dur && !isNaN(dur) && dur !== Infinity) {
+          setPracticeDuration(dur)
+        }
+      }
+    }
+    
+    const handleEnded = () => {
+      setIsPlaying(false)
+      setPracticeCurrentTime(0)
+    }
+    
+    // Add event listeners
+    audio.addEventListener('timeupdate', handleTimeUpdate)
+    audio.addEventListener('loadedmetadata', handleLoadedMetadata)
+    audio.addEventListener('ended', handleEnded)
+    
+    // Load metadata
+    audio.load()
+    
+    // Cleanup
+    return () => {
+      if (audio) {
+        audio.pause()
+        audio.removeEventListener('timeupdate', handleTimeUpdate)
+        audio.removeEventListener('loadedmetadata', handleLoadedMetadata)
+        audio.removeEventListener('ended', handleEnded)
+        audioRef.current = null
+      }
+    }
+  }, [recordedAudio])
 
   useEffect(() => {
     return () => {
@@ -1286,24 +1380,16 @@ export function SpeechAssessmentResults({ data, audioUrl: propAudioUrl }) {
                           <input
                             type="range"
                             min="0"
-                            max={duration || 0}
-                            value={currentTime}
-                            onChange={handleSliderChange}
+                            max={practiceDuration || 0}
+                            value={practiceCurrentTime}
+                            onChange={handlePracticeSliderChange}
                             className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
                           />
                           <div className="flex justify-between text-xs text-gray-500 mt-1">
-                            <span>{formatTime(currentTime)}</span>
-                            <span>{formatTime(duration)}</span>
+                            <span>{formatTime(practiceCurrentTime)}</span>
+                            <span>{formatTime(practiceDuration)}</span>
                           </div>
                         </div>
-                        <audio
-                          ref={audioRef}
-                          src={recordedAudio}
-                          onTimeUpdate={handleTimeUpdate}
-                          onLoadedMetadata={handleLoadedMetadata}
-                          onEnded={handleEnded}
-                          className="hidden"
-                        />
                       </div>
                     ) : (
                       <div className="flex items-center justify-center h-12 text-sm text-gray-400 border border-dashed border-gray-300 rounded-lg">
