@@ -78,7 +78,7 @@ export function WritingPractice({ onBack }: WritingPracticeProps) {
               className="text-white hover:text-[#CFE2FF] hover:bg-white/10"
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Dashboard
+              Back to Skills Home
             </Button>
             <h1 className="text-xl text-white">Writing Practice</h1>
             <div className="w-32" />

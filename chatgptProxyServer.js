@@ -27,7 +27,7 @@ app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
 app.post("/chatgptProxy", async (req, res) => {
   try {
-    const { mode, predicted_text, expected_text, question, answer, level, words } = req.body;
+    const { mode, predicted_text, expected_text, question, answer, level, words, messages } = req.body;
 
     // New mode: generate word scores when all scores are 0
     if (mode === "generate_word_scores" && words) {
@@ -116,6 +116,44 @@ Return a JSON object mapping each word to a score (0-100):
       res.header("Access-Control-Allow-Methods", "POST, OPTIONS");
       res.header("Access-Control-Allow-Headers", "Content-Type");
       return res.json(result);
+    }
+
+    // Chat mode: handle conversational chat with role-based system messages
+    if (mode === "chat" && messages) {
+      const openaiApiKey = process.env.OPENAI_API_KEY;
+      if (!openaiApiKey) {
+        return res.status(500).json({ error: "OpenAI API key not configured" });
+      }
+
+      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${openaiApiKey}`,
+        },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          messages: messages,
+          temperature: 0.7,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("OpenAI API Error:", errorText);
+        return res.status(response.status).json({ error: `OpenAI API error: ${errorText}` });
+      }
+
+      const data = await response.json();
+      const content = data.choices[0]?.message?.content;
+      if (!content) {
+        return res.status(500).json({ error: "No response from OpenAI" });
+      }
+
+      res.header("Access-Control-Allow-Origin", "*");
+      res.header("Access-Control-Allow-Methods", "POST, OPTIONS");
+      res.header("Access-Control-Allow-Headers", "Content-Type");
+      return res.json({ response: content });
     }
 
     // New mode: speech word breakdown verification/cleanup

@@ -355,7 +355,7 @@ export function VideoContent({ onBack }: { onBack?: () => void }) {
                 }}
               >
                 <ArrowLeft style={{ width: "1rem", height: "1rem", marginRight: "0.5rem" }} />
-                Back to Dashboard
+                Back to Skills Home
               </Button>
             </div>
           </div>

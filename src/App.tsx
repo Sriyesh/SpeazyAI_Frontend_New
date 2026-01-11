@@ -5,13 +5,13 @@ import { ContactPage } from "./components/ContactPage"
 import { LoginPage } from "./components/LoginPage"
 import { SignUpPage } from "./components/SignUpPage"
 import { ForgotPasswordPage } from "./components/ForgotPasswordPage"
-import { Dashboard } from "./components/Dashboard"
 import { FamousSpeeches } from "./components/FamousSpeeches"
 import { AcademicSamples } from "./components/AcademicSamples"
 import { ChapterView } from "./components/ChapterView"
 import { MyLessons } from "./components/MyLessons"
 import { CustomContent } from "./components/CustomContent"
 import { ChatWithAI } from "./components/ChatWithAI"
+import { SpeechChatPage } from "./components/SpeechChatPage"
 import { IELTSModule } from "./components/IELTSModule"
 import { Profile } from "./components/Profile"
 import { ThemeProvider } from "./components/ThemeProvider"
@@ -60,7 +60,6 @@ export default function App() {
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             
             {/* Protected Routes */}
-            <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/quick-practice" element={<ProtectedRoute><QuickPractice /></ProtectedRoute>} />
             <Route path="/application" element={<Navigate to="/login" replace />} />
             <Route path="/famous-speeches" element={<ProtectedRoute><FamousSpeeches /></ProtectedRoute>} />
@@ -73,6 +72,7 @@ export default function App() {
             <Route path="/my-lessons" element={<ProtectedRoute><MyLessons /></ProtectedRoute>} />
             <Route path="/custom-content" element={<ProtectedRoute><CustomContent /></ProtectedRoute>} />
             <Route path="/chat" element={<ProtectedRoute><ChatWithAI /></ProtectedRoute>} />
+            <Route path="/chat/conversation" element={<ProtectedRoute><SpeechChatPage /></ProtectedRoute>} />
             <Route path="/ielts" element={<ProtectedRoute><IELTSModule /></ProtectedRoute>} />
             <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
             <Route path="/content-library" element={<ProtectedRoute><ContentLibrary /></ProtectedRoute>} />

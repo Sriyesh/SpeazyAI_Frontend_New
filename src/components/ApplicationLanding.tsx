@@ -252,7 +252,7 @@ export function ApplicationLanding({
                 onClick={onBack}
                 className="bg-white text-[#1E3A8A] hover:bg-white/90 rounded-2xl px-8 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105"
               >
-                Back to Dashboard
+                Back to Skills Home
               </Button>
             </div>
           </CardContent>

@@ -16,7 +16,7 @@ exports.handler = async (event) => {
 
   try {
     const body = JSON.parse(event.body || "{}");
-    const { mode, predicted_text, expected_text, question, answer, level, words } = body;
+    const { mode, predicted_text, expected_text, question, answer, level, words, messages } = body;
 
     // New mode: generate word scores when all scores are 0
     if (mode === "generate_word_scores" && words) {
@@ -127,7 +127,61 @@ Return a JSON object mapping each word to a score (0-100):
           "Access-Control-Allow-Origin": allowedOrigin,
           "Access-Control-Allow-Headers": "Content-Type",
         },
-        body: JSON.stringify(result),
+      body: JSON.stringify(result),
+    };
+  }
+
+    // Chat mode: handle conversational chat with role-based system messages
+    if (mode === "chat" && messages) {
+      const openaiApiKey = process.env.OPENAI_API_KEY;
+      if (!openaiApiKey) {
+        return {
+          statusCode: 500,
+          headers: { "Access-Control-Allow-Origin": allowedOrigin },
+          body: JSON.stringify({ error: "OpenAI API key not configured" }),
+        };
+      }
+
+      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${openaiApiKey}`,
+        },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          messages: messages,
+          temperature: 0.7,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("OpenAI API Error:", errorText);
+        return {
+          statusCode: response.status,
+          headers: { "Access-Control-Allow-Origin": allowedOrigin },
+          body: JSON.stringify({ error: `OpenAI API error: ${errorText}` }),
+        };
+      }
+
+      const data = await response.json();
+      const content = data.choices[0]?.message?.content;
+      if (!content) {
+        return {
+          statusCode: 500,
+          headers: { "Access-Control-Allow-Origin": allowedOrigin },
+          body: JSON.stringify({ error: "No response from OpenAI" }),
+        };
+      }
+
+      return {
+        statusCode: 200,
+        headers: {
+          "Access-Control-Allow-Origin": allowedOrigin,
+          "Access-Control-Allow-Headers": "Content-Type",
+        },
+        body: JSON.stringify({ response: content }),
       };
     }
 
