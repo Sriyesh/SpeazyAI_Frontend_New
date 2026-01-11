@@ -1,19 +1,66 @@
 "use client"
 
 import { useNavigate } from "react-router-dom"
-import { Card, CardHeader, CardTitle } from "../ui/card"
 import { Button } from "../ui/button"
-import { ArrowLeft, Volume2, Radio, Music } from "lucide-react"
+import { Input } from "../ui/input"
+import { ArrowLeft, Play, Pause, Loader2, Volume2, Radio, Music } from "lucide-react"
 import { PageHeader } from "../PageHeader"
 import type { CSSProperties } from "react"
-import { useState } from "react"
-import { ListeningBeginner } from "../listening-practice/ListeningBeginner"
-import { ListeningIntermediate } from "../listening-practice/ListeningIntermediate"
-import { ListeningAdvanced } from "../listening-practice/ListeningAdvanced"
+import { useState, useEffect, useRef } from "react"
+import { useAuth } from "../../contexts/AuthContext"
+
+const API_URL = "https://api.exeleratetechnology.com/api/content/list_bundle.php?section=listening"
+const SAVE_RESULT_API = "https://api.exeleratetechnology.com/api/listening/save-result.php"
+
+type PracticeLevel = "BEGINNER" | "INTERMEDIATE" | "ADVANCED" | null
+
+interface ListeningItem {
+  title: string
+  json_key: string
+  json_url: string
+  audio_key: string
+  audio_url: string
+  item_count: number | null
+}
+
+interface ListeningResponse {
+  success: boolean
+  prefix: string
+  count: number
+  items: ListeningItem[]
+}
+
+interface QuestionAnswer {
+  question?: string
+  answer?: string
+  questions?: string[]
+  answers?: string[]
+  [key: string]: any
+}
+
+interface EvaluationResult {
+  mark: number
+  total: number
+  percentage: number
+  ieltsScore: number
+  feedback?: string
+  answerResults?: { [key: number]: boolean } // Track which answers are correct/wrong
+}
 
 export function ListeningModulesPage() {
   const navigate = useNavigate()
-  const [selectedLevel, setSelectedLevel] = useState<"beginner" | "intermediate" | "advanced" | null>(null)
+  const { token } = useAuth()
+  const [selectedLevel, setSelectedLevel] = useState<PracticeLevel>(null)
+  const [items, setItems] = useState<ListeningItem[]>([])
+  const [loading, setLoading] = useState(false)
+  const [selectedItem, setSelectedItem] = useState<ListeningItem | null>(null)
+  const [questionData, setQuestionData] = useState<QuestionAnswer | null>(null)
+  const [loadingQuestions, setLoadingQuestions] = useState(false)
+  const [playingAudioId, setPlayingAudioId] = useState<string | null>(null)
+  const [userAnswers, setUserAnswers] = useState<{ [key: number]: string }>({})
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [evaluationResult, setEvaluationResult] = useState<EvaluationResult | null>(null)
+  const audioRefs = useRef<{ [key: string]: HTMLAudioElement | null }>({})
 
   const BLUE_BG: CSSProperties = {
     backgroundColor: "#1E3A8A",
@@ -22,23 +69,730 @@ export function ListeningModulesPage() {
     backgroundSize: "cover",
   }
 
+  // Define allowed items per level based on screenshots (match against path/key, not title)
+  const allowedItemsByLevel: Record<string, string[]> = {
+    BEGINNER: ["lilys-morning", "sarahs-day", "toms-day"],
+    INTERMEDIATE: ["career", "socialmedia", "stress-management"],
+    ADVANCED: ["communication-skill", "environmental-issues"],
+  }
+
+  // Fetch listening items from API when level is selected
+  useEffect(() => {
+    const fetchItems = async () => {
+      if (!token || !selectedLevel) {
+        return
+      }
+
+      try {
+        setLoading(true)
+        const levelPath = selectedLevel.toLowerCase()
+        const allowedItems = allowedItemsByLevel[selectedLevel] || []
+        
+        // Try with bundle parameter first, fallback to filtering
+        let apiUrl = `${API_URL}&bundle=${levelPath}`
+        
+        const response = await fetch(apiUrl, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`,
+          },
+        })
+
+        if (!response.ok) {
+          // If bundle parameter doesn't work, try without it and filter
+          const fallbackResponse = await fetch(API_URL, {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${token}`,
+            },
+          })
+          
+          if (!fallbackResponse.ok) {
+            throw new Error(`Failed to fetch: ${fallbackResponse.status}`)
+          }
+          
+          const fallbackData: ListeningResponse = await fallbackResponse.json()
+          if (fallbackData.success && fallbackData.items) {
+            // Filter items by level path and allowed items
+            const filteredItems = fallbackData.items.filter(item => {
+              const path = item.json_key || item.audio_key || ""
+              const normalizedPath = path.toLowerCase().replace(/[^a-z0-9-]/g, "")
+              const matchesLevel = path.includes(`/listening/${levelPath}/`)
+              const matchesAllowed = allowedItems.some(allowed => {
+                const normalizedAllowed = allowed.toLowerCase()
+                // Check if path contains the allowed item name
+                return normalizedPath.includes(normalizedAllowed) || 
+                       item.title.toLowerCase().includes(normalizedAllowed.replace(/-/g, "")) ||
+                       item.title.toLowerCase().includes(normalizedAllowed)
+              })
+              return matchesLevel && matchesAllowed
+            })
+            setItems(filteredItems)
+          } else {
+            setItems([])
+          }
+        } else {
+          const data: ListeningResponse = await response.json()
+          if (data.success && data.items) {
+            // Filter to only show allowed items - check both path and title
+            const filteredItems = data.items.filter(item => {
+              const path = item.json_key || item.audio_key || ""
+              const normalizedPath = path.toLowerCase().replace(/[^a-z0-9-]/g, "")
+              return allowedItems.some(allowed => {
+                const normalizedAllowed = allowed.toLowerCase()
+                // Check if path contains the allowed item name, or title matches
+                return normalizedPath.includes(normalizedAllowed) || 
+                       item.title.toLowerCase().includes(normalizedAllowed.replace(/-/g, "")) ||
+                       item.title.toLowerCase().includes(normalizedAllowed)
+              })
+            })
+            setItems(filteredItems)
+          } else {
+            setItems([])
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching listening items:", error)
+        setItems([])
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchItems()
+  }, [token, selectedLevel])
+
+  // Fetch question/answer data when item is selected
+  useEffect(() => {
+    const fetchQuestionData = async () => {
+      if (!selectedItem?.json_url) return
+
+      try {
+        setLoadingQuestions(true)
+        const response = await fetch(selectedItem.json_url)
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch JSON: ${response.status}`)
+        }
+
+        const data: QuestionAnswer = await response.json()
+        setQuestionData(data)
+        // Reset user answers and evaluation result when new item is selected
+        setUserAnswers({})
+        setEvaluationResult(null)
+      } catch (error) {
+        console.error("Error fetching question data:", error)
+        setQuestionData(null)
+      } finally {
+        setLoadingQuestions(false)
+      }
+    }
+
+    fetchQuestionData()
+  }, [selectedItem])
+
+  const handleLevelClick = (level: PracticeLevel) => {
+    setSelectedLevel(level)
+    setSelectedItem(null)
+    setQuestionData(null)
+    setUserAnswers({})
+    setEvaluationResult(null)
+  }
+
+  const handleItemClick = (item: ListeningItem) => {
+    setSelectedItem(item)
+    setQuestionData(null)
+    setUserAnswers({})
+    setEvaluationResult(null)
+  }
+
+  const handleBack = () => {
+    if (selectedItem) {
+      // Go back to level items
+      setSelectedItem(null)
+      setQuestionData(null)
+      setUserAnswers({})
+      setEvaluationResult(null)
+    } else if (selectedLevel) {
+      // Go back to level selection
+      setSelectedLevel(null)
+      setItems([])
+    }
+    // Stop any playing audio
+    Object.values(audioRefs.current).forEach(audio => {
+      if (audio) {
+        audio.pause()
+        audio.currentTime = 0
+      }
+    })
+    setPlayingAudioId(null)
+  }
+
+  const handlePlayPause = (item: ListeningItem) => {
+    const audioId = item.audio_url
+    const audio = audioRefs.current[audioId]
+
+    if (!audio) {
+      // Create audio element if it doesn't exist
+      const newAudio = new Audio(item.audio_url)
+      audioRefs.current[audioId] = newAudio
+      
+      newAudio.addEventListener('ended', () => {
+        setPlayingAudioId(null)
+      })
+
+      newAudio.play()
+      setPlayingAudioId(audioId)
+    } else {
+      if (playingAudioId === audioId) {
+        // Currently playing this audio, pause it
+        audio.pause()
+        setPlayingAudioId(null)
+      } else {
+        // Pause other audio if playing
+        if (playingAudioId) {
+          const otherAudio = audioRefs.current[playingAudioId]
+          if (otherAudio) {
+            otherAudio.pause()
+            otherAudio.currentTime = 0
+          }
+        }
+        // Play this audio
+        audio.play()
+        setPlayingAudioId(audioId)
+      }
+    }
+  }
+
+  const handleAnswerChange = (index: number, value: string) => {
+    setUserAnswers(prev => ({ ...prev, [index]: value }))
+  }
+
+  const getQuestionsAndAnswers = () => {
+    if (!questionData) return { questions: [], answers: [] }
+
+    if (questionData.questions && Array.isArray(questionData.questions)) {
+      return {
+        questions: questionData.questions,
+        answers: questionData.answers || []
+      }
+    } else if (questionData.question) {
+      return {
+        questions: [questionData.question],
+        answers: questionData.answer ? [questionData.answer] : []
+      }
+    }
+    return { questions: [], answers: [] }
+  }
+
+  const handleSubmit = async () => {
+    if (!questionData || !selectedItem || !selectedLevel) return
+
+    const { questions, answers } = getQuestionsAndAnswers()
+    if (questions.length === 0) {
+      alert("No questions available")
+      return
+    }
+
+    // Check if user has answered at least one question
+    const answeredCount = Object.keys(userAnswers).filter(key => userAnswers[parseInt(key)]?.trim()).length
+    if (answeredCount === 0) {
+      alert("Please answer at least one question before submitting")
+      return
+    }
+
+    setIsSubmitting(true)
+
+    try {
+      // Prepare the prompt for ChatGPT
+      const answersText = answers.map((ans, idx) => `Question ${idx + 1}: ${questions[idx]}\nCorrect Answer: ${ans}`).join('\n\n')
+      const userAnswersText = Object.keys(userAnswers)
+        .sort((a, b) => parseInt(a) - parseInt(b))
+        .map(key => {
+          const idx = parseInt(key)
+          return `Question ${idx + 1}: ${questions[idx]}\nStudent Answer: ${userAnswers[idx] || '(not answered)'}`
+        })
+        .join('\n\n')
+
+      const prompt = `You are an IELTS listening comprehension examiner. Evaluate the student's answers for a listening comprehension exercise.
+
+QUESTIONS AND CORRECT ANSWERS:
+${answersText}
+
+STUDENT'S ANSWERS:
+${userAnswersText}
+
+Please evaluate each answer and provide:
+1. A mark out of the total number of questions (e.g., 3/5 means 3 correct out of 5 questions)
+2. An IELTS band score (0-9 scale) based on the overall performance
+3. Brief feedback
+
+Return your response as JSON in this exact format:
+{
+  "mark": <number of correct answers>,
+  "total": <total number of questions>,
+  "percentage": <percentage score>,
+  "ieltsScore": <IELTS band score 0-9>,
+  "feedback": "<brief feedback message>"
+}
+
+Be fair but strict. Consider partial credit for answers that are close but not exact.`
+
+      const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      const proxyUrl = isLocal ? "http://localhost:4001/chatgptProxy" : "/.netlify/functions/chatgptProxy"
+
+      const response = await fetch(proxyUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          mode: "chat",
+          messages: [
+            {
+              role: "system",
+              content: "You are an expert IELTS listening comprehension examiner. Return only valid JSON in the specified format."
+            },
+            {
+              role: "user",
+              content: prompt
+            }
+          ]
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to evaluate: ${response.status}`)
+      }
+
+      const data = await response.json()
+      let result: EvaluationResult
+
+      if (data.response) {
+        // Parse the JSON response from ChatGPT
+        try {
+          const parsed = JSON.parse(data.response)
+          result = {
+            mark: parsed.mark || 0,
+            total: parsed.total || questions.length,
+            percentage: parsed.percentage || 0,
+            ieltsScore: parsed.ieltsScore || 0,
+            feedback: parsed.feedback || ""
+          }
+        } catch (e) {
+          // Fallback if JSON parsing fails
+          result = {
+            mark: 0,
+            total: questions.length,
+            percentage: 0,
+            ieltsScore: 0,
+            feedback: data.response || "Evaluation completed"
+          }
+        }
+      } else {
+        throw new Error("Invalid response from API")
+      }
+
+      // Compare answers client-side to determine which are correct/wrong
+      const answerResults: { [key: number]: boolean } = {}
+      questions.forEach((_, idx) => {
+        const userAnswer = (userAnswers[idx] || "").trim().toLowerCase()
+        const correctAnswer = (answers[idx] || "").trim().toLowerCase()
+        
+        if (!userAnswer) {
+          // Not answered - mark as wrong
+          answerResults[idx] = false
+        } else {
+          // Simple comparison: check if user answer contains key words from correct answer or vice versa
+          // This is a basic comparison - ChatGPT does the actual evaluation
+          const userWords = userAnswer.split(/\s+/).filter(w => w.length > 2)
+          const correctWords = correctAnswer.split(/\s+/).filter(w => w.length > 2)
+          const matchingWords = userWords.filter(word => 
+            correctWords.some(correctWord => 
+              correctWord.includes(word) || word.includes(correctWord)
+            )
+          )
+          // Consider it a match if at least 50% of key words match
+          answerResults[idx] = userWords.length > 0 && (matchingWords.length / userWords.length) >= 0.5
+        }
+      })
+
+      result.answerResults = answerResults
+      setEvaluationResult(result)
+
+      // Save result to API using the selected level variable
+      if (result.ieltsScore > 0 && token && selectedLevel) {
+        try {
+          const saveResponse = await fetch(SAVE_RESULT_API, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              practice_level: selectedLevel,
+              title: selectedItem.title,
+              ielts_score: result.ieltsScore
+            }),
+          })
+
+          if (!saveResponse.ok) {
+            console.error("Failed to save result:", await saveResponse.text())
+          } else {
+            console.log("Result saved successfully")
+          }
+        } catch (err) {
+          console.error("Error saving result:", err)
+        }
+      }
+
+    } catch (error) {
+      console.error("Error evaluating answers:", error)
+      alert("Failed to evaluate answers. Please try again.")
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  // Render item detail view
+  if (selectedItem) {
+    const isPlaying = playingAudioId === selectedItem.audio_url
+    const { questions, answers } = getQuestionsAndAnswers()
+
+    return (
+      <div style={{ height: "100vh", display: "flex", flexDirection: "column", position: "relative", overflowX: "hidden", width: "100%" }}>
+        <div style={{ position: "absolute", inset: 0, zIndex: -10, ...BLUE_BG }} />
+        <PageHeader />
+
+        <div style={{ flex: 1, overflowY: "auto" }}>
+          <div style={{ maxWidth: "896px", margin: "0 auto", padding: "32px 16px" }}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleBack}
+              style={{ color: "white", marginBottom: "32px", borderRadius: "16px" }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.1)"}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
+            >
+              <ArrowLeft style={{ width: "16px", height: "16px", marginRight: "8px" }} />
+              Back
+            </Button>
+
+            <div style={{ backgroundColor: "white", borderRadius: "24px", boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)" }}>
+              <div style={{ padding: "24px 24px 16px" }}>
+                <h2 style={{ fontSize: "24px", fontWeight: "bold", color: "#1E3A8A", textTransform: "capitalize", margin: 0 }}>
+                  {selectedItem.title.replace(/-/g, " ")}
+                </h2>
+              </div>
+              <div style={{ padding: "0 24px 24px", display: "flex", flexDirection: "column", gap: "24px" }}>
+                {/* Audio Player */}
+                <div style={{ background: "linear-gradient(to bottom right, #3B82F6, #00B9FC)", borderRadius: "16px", padding: "24px" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "16px", marginBottom: "16px" }}>
+                    <button
+                      onClick={() => handlePlayPause(selectedItem)}
+                      style={{
+                        width: "64px",
+                        height: "64px",
+                        borderRadius: "50%",
+                        backgroundColor: "rgba(255, 255, 255, 0.2)",
+                        border: "2px solid rgba(255, 255, 255, 0.5)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        cursor: "pointer",
+                        color: "white"
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.3)"}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.2)"}
+                    >
+                      {isPlaying ? (
+                        <Pause style={{ width: "32px", height: "32px" }} />
+                      ) : (
+                        <Play style={{ width: "32px", height: "32px", marginLeft: "4px" }} />
+                      )}
+                    </button>
+                  </div>
+                  <audio
+                    ref={(el) => {
+                      if (el && !audioRefs.current[selectedItem.audio_url]) {
+                        audioRefs.current[selectedItem.audio_url] = el
+                      }
+                    }}
+                    src={selectedItem.audio_url}
+                    preload="metadata"
+                  />
+                </div>
+
+                {/* Questions and Answers */}
+                {loadingQuestions ? (
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "32px 0" }}>
+                    <Loader2 style={{ width: "24px", height: "24px", animation: "spin 1s linear infinite", color: "#1E3A8A" }} />
+                    <span style={{ marginLeft: "8px", color: "#1E3A8A" }}>Loading questions...</span>
+                  </div>
+                ) : questions.length > 0 ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                    <h3 style={{ fontSize: "20px", fontWeight: "600", color: "#1E3A8A", margin: 0 }}>Questions & Answers</h3>
+                    
+                    {questions.map((question, idx) => {
+                      const isWrong = evaluationResult?.answerResults && evaluationResult.answerResults[idx] === false
+                      const isCorrect = evaluationResult?.answerResults && evaluationResult.answerResults[idx] === true
+                      
+                      return (
+                        <div 
+                          key={idx} 
+                          style={{ 
+                            backgroundColor: isWrong ? "#fef2f2" : "#f9fafb", 
+                            borderRadius: "8px", 
+                            padding: "16px", 
+                            border: isWrong ? "2px solid #ef4444" : "1px solid #e5e7eb",
+                            transition: "all 0.2s ease"
+                          }}
+                        >
+                          <p style={{ fontWeight: "600", color: "#1E3A8A", marginBottom: "8px", margin: "0 0 8px 0" }}>
+                            Question {idx + 1}:
+                          </p>
+                          <p style={{ color: "#374151", marginBottom: "12px", margin: "0 0 12px 0" }}>
+                            {question}
+                          </p>
+                        <input
+                          type="text"
+                          placeholder="Enter your answer here..."
+                          value={userAnswers[idx] || ""}
+                          onChange={(e) => handleAnswerChange(idx, e.target.value)}
+                          disabled={!!evaluationResult}
+                          style={{
+                            width: "100%",
+                            padding: "10px 14px",
+                            borderRadius: "6px",
+                            border: evaluationResult?.answerResults?.[idx] === false 
+                              ? "2px solid #ef4444" 
+                              : evaluationResult?.answerResults?.[idx] === true
+                                ? "2px solid #10b981"
+                                : "2px solid #d1d5db",
+                            fontSize: "14px",
+                            backgroundColor: "#ffffff",
+                            color: "#111827",
+                            outline: "none",
+                            boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
+                            transition: "all 0.2s ease",
+                            cursor: evaluationResult ? "not-allowed" : "text",
+                            opacity: evaluationResult ? 0.7 : 1
+                          }}
+                          onFocus={(e) => {
+                            if (!evaluationResult) {
+                              e.currentTarget.style.borderColor = "#3B82F6"
+                              e.currentTarget.style.boxShadow = "0 0 0 3px rgba(59, 130, 246, 0.1)"
+                            }
+                          }}
+                          onBlur={(e) => {
+                            if (!evaluationResult) {
+                              e.currentTarget.style.borderColor = "#d1d5db"
+                              e.currentTarget.style.boxShadow = "0 1px 2px 0 rgba(0, 0, 0, 0.05)"
+                            }
+                          }}
+                        />
+                        </div>
+                      )
+                    })}
+
+                    {!evaluationResult && (
+                      <Button
+                        onClick={handleSubmit}
+                        disabled={isSubmitting}
+                        style={{
+                          width: "100%",
+                          background: "linear-gradient(to right, #3B82F6, #00B9FC)",
+                          color: "white",
+                          border: "none",
+                          borderRadius: "8px",
+                          padding: "12px 24px",
+                          fontSize: "16px",
+                          fontWeight: "600",
+                          cursor: isSubmitting ? "not-allowed" : "pointer",
+                          opacity: isSubmitting ? 0.6 : 1
+                        }}
+                      >
+                        {isSubmitting ? (
+                          <>
+                            <Loader2 style={{ width: "16px", height: "16px", marginRight: "8px", animation: "spin 1s linear infinite", display: "inline-block" }} />
+                            Evaluating...
+                          </>
+                        ) : (
+                          "Submit Answers"
+                        )}
+                      </Button>
+                    )}
+
+                    {evaluationResult && (
+                      <div style={{ backgroundColor: "#f0fdf4", borderRadius: "8px", padding: "20px", border: "2px solid #86efac" }}>
+                        <h4 style={{ fontSize: "18px", fontWeight: "600", color: "#166534", margin: "0 0 16px 0" }}>Your Results</h4>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <span style={{ color: "#166534", fontWeight: "500" }}>Score:</span>
+                            <span style={{ fontSize: "20px", fontWeight: "bold", color: "#166534" }}>
+                              {evaluationResult.mark}/{evaluationResult.total} ({evaluationResult.percentage}%)
+                            </span>
+                          </div>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <span style={{ color: "#166534", fontWeight: "500" }}>IELTS Band Score:</span>
+                            <span style={{ fontSize: "20px", fontWeight: "bold", color: "#166534" }}>
+                              {evaluationResult.ieltsScore.toFixed(1)}
+                            </span>
+                          </div>
+                          {evaluationResult.feedback && (
+                            <div style={{ marginTop: "8px", paddingTop: "12px", borderTop: "1px solid #86efac" }}>
+                              <p style={{ color: "#166534", margin: 0, fontSize: "14px" }}>{evaluationResult.feedback}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div style={{ backgroundColor: "#fef3c7", borderRadius: "8px", padding: "16px", border: "1px solid #fde047" }}>
+                    <p style={{ color: "#92400e", margin: 0 }}>No questions available for this exercise</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Render level items view
+  if (selectedLevel) {
+    return (
+      <div style={{ height: "100vh", display: "flex", flexDirection: "column", position: "relative", overflowX: "hidden", width: "100%" }}>
+        <div style={{ position: "absolute", inset: 0, zIndex: -10, ...BLUE_BG }} />
+        <PageHeader />
+
+        <div style={{ flex: 1, overflowY: "auto" }}>
+          <div style={{ maxWidth: "1280px", margin: "0 auto", padding: "32px 16px" }}>
+            <div style={{ marginBottom: "32px" }}>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleBack}
+                style={{ color: "white", marginBottom: "32px", borderRadius: "16px" }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.1)"}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
+              >
+                <ArrowLeft style={{ width: "16px", height: "16px", marginRight: "8px" }} />
+                Back
+              </Button>
+              <div style={{ textAlign: "center" }}>
+                <h2 style={{ fontSize: "30px", fontWeight: "bold", color: "white", marginBottom: "12px", margin: "0 0 12px 0", textTransform: "capitalize" }}>
+                  {selectedLevel} Listening
+                </h2>
+                <p style={{ fontSize: "16px", color: "rgba(255, 255, 255, 0.8)", margin: 0 }}>Choose an exercise to practice</p>
+              </div>
+            </div>
+
+            {loading ? (
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "64px 0" }}>
+                <Loader2 style={{ width: "32px", height: "32px", animation: "spin 1s linear infinite", color: "white" }} />
+                <span style={{ marginLeft: "12px", color: "white" }}>Loading exercises...</span>
+              </div>
+            ) : items.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "64px 0" }}>
+                <p style={{ color: "white", fontSize: "18px", margin: 0 }}>No exercises available for this level</p>
+              </div>
+            ) : (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: "24px" }}>
+                {items.map((item, index) => (
+                  <div
+                    key={index}
+                    onClick={() => handleItemClick(item)}
+                    style={{
+                      backgroundColor: "white",
+                      borderRadius: "24px",
+                      cursor: "pointer",
+                      transition: "all 0.3s ease",
+                      display: "flex",
+                      flexDirection: "column",
+                      height: "100%",
+                      boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = "translateY(-8px)"
+                      e.currentTarget.style.boxShadow = "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)"
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = "translateY(0)"
+                      e.currentTarget.style.boxShadow = "0 4px 6px -1px rgba(0, 0, 0, 0.1)"
+                    }}
+                  >
+                    <div style={{ padding: "24px 24px 16px", display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", flexGrow: 1 }}>
+                      <div
+                        style={{
+                          width: "64px",
+                          height: "64px",
+                          background: "linear-gradient(135deg, #3B82F6 0%, #00B9FC 100%)",
+                          borderRadius: "24px",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          marginBottom: "16px",
+                          boxShadow: "0 4px 12px rgba(59, 130, 246, 0.3)",
+                        }}
+                      >
+                        <Play style={{ width: "32px", height: "32px", color: "white", marginLeft: "4px" }} />
+                      </div>
+                      <h3
+                        style={{
+                          color: "#1E3A8A",
+                          fontSize: "20px",
+                          marginBottom: "8px",
+                          fontWeight: 600,
+                          textTransform: "capitalize",
+                          margin: "0 0 8px 0",
+                        }}
+                      >
+                        {item.title.replace(/-/g, " ")}
+                      </h3>
+                      <p
+                        style={{
+                          fontSize: "14px",
+                          color: "rgba(30, 58, 138, 0.7)",
+                          lineHeight: "1.5",
+                          margin: 0,
+                        }}
+                      >
+                        Click to view details and practice
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Render level selection view
   const levelModules = [
     {
-      id: "beginner",
+      id: "BEGINNER" as PracticeLevel,
       title: "Beginner",
       description: "Start with simple sounds and stories",
       icon: Volume2,
       gradient: "linear-gradient(135deg, #3B82F6 0%, #00B9FC 100%)",
     },
     {
-      id: "intermediate",
+      id: "INTERMEDIATE" as PracticeLevel,
       title: "Intermediate",
       description: "Engage with stories and dialogues",
       icon: Radio,
       gradient: "linear-gradient(135deg, #00B9FC 0%, #246BCF 100%)",
     },
     {
-      id: "advanced",
+      id: "ADVANCED" as PracticeLevel,
       title: "Advanced",
       description: "Master complex listening skills",
       icon: Music,
@@ -46,115 +800,102 @@ export function ListeningModulesPage() {
     },
   ]
 
-  const handleLevelClick = (level: "beginner" | "intermediate" | "advanced") => {
-    setSelectedLevel(level)
-  }
-
-  const handleBack = () => {
-    setSelectedLevel(null)
-  }
-
-  // Show level-specific content
-  if (selectedLevel === "beginner") {
-    return <ListeningBeginner onBack={handleBack} />
-  }
-  if (selectedLevel === "intermediate") {
-    return <ListeningIntermediate onBack={handleBack} />
-  }
-  if (selectedLevel === "advanced") {
-    return <ListeningAdvanced onBack={handleBack} />
-  }
-
   return (
-    <div className="h-screen flex flex-col relative overflow-x-hidden w-full">
-      {/* Background */}
-      <div className="absolute inset-0 -z-10" style={BLUE_BG} />
-      
-      {/* Header */}
+    <div style={{ height: "100vh", display: "flex", flexDirection: "column", position: "relative", overflowX: "hidden", width: "100%" }}>
+      <div style={{ position: "absolute", inset: 0, zIndex: -10, ...BLUE_BG }} />
       <PageHeader />
 
-      {/* Main Content */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="mb-8">
+      <div style={{ flex: 1, overflowY: "auto" }}>
+        <div style={{ maxWidth: "1280px", margin: "0 auto", padding: "32px 16px" }}>
+          <div style={{ marginBottom: "32px" }}>
             <Button
               variant="ghost"
               size="sm"
               onClick={() => navigate("/skills-home")}
-              className="text-white hover:bg-white/10 mb-8 rounded-2xl"
+              style={{ color: "white", marginBottom: "32px", borderRadius: "16px" }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.1)"}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
             >
-              <ArrowLeft className="w-4 h-4 mr-2" />
+              <ArrowLeft style={{ width: "16px", height: "16px", marginRight: "8px" }} />
               Back
             </Button>
-            <div className="text-center">
-              <h2 className="text-3xl font-bold text-white mb-3">Listening</h2>
-              <p className="text-base text-white/80">Choose your learning path</p>
+            <div style={{ textAlign: "center" }}>
+              <h2 style={{ fontSize: "30px", fontWeight: "bold", color: "white", marginBottom: "12px", margin: "0 0 12px 0" }}>Listening Modules</h2>
+              <p style={{ fontSize: "16px", color: "rgba(255, 255, 255, 0.8)", margin: 0 }}>Choose your learning path</p>
             </div>
           </div>
 
-          {/* Level Modules Section */}
-          <div className="mb-12">
-            <h3 className="text-2xl font-semibold text-white mb-6">Practice by Level</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {levelModules.map((module) => {
-                const Icon = module.icon
-                return (
-                  <Card
-                    key={module.id}
-                    className="group bg-white border-0 cursor-pointer transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl relative overflow-hidden rounded-3xl h-full flex flex-col"
-                    onClick={() => handleLevelClick(module.id as "beginner" | "intermediate" | "advanced")}
-                    style={{
-                      borderRadius: "24px",
-                    }}
-                  >
-                    <CardHeader className="pb-4 pt-6 flex flex-col items-center text-center flex-grow">
-                      <div 
-                        style={{
-                          width: "64px",
-                          height: "64px",
-                          background: module.gradient,
-                          borderRadius: "24px",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          marginBottom: "16px",
-                          boxShadow: "0 4px 12px rgba(59, 130, 246, 0.3)",
-                          transition: "all 0.3s ease",
-                          transform: "scale(1)",
-                        }}
-                        className="group-hover:scale-110 group-hover:rotate-3"
-                      >
-                        <Icon 
-                          className="w-8 h-8 text-white"
-                          style={{ color: "#FFFFFF" }}
-                        />
-                      </div>
-                      <CardTitle 
-                        style={{ 
-                          color: "#1E3A8A", 
-                          fontSize: "20px", 
-                          marginBottom: "8px",
-                          fontWeight: 600,
-                        }}
-                      >
-                        {module.title}
-                      </CardTitle>
-                      <p style={{ 
-                        fontSize: "14px", 
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: "24px" }}>
+            {levelModules.map((module) => {
+              const Icon = module.icon
+              return (
+                <div
+                  key={module.id}
+                  onClick={() => handleLevelClick(module.id)}
+                  style={{
+                    backgroundColor: "white",
+                    borderRadius: "24px",
+                    cursor: "pointer",
+                    transition: "all 0.3s ease",
+                    display: "flex",
+                    flexDirection: "column",
+                    height: "100%",
+                    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = "translateY(-8px)"
+                    e.currentTarget.style.boxShadow = "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)"
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = "translateY(0)"
+                    e.currentTarget.style.boxShadow = "0 4px 6px -1px rgba(0, 0, 0, 0.1)"
+                  }}
+                >
+                  <div style={{ padding: "24px 24px 16px", display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", flexGrow: 1 }}>
+                    <div
+                      style={{
+                        width: "64px",
+                        height: "64px",
+                        background: module.gradient,
+                        borderRadius: "24px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        marginBottom: "16px",
+                        boxShadow: "0 4px 12px rgba(59, 130, 246, 0.3)",
+                        transition: "transform 0.3s ease",
+                      }}
+                    >
+                      <Icon style={{ width: "32px", height: "32px", color: "white" }} />
+                    </div>
+                    <h3
+                      style={{
+                        color: "#1E3A8A",
+                        fontSize: "20px",
+                        marginBottom: "8px",
+                        fontWeight: 600,
+                        margin: "0 0 8px 0",
+                      }}
+                    >
+                      {module.title}
+                    </h3>
+                    <p
+                      style={{
+                        fontSize: "14px",
                         color: "rgba(30, 58, 138, 0.7)",
                         lineHeight: "1.5",
-                      }}>
-                        {module.description}
-                      </p>
-                    </CardHeader>
-                  </Card>
-                )
-              })}
-            </div>
+                        margin: 0,
+                      }}
+                    >
+                      {module.description}
+                    </p>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         </div>
       </div>
     </div>
   )
 }
-
