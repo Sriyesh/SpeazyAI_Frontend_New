@@ -36,6 +36,7 @@ const speeches = [
     kidFriendlyText: `"I have a dream that one day all children will play together, no matter what they look like. I dream that everyone will be kind to each other and treat each other fairly. We should judge people by how nice they are, not by the color of their skin."`,
     icon: "🌟",
     color: "from-[#3B82F6] to-[#00B9FC]",
+    gradient: "linear-gradient(135deg, #3B82F6 0%, #00B9FC 100%)",
     quizWords: [
       "dream",
       "children",
@@ -55,6 +56,7 @@ const speeches = [
     kidFriendlyText: `"Peace means being kind to everyone around us. When we are peaceful, we solve problems by talking, not fighting. We can make the world better by being helpful, sharing with others, and always choosing love over anger."`,
     icon: "🕊️",
     color: "from-[#1E3A8A] to-[#3B82F6]",
+    gradient: "linear-gradient(135deg, #1E3A8A 0%, #3B82F6 100%)",
     quizWords: [
       "peace",
       "kind",
@@ -65,6 +67,106 @@ const speeches = [
     ],
     quizSentence: "Peace means being _____ to everyone. When we are peaceful, we solve problems by _____, not fighting. We can make the world better by being _____ and choosing _____ over anger.",
     quizCorrectAnswers: ["kind", "talking", "helpful", "love"],
+  },
+  {
+    id: "roosevelt-citizenship",
+    title: "Citizenship in a Republic",
+    speaker: "Theodore Roosevelt",
+    description: "About courage and trying your best",
+    kidFriendlyText: `"It's not the person who just watches and criticizes who matters. What matters is the person who tries, even when it's hard. The person who gets their hands dirty, who tries again and again, who makes mistakes but keeps going. It's better to try big things and sometimes fail, than to never try at all. Being brave and working hard is how we grow and become better people."`,
+    icon: "💪",
+    color: "from-[#DC2626] to-[#F59E0B]",
+    gradient: "linear-gradient(135deg, #DC2626 0%, #F59E0B 100%)",
+    quizWords: [
+      "tries",
+      "brave",
+      "hard",
+      "mistakes",
+      "grow",
+      "better",
+    ],
+    quizSentence: "What matters is the person who _____, even when it's hard. The person who is _____ and works _____. It's better to try big things and sometimes fail, than to never try at all. Being brave helps us _____ and become _____ people.",
+    quizCorrectAnswers: ["tries", "brave", "hard", "grow", "better"],
+  },
+  {
+    id: "lincoln-gettysburg",
+    title: "Gettysburg Address",
+    speaker: "Abraham Lincoln",
+    description: "About freedom and remembering heroes",
+    kidFriendlyText: `"A long time ago, our country was created with the idea that all people are equal. We are in a great battle to see if our country can survive. We are here to remember the brave people who gave their lives so our country could live. It is our job to finish the work they started. We must make sure that a government of the people, by the people, and for the people, will always exist."`,
+    icon: "🇺🇸",
+    color: "from-[#1E40AF] to-[#3B82F6]",
+    gradient: "linear-gradient(135deg, #1E40AF 0%, #3B82F6 100%)",
+    quizWords: [
+      "equal",
+      "brave",
+      "remember",
+      "people",
+      "freedom",
+      "country",
+    ],
+    quizSentence: "Our country was created with the idea that all people are _____. We are here to _____ the _____ people who gave their lives. It is our job to make sure that a government of the _____, by the _____, and for the _____, will always exist.",
+    quizCorrectAnswers: ["equal", "remember", "brave", "people", "people", "people"],
+  },
+  {
+    id: "douglass-freedom",
+    title: "The Meaning of Freedom",
+    speaker: "Frederick Douglass",
+    description: "About freedom and standing up for rights",
+    kidFriendlyText: `"Freedom is not just about not being in chains. Freedom means having dignity and the right to speak, to work, and to try your best. A person is not truly free if they can live but cannot grow. Freedom is not a gift that powerful people give. It is a right that determined people claim. If there is no struggle, there is no progress. We must stand up for justice, not as a favor, but as a right."`,
+    icon: "🗽",
+    color: "from-[#7C3AED] to-[#A855F7]",
+    gradient: "linear-gradient(135deg, #7C3AED 0%, #A855F7 100%)",
+    quizWords: [
+      "freedom",
+      "right",
+      "speak",
+      "grow",
+      "struggle",
+      "justice",
+    ],
+    quizSentence: "_____ is not just about not being in chains. Freedom means having the _____ to _____, to work, and to _____. If there is no _____, there is no progress. We must stand up for _____ as a right.",
+    quizCorrectAnswers: ["freedom", "right", "speak", "grow", "struggle", "justice"],
+  },
+  {
+    id: "washington-farewell",
+    title: "Farewell Address",
+    speaker: "George Washington",
+    description: "About unity and working together",
+    kidFriendlyText: `"The unity of our government is very important. It helps keep us safe, peaceful, and free. It is easy for people to try to break us apart, but we must stay together. Being good and doing the right thing is very important for our country. We must support education and learning for everyone. We should be careful with our country's resources and work together for the common good."`,
+    icon: "🤝",
+    color: "from-[#059669] to-[#10B981]",
+    gradient: "linear-gradient(135deg, #059669 0%, #10B981 100%)",
+    quizWords: [
+      "unity",
+      "together",
+      "good",
+      "education",
+      "careful",
+      "important",
+    ],
+    quizSentence: "The _____ of our government is very important. It helps keep us safe and peaceful. We must stay _____ and be _____. We must support _____ for everyone and be _____ with our country's resources.",
+    quizCorrectAnswers: ["unity", "together", "good", "education", "careful"],
+  },
+  {
+    id: "truth-woman",
+    title: "Ain't I a Woman?",
+    speaker: "Sojourner Truth",
+    description: "About equality and strength",
+    kidFriendlyText: `"Some people say women need help with everything, but I have worked hard all my life. I have plowed fields, planted crops, and worked as much as any man. I have been strong and brave. I have faced great challenges, but I am still here. I ask you, am I not a woman? Shouldn't I be treated with the same respect and given the same opportunities as everyone else? We are all equal and deserve to be treated fairly."`,
+    icon: "👑",
+    color: "from-[#EC4899] to-[#F472B6]",
+    gradient: "linear-gradient(135deg, #EC4899 0%, #F472B6 100%)",
+    quizWords: [
+      "worked",
+      "strong",
+      "brave",
+      "equal",
+      "respect",
+      "fairly",
+    ],
+    quizSentence: "I have _____ hard all my life. I have been _____ and _____. We are all _____ and deserve to be treated with _____ and _____. Everyone should have the same opportunities.",
+    quizCorrectAnswers: ["worked", "strong", "brave", "equal", "respect", "fairly"],
   },
 ];
 
@@ -254,51 +356,113 @@ export function FamousSpeeches({
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4 }}
+              style={{ cursor: "pointer" }}
+              onMouseEnter={(e) => {
+                const card = e.currentTarget.querySelector('[data-card]') as HTMLElement;
+                if (card) {
+                  card.style.boxShadow = "0 20px 40px rgba(59, 130, 246, 0.25)";
+                }
+              }}
+              onMouseLeave={(e) => {
+                const card = e.currentTarget.querySelector('[data-card]') as HTMLElement;
+                if (card) {
+                  card.style.boxShadow = "0 8px 32px rgba(59, 130, 246, 0.15)";
+                }
+              }}
             >
               <Card
-                className="group bg-[#FFFFFF] border-0 hover:shadow-xl transition-all duration-300 cursor-pointer"
+                data-card
                 onClick={() => handleSpeechSelect(speech)}
                 style={{
                   borderRadius: "16px",
-                  boxShadow:
-                    "0 8px 32px rgba(59, 130, 246, 0.15)",
+                  boxShadow: "0 8px 32px rgba(59, 130, 246, 0.15)",
+                  backgroundColor: "#FFFFFF",
+                  border: "0",
+                  transition: "all 0.3s ease",
                 }}
               >
-                <div className="absolute top-4 right-4">
-                  <div className="text-3xl">{speech.icon}</div>
+                <div style={{ position: "absolute", top: "16px", right: "16px" }}>
+                  <div style={{ fontSize: "1.875rem" }}>{speech.icon}</div>
                 </div>
 
-                <CardHeader className="pb-4">
+                <CardHeader style={{ paddingBottom: "1rem" }}>
                   <div
-                    className={`w-16 h-16 bg-gradient-to-br ${speech.color} rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300 mx-auto`}
+                    style={{
+                      width: "64px",
+                      height: "64px",
+                      background: speech.gradient,
+                      borderRadius: "12px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      marginBottom: "1.5rem",
+                      marginLeft: "auto",
+                      marginRight: "auto",
+                      transition: "transform 0.3s ease",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = "scale(1.1)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = "scale(1)";
+                    }}
                   >
-                    <Volume2 className="w-8 h-8 text-white" />
+                    <Volume2 style={{ width: "32px", height: "32px", color: "#FFFFFF" }} />
                   </div>
 
                   <CardTitle
-                    className="text-xl text-center group-hover:text-[#FFD600] transition-colors"
-                    style={{ color: "#1E3A8A" }}
+                    style={{
+                      fontSize: "1.25rem",
+                      textAlign: "center",
+                      color: "#1E3A8A",
+                      transition: "color 0.3s ease",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.color = "#FFD600";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.color = "#1E3A8A";
+                    }}
                   >
                     {speech.title}
                   </CardTitle>
                   <p
-                    className="text-center"
-                    style={{ color: "rgba(30, 58, 138, 0.7)" }}
+                    style={{
+                      textAlign: "center",
+                      color: "rgba(30, 58, 138, 0.7)",
+                      margin: "0.5rem 0",
+                    }}
                   >
                     {speech.description}
                   </p>
                   <p
-                    className="text-sm text-center"
-                    style={{ color: "rgba(30, 58, 138, 0.7)" }}
+                    style={{
+                      fontSize: "0.875rem",
+                      textAlign: "center",
+                      color: "rgba(30, 58, 138, 0.7)",
+                    }}
                   >
                     by {speech.speaker}
                   </p>
                 </CardHeader>
 
-                <CardContent className="text-center">
+                <CardContent style={{ textAlign: "center" }}>
                   <Button
                     size="lg"
-                    className={`bg-gradient-to-r ${speech.color} hover:opacity-90 text-white rounded-lg px-6 transition-all duration-200`}
+                    style={{
+                      background: speech.gradient,
+                      color: "#FFFFFF",
+                      borderRadius: "8px",
+                      paddingLeft: "1.5rem",
+                      paddingRight: "1.5rem",
+                      transition: "opacity 0.2s ease",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.opacity = "0.9";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.opacity = "1";
+                    }}
                   >
                     Listen & Learn
                   </Button>
@@ -419,9 +583,20 @@ export function FamousSpeeches({
               >
                 <CardHeader className="text-center">
                   <div
-                    className={`w-20 h-20 bg-gradient-to-br ${selectedSpeech.color} rounded-xl flex items-center justify-center mb-6 mx-auto`}
+                    style={{
+                      width: "80px",
+                      height: "80px",
+                      background: selectedSpeech.gradient,
+                      borderRadius: "12px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      marginBottom: "1.5rem",
+                      marginLeft: "auto",
+                      marginRight: "auto",
+                    }}
                   >
-                    <span className="text-3xl">
+                    <span style={{ fontSize: "1.875rem" }}>
                       {selectedSpeech.icon}
                     </span>
                   </div>
@@ -502,7 +677,7 @@ export function FamousSpeeches({
                 <CardContent>
                   <AudioRecorder 
                     expectedText={selectedSpeech.kidFriendlyText}
-                    lessonColor={selectedSpeech.color}
+                    lessonColor={selectedSpeech.gradient}
                     endpoint="https://apis.languageconfidence.ai/speech-assessment/scripted/uk"
                     onApiResponse={handleApiResponse}
                   />
