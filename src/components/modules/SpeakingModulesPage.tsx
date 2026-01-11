@@ -17,7 +17,7 @@ const speakingModules = [
   },
   {
     id: "academic-samples",
-    title: "Academic Speaking",
+    title: "Academic Speech",
     description: "Practice with school presentations",
     icon: GraduationCap,
     gradient: "linear-gradient(135deg, #00B9FC 0%, #246BCF 100%)",

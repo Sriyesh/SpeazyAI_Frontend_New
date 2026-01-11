@@ -2,7 +2,6 @@ import { motion } from "motion/react";
 import { Card, CardContent } from "./ui/card";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
-import { ImageWithFallback } from "./figma/ImageWithFallback";
 import {
   ZoomIn,
   ZoomOut,
@@ -161,18 +160,6 @@ export function PDFViewer({
               </div>
             </div>
 
-            {/* Illustration for younger classes */}
-            {(classData.id === "class-1" ||
-              classData.id === "class-2" ||
-              classData.id === "class-3") && (
-              <div className="mb-6 rounded-2xl overflow-hidden shadow-lg">
-                <ImageWithFallback
-                  src="https://images.unsplash.com/photo-1759977064094-840dfc694bee?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjaGlsZHJlbiUyMHJlYWRpbmclMjBib29rcyUyMGlsbHVzdHJhdGlvbnxlbnwxfHx8fDE3NjIyNDk4NjV8MA&ixlib=rb-4.1.0&q=80&w=1080"
-                  alt="Reading illustration"
-                  className="w-full h-48 object-cover"
-                />
-              </div>
-            )}
 
             {/* Content with icons */}
             <div className="prose prose-lg max-w-none">

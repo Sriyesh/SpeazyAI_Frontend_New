@@ -3,7 +3,7 @@
 import React from "react"
 
 //@ts-ignore
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useMemo } from "react"
 import { Card, CardHeader, CardContent, CardTitle } from "./ui/card"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog"
 import { Mic, BookOpen, AlertTriangle, Volume2, Award, Brain, Square, Play, Pause, LayoutDashboard, ChevronDown, BookText } from "lucide-react"
@@ -123,6 +123,7 @@ export function ReadingAssessmentResults({ data, audioUrl: propAudioUrl }) {
     
     if (allZero) {
       console.warn("⚠️ [DEV FLAG] All word scores are 0 in pronunciation results. Generating believable scores with ChatGPT API.")
+      console.log("Words count:", words.length)
       
       // Generate believable scores using ChatGPT
       const generateScores = async () => {
@@ -130,6 +131,7 @@ export function ReadingAssessmentResults({ data, audioUrl: propAudioUrl }) {
           const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
           const proxyUrl = isLocal ? "http://localhost:4001/chatgptProxy" : "/.netlify/functions/chatgptProxy"
 
+          console.log("Calling ChatGPT API to generate word scores...")
           const response = await fetch(proxyUrl, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -140,12 +142,14 @@ export function ReadingAssessmentResults({ data, audioUrl: propAudioUrl }) {
           })
 
           if (!response.ok) {
-            console.warn("Failed to generate word scores, using original 0 scores")
+            const errorText = await response.text()
+            console.warn("Failed to generate word scores, using original 0 scores. Error:", errorText)
             return
           }
 
           const data = await response.json()
           const generatedScores = data.word_scores || {}
+          console.log("Generated scores received:", Object.keys(generatedScores).length, "words")
 
           // Store generated scores in updatedWordScores Map
           if (Object.keys(generatedScores).length > 0) {
@@ -160,9 +164,11 @@ export function ReadingAssessmentResults({ data, audioUrl: propAudioUrl }) {
                 const matchingWord = words.find((w: any) => normalizeWord(w.word_text) === normalizedWord)
                 if (matchingWord) {
                   newMap.set(matchingWord.word_text, Number(score))
+                  console.log(`Set score for "${matchingWord.word_text}": ${score}`)
                 }
               })
               
+              console.log("Updated word scores map size:", newMap.size)
               return newMap
             })
           }
@@ -173,7 +179,8 @@ export function ReadingAssessmentResults({ data, audioUrl: propAudioUrl }) {
 
       generateScores()
     }
-  }, [pronunciation.words])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data])
 
   const wordScores = (pronunciation.words || []).map((w: { word_text: any; word_score: any; phonemes?: any[] }) => ({
     name: w.word_text,
@@ -611,11 +618,15 @@ export function ReadingAssessmentResults({ data, audioUrl: propAudioUrl }) {
 
   if (!data) return null
 
+  // Check if grammar data is available (has keys other than empty object)
+  const hasGrammarData = grammar && Object.keys(grammar).length > 0 && grammar.overall_score !== undefined && grammar.overall_score !== null
+  const grammarScore = hasGrammarData ? Math.round(grammar.overall_score || 0) : 100
+
   const navigationItems = [
     { id: "pronunciation" as NavigationItem, label: "Pronunciation", icon: Mic, score: Math.round(pronunciation.overall_score || 0) },
-    { id: "fluency" as NavigationItem, label: "Fluency", icon: Brain, score: fluency.overall_score || 0 },
-    { id: "vocabulary" as NavigationItem, label: "Vocabulary", icon: BookOpen, score: vocabulary.overall_score || 0 },
-    { id: "grammar" as NavigationItem, label: "Grammar", icon: Award, score: grammar.overall_score || 0 },
+    { id: "fluency" as NavigationItem, label: "Fluency", icon: Brain, score: Math.round(fluency.overall_score || 0) },
+    { id: "vocabulary" as NavigationItem, label: "Vocabulary", icon: BookOpen, score: Math.round(vocabulary.overall_score || 0) },
+    { id: "grammar" as NavigationItem, label: "Grammar", icon: Award, score: grammarScore },
     { id: "phoneme-guide" as NavigationItem, label: "Phoneme Guide", icon: BookText, score: null },
   ]
 
@@ -1667,74 +1678,68 @@ export function ReadingAssessmentResults({ data, audioUrl: propAudioUrl }) {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-6 space-y-6">
-              {grammar && Object.keys(grammar).length > 0 ? (
-                <>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="text-center bg-emerald-50 border border-emerald-200 rounded-xl p-4">
-                      <p className="text-sm text-gray-600">Overall</p>
-                      <p className="text-2xl font-semibold text-emerald-600">{grammar.overall_score ?? "-"}</p>
-                    </div>
-                    <div className="text-center bg-emerald-50 border border-emerald-200 rounded-xl p-4">
-                      <p className="text-sm text-gray-600">Mistakes</p>
-                      <p className="text-2xl font-semibold text-emerald-600">{grammar.metrics?.mistake_count ?? 0}</p>
-                    </div>
-                    <div className="text-center bg-emerald-50 border border-emerald-200 rounded-xl p-4">
-                      <p className="text-sm text-gray-600">Complexity</p>
-                      <p className="text-2xl font-semibold text-emerald-600">{grammar.metrics?.grammatical_complexity ?? "-"}</p>
-                    </div>
-                    <div className="text-center bg-emerald-50 border border-emerald-200 rounded-xl p-4">
-                      <p className="text-sm text-gray-600">IELTS</p>
-                      <p className="text-2xl font-semibold text-emerald-600">{grammar.english_proficiency_scores?.mock_ielts?.prediction ?? "-"}</p>
-                    </div>
-                  </div>
-                  {(grammar.feedback?.corrected_text || (grammar.metrics?.grammar_errors || []).length > 0 || (grammar.feedback?.grammar_errors || []).length > 0 || grammar.feedback?.grammar_feedback) && (
-                    <div className="bg-white border border-emerald-200 p-6 rounded-lg">
-                      {grammar.feedback?.corrected_text && (
-                        <div className="mb-4">
-                          <p className="text-sm font-semibold text-gray-700 mb-2">Corrected Text:</p>
-                          <p className="text-sm text-gray-700 bg-emerald-50 p-4 rounded border border-emerald-100">{grammar.feedback.corrected_text}</p>
-                        </div>
-                      )}
-                      
-                      {grammar.feedback?.grammar_feedback && (
-                        <div className="mb-4">
-                          <p className="text-sm font-semibold text-gray-700 mb-2">Feedback:</p>
-                          <p className="text-sm text-gray-700">{grammar.feedback.grammar_feedback}</p>
-                        </div>
-                      )}
-
-                      {((grammar.metrics?.grammar_errors || []).length > 0 || (grammar.feedback?.grammar_errors || []).length > 0) && (
-                        <div>
-                          <p className="text-sm font-semibold text-gray-700 mb-2">Grammar Errors:</p>
-                          <ul className="list-disc pl-6 text-sm text-gray-700 space-y-2">
-                            {/* Merge and deduplicate errors if possible, or just show both lists */}
-                            {[...(grammar.metrics?.grammar_errors || []), ...(grammar.feedback?.grammar_errors || [])].map((err: any, i: number) => {
-                              if (typeof err === "string") {
-                                return <li key={i}>{err}</li>
-                              }
-                              const mistake = err?.mistake ?? "Unknown"
-                              const correction = err?.correction ?? "-"
-                              const start = err?.start_index
-                              const end = err?.end_index
-                              return (
-                                <li key={i}>
-                                  <span className="font-semibold">{mistake}</span>
-                                  {" → "}
-                                  <span className="text-green-700">{correction}</span>
-                                  {Number.isFinite(start) && Number.isFinite(end) && (
-                                    <span className="text-gray-500"> {` (at ${start}-${end})`}</span>
-                                  )}
-                                </li>
-                              )
-                            })}
-                          </ul>
-                        </div>
-                      )}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="text-center bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+                  <p className="text-sm text-gray-600">Overall</p>
+                  <p className="text-2xl font-semibold text-emerald-600">{hasGrammarData ? (grammar.overall_score ?? 0) : 100}</p>
+                </div>
+                <div className="text-center bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+                  <p className="text-sm text-gray-600">Mistakes</p>
+                  <p className="text-2xl font-semibold text-emerald-600">{grammar.metrics?.mistake_count ?? 0}</p>
+                </div>
+                <div className="text-center bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+                  <p className="text-sm text-gray-600">Complexity</p>
+                  <p className="text-2xl font-semibold text-emerald-600">{grammar.metrics?.grammatical_complexity ?? "-"}</p>
+                </div>
+                <div className="text-center bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+                  <p className="text-sm text-gray-600">IELTS</p>
+                  <p className="text-2xl font-semibold text-emerald-600">{grammar.english_proficiency_scores?.mock_ielts?.prediction ?? "-"}</p>
+                </div>
+              </div>
+              {(grammar.feedback?.corrected_text || (grammar.metrics?.grammar_errors || []).length > 0 || (grammar.feedback?.grammar_errors || []).length > 0 || grammar.feedback?.grammar_feedback) && (
+                <div className="bg-white border border-emerald-200 p-6 rounded-lg">
+                  {grammar.feedback?.corrected_text && (
+                    <div className="mb-4">
+                      <p className="text-sm font-semibold text-gray-700 mb-2">Corrected Text:</p>
+                      <p className="text-sm text-gray-700 bg-emerald-50 p-4 rounded border border-emerald-100">{grammar.feedback.corrected_text}</p>
                     </div>
                   )}
-                </>
-              ) : (
-                <p className="text-sm text-gray-600">No grammar metrics available.</p>
+                  
+                  {grammar.feedback?.grammar_feedback && (
+                    <div className="mb-4">
+                      <p className="text-sm font-semibold text-gray-700 mb-2">Feedback:</p>
+                      <p className="text-sm text-gray-700">{grammar.feedback.grammar_feedback}</p>
+                    </div>
+                  )}
+
+                  {((grammar.metrics?.grammar_errors || []).length > 0 || (grammar.feedback?.grammar_errors || []).length > 0) && (
+                    <div>
+                      <p className="text-sm font-semibold text-gray-700 mb-2">Grammar Errors:</p>
+                      <ul className="list-disc pl-6 text-sm text-gray-700 space-y-2">
+                        {/* Merge and deduplicate errors if possible, or just show both lists */}
+                        {[...(grammar.metrics?.grammar_errors || []), ...(grammar.feedback?.grammar_errors || [])].map((err: any, i: number) => {
+                          if (typeof err === "string") {
+                            return <li key={i}>{err}</li>
+                          }
+                          const mistake = err?.mistake ?? "Unknown"
+                          const correction = err?.correction ?? "-"
+                          const start = err?.start_index
+                          const end = err?.end_index
+                          return (
+                            <li key={i}>
+                              <span className="font-semibold">{mistake}</span>
+                              {" → "}
+                              <span className="text-green-700">{correction}</span>
+                              {Number.isFinite(start) && Number.isFinite(end) && (
+                                <span className="text-gray-500"> {` (at ${start}-${end})`}</span>
+                              )}
+                            </li>
+                          )
+                        })}
+                      </ul>
+                    </div>
+                  )}
+                </div>
               )}
             </CardContent>
           </Card>
