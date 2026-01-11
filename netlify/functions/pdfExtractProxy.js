@@ -32,7 +32,7 @@ exports.handler = async (event) => {
       }
 
       const processingPrompt = prompt || 
-        `Please process and format the following text extracted from a PDF. Clean up any formatting issues, preserve paragraph structure, and return the cleaned text. Do not add any commentary, just return the cleaned text:\n\n${extracted_text.substring(0, 100000)}`;
+        `Please extract only the main content text from the following PDF text. Exclude chapter titles, unit titles, headers, page numbers, image captions, and any other structural elements. Only return the paragraph content (the actual story text or body content). Do not include titles like "Unit 1", "Chapter X", or section headers. Return only the paragraph text without any commentary:\n\n${extracted_text.substring(0, 100000)}`;
 
       const response = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
@@ -45,7 +45,7 @@ exports.handler = async (event) => {
           messages: [
             {
               role: "system",
-              content: "You are a helpful assistant that processes and cleans text extracted from PDF files. Return only the cleaned text without any additional commentary.",
+              content: "You are a helpful assistant that extracts main content text from PDF files. Extract only paragraph content, excluding chapter titles, unit titles, headers, page numbers, image captions, and structural elements. Return only the story or body text without any titles or headers.",
             },
             {
               role: "user",

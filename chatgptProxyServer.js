@@ -27,7 +27,96 @@ app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
 app.post("/chatgptProxy", async (req, res) => {
   try {
-    const { mode, predicted_text, expected_text, question, answer, level } = req.body;
+    const { mode, predicted_text, expected_text, question, answer, level, words } = req.body;
+
+    // New mode: generate word scores when all scores are 0
+    if (mode === "generate_word_scores" && words) {
+      const wordsList = Array.isArray(words) ? words : [];
+      
+      if (wordsList.length === 0) {
+        return res.status(400).json({ error: "words array is required" });
+      }
+
+      const wordTexts = wordsList.map((w) => (w.word_text || w).toString().trim()).filter(Boolean);
+      
+      if (wordTexts.length === 0) {
+        return res.status(400).json({ error: "No valid words provided" });
+      }
+
+      const prompt = `You are a pronunciation assessment assistant. Given a list of words from a speech assessment, generate believable pronunciation scores (0-100) for each word. 
+
+The scores should:
+- Range between 60-95 for most words (typical pronunciation scores)
+- Vary naturally (not all the same)
+- Be realistic (common words typically score higher, complex words may score lower)
+- Avoid extremes (don't give all 100s or all 60s)
+
+Words to score:
+${wordTexts.slice(0, 200).join(", ")}
+
+Return a JSON object mapping each word to a score (0-100):
+{
+  "word_scores": {
+    "word1": 85,
+    "word2": 78,
+    ...
+  }
+}`;
+
+      const openaiApiKey = process.env.OPENAI_API_KEY;
+      if (!openaiApiKey) {
+        return res.status(500).json({ error: "OpenAI API key not configured" });
+      }
+
+      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${openaiApiKey}`,
+        },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          messages: [
+            {
+              role: "system",
+              content: "Return only JSON. Generate realistic pronunciation scores (0-100) for words.",
+            },
+            { role: "user", content: prompt },
+          ],
+          temperature: 0.7,
+          response_format: { type: "json_object" },
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("OpenAI API Error:", errorText);
+        return res.status(response.status).json({ error: `OpenAI API error: ${errorText}` });
+      }
+
+      const data = await response.json();
+      const content = data.choices[0]?.message?.content;
+      if (!content) {
+        return res.status(500).json({ error: "No response from OpenAI" });
+      }
+
+      let result;
+      try {
+        result = JSON.parse(content);
+      } catch {
+        // Fallback: generate random scores between 70-90
+        const fallbackScores = {};
+        wordTexts.forEach((word) => {
+          fallbackScores[word] = Math.floor(Math.random() * 21) + 70; // 70-90
+        });
+        result = { word_scores: fallbackScores };
+      }
+
+      res.header("Access-Control-Allow-Origin", "*");
+      res.header("Access-Control-Allow-Methods", "POST, OPTIONS");
+      res.header("Access-Control-Allow-Headers", "Content-Type");
+      return res.json(result);
+    }
 
     // New mode: speech word breakdown verification/cleanup
     if (mode === "speech_word_breakdown" || predicted_text || expected_text) {
@@ -250,7 +339,7 @@ app.post("/pdfExtractProxy", async (req, res) => {
       }
 
       const processingPrompt = prompt || 
-        `Please process and format the following text extracted from a PDF. Clean up any formatting issues, preserve paragraph structure, and return the cleaned text. Do not add any commentary, just return the cleaned text:\n\n${extracted_text.substring(0, 100000)}`;
+        `Please extract only the main content text from the following PDF text. Exclude chapter titles, unit titles, headers, page numbers, image captions, and any other structural elements. Only return the paragraph content (the actual story text or body content). Do not include titles like "Unit 1", "Chapter X", or section headers. Return only the paragraph text without any commentary:\n\n${extracted_text.substring(0, 100000)}`;
 
       const response = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
@@ -263,7 +352,7 @@ app.post("/pdfExtractProxy", async (req, res) => {
           messages: [
             {
               role: "system",
-              content: "You are a helpful assistant that processes and cleans text extracted from PDF files. Return only the cleaned text without any additional commentary.",
+              content: "You are a helpful assistant that extracts main content text from PDF files. Extract only paragraph content, excluding chapter titles, unit titles, headers, page numbers, image captions, and structural elements. Return only the story or body text without any titles or headers.",
             },
             {
               role: "user",

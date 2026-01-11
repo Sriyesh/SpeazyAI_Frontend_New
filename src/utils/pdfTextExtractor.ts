@@ -218,7 +218,7 @@ const processTextWithChatGPT = async (
       ? extractedText.substring(0, maxLength) + '\n\n[... content truncated ...]'
       : extractedText
 
-    const prompt = `Please process and format the following text extracted from a PDF. Clean up any formatting issues, preserve paragraph structure, and return the cleaned text. Do not add any commentary, just return the cleaned text:\n\n${textToProcess}`
+    const prompt = `Please extract only the main content text from the following PDF text. Exclude chapter titles, unit titles, headers, page numbers, image captions, and any other structural elements. Only return the paragraph content (the actual story text or body content). Do not include titles like "Unit 1", "Chapter X", or section headers. Return only the paragraph text without any commentary:\n\n${textToProcess}`
 
     // Use proxy approach (recommended for security)
     // Add timeout to avoid hanging if server is not running
