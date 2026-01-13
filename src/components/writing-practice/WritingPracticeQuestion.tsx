@@ -287,6 +287,9 @@ export function WritingPracticeQuestion({
         return;
       }
 
+      // Map level to uppercase format for API
+      const practiceLevel = level.toUpperCase();
+
       try {
         const response = await fetch("https://api.exeleratetechnology.com/api/writing/save-result.php", {
           method: "POST",
@@ -296,6 +299,7 @@ export function WritingPracticeQuestion({
           },
           body: JSON.stringify({
             title: questionTitle,
+            practice_level: practiceLevel,
             ielts_score: parseFloat(ieltsScore),
           }),
         });
@@ -316,7 +320,7 @@ export function WritingPracticeQuestion({
     };
 
     saveResults();
-  }, [results, token, questionTitle]);
+  }, [results, token, questionTitle, level]);
 
   // Styles
   const styles = {
