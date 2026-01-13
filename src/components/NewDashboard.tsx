@@ -9,7 +9,8 @@ import { MelloAssistant } from "./MelloAssistant"
 import { PageHeader } from "./PageHeader"
 import { useAuth } from "../contexts/AuthContext"
 import { fetchStreakData } from "../utils/streakApi"
-import { fetchUsageTime, formatUsageTime } from "../utils/usageTimeApi"
+import { fetchUsageTime, formatUsageTime, shouldRefreshUsageTime } from "../utils/usageTimeApi"
+import { fetchImprovementData, formatImprovement } from "../utils/improvementApi"
 import {
   BookOpen,
   PenTool,
@@ -31,6 +32,8 @@ export function NewDashboard() {
   const [loadingStreak, setLoadingStreak] = useState(true)
   const [usageTimeSeconds, setUsageTimeSeconds] = useState<number | null>(null)
   const [loadingUsageTime, setLoadingUsageTime] = useState(true)
+  const [improvementPercentage, setImprovementPercentage] = useState<number | null>(null)
+  const [loadingImprovement, setLoadingImprovement] = useState(true)
 
   useEffect(() => {
     setTimeout(() => setIsLoaded(true), 100)
@@ -82,6 +85,43 @@ export function NewDashboard() {
     }
 
     loadUsageTime()
+
+    // Set up polling to check every minute if usage time should be refreshed
+    // Only refresh if 10 minutes have passed since the last usage-time.php call
+    const pollingInterval = setInterval(() => {
+      if (shouldRefreshUsageTime()) {
+        loadUsageTime()
+      }
+    }, 60 * 1000) // Check every minute
+
+    // Cleanup interval on unmount or token change
+    return () => {
+      clearInterval(pollingInterval)
+    }
+  }, [token])
+
+  // Fetch improvement data on mount and when token changes
+  useEffect(() => {
+    const loadImprovementData = async () => {
+      if (!token) {
+        setLoadingImprovement(false)
+        return
+      }
+
+      try {
+        setLoadingImprovement(true)
+        const improvement = await fetchImprovementData(token)
+        if (improvement !== null) {
+          setImprovementPercentage(improvement)
+        }
+      } catch (error) {
+        console.error('Error loading improvement data:', error)
+      } finally {
+        setLoadingImprovement(false)
+      }
+    }
+
+    loadImprovementData()
   }, [token])
 
   // Main learning modules (6 tiles in order: Speaking, Writing, Reading, Listening, IELTS, AI Tutor)
@@ -182,7 +222,9 @@ export function NewDashboard() {
     },
     {
       label: "Improvement",
-      value: "+23%",
+      value: loadingImprovement 
+        ? "..." 
+        : formatImprovement(improvementPercentage),
       icon: TrendingUp,
       color: "#246BCF",
     },

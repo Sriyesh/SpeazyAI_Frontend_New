@@ -9,6 +9,29 @@ export interface UsageTimeData {
   formatted_time?: string;
 }
 
+// Track the last time usage-time.php was called
+let lastUsageTimeCall: number | null = null;
+
+/**
+ * Gets the timestamp of the last usage-time.php API call
+ * @returns Timestamp in milliseconds or null if never called
+ */
+export function getLastUsageTimeCall(): number | null {
+  return lastUsageTimeCall;
+}
+
+/**
+ * Checks if 10 minutes have passed since the last usage-time.php call
+ * @returns true if 10 minutes have passed or if never called, false otherwise
+ */
+export function shouldRefreshUsageTime(): boolean {
+  if (lastUsageTimeCall === null) {
+    return true; // Never called, should refresh
+  }
+  const tenMinutesInMs = 10 * 60 * 1000;
+  return Date.now() - lastUsageTimeCall >= tenMinutesInMs;
+}
+
 /**
  * Formats seconds into a human-readable time string (e.g., "2h 45m", "45m", "1h")
  * @param totalSeconds - Total seconds to format
@@ -38,6 +61,9 @@ export function formatUsageTime(totalSeconds: number): string {
  */
 export async function fetchUsageTime(token: string): Promise<number | null> {
   try {
+    // Update the last call timestamp
+    lastUsageTimeCall = Date.now();
+    
     const response = await fetch('https://api.exeleratetechnology.com/api/analytics/usage-time.php', {
       method: 'GET',
       headers: {
@@ -55,7 +81,15 @@ export async function fetchUsageTime(token: string): Promise<number | null> {
     
     // Handle different response formats
     if (data.success && data.data) {
-      // Could be in seconds, minutes, or hours
+      // Check for nested total object structure (data.data.total.seconds)
+      if (data.data.total && data.data.total.seconds !== undefined) {
+        return data.data.total.seconds;
+      }
+      // Check for nested today object structure (data.data.today.seconds) - fallback
+      if (data.data.today && data.data.today.seconds !== undefined) {
+        return data.data.today.seconds;
+      }
+      // Legacy formats for backward compatibility
       if (data.data.total_seconds !== undefined) {
         return data.data.total_seconds;
       } else if (data.data.total_minutes !== undefined) {

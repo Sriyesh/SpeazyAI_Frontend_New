@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button } from './ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { Input } from './ui/input';
-import { Textarea } from './ui/textarea';
-import { ScrollArea } from './ui/scroll-area';
-import { ThemeToggle } from './ThemeToggle';
+import { Button } from '../ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
+import { Input } from '../ui/input';
+import { Textarea } from '../ui/textarea';
+import { ScrollArea } from '../ui/scroll-area';
+import { ThemeToggle } from '../ThemeToggle';
 import { 
   ArrowLeft, 
   BookOpen, 
@@ -354,3 +354,4 @@ However, there is hope. Renewable energy technologies such as solar and wind pow
     </div>
   );
 }
+
