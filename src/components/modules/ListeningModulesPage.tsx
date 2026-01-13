@@ -328,6 +328,7 @@ Please evaluate each answer and provide:
 1. A mark out of the total number of questions (e.g., 3/5 means 3 correct out of 5 questions)
 2. An IELTS band score (0-9 scale) based on the overall performance
 3. Brief feedback
+4. For each question, indicate if the answer is correct (true) or incorrect (false)
 
 Return your response as JSON in this exact format:
 {
@@ -335,10 +336,15 @@ Return your response as JSON in this exact format:
   "total": <total number of questions>,
   "percentage": <percentage score>,
   "ieltsScore": <IELTS band score 0-9>,
-  "feedback": "<brief feedback message>"
+  "feedback": "<brief feedback message>",
+  "answerResults": {
+    "0": <true if question 1 is correct, false otherwise>,
+    "1": <true if question 2 is correct, false otherwise>,
+    ...
+  }
 }
 
-Be fair but strict. Consider partial credit for answers that are close but not exact.`
+Be fair but strict. Consider partial credit for answers that are close but not exact. The answerResults object must have an entry for each question index (0-based).`
 
       const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
       const proxyUrl = isLocal ? "http://localhost:4001/chatgptProxy" : "/.netlify/functions/chatgptProxy"
@@ -374,52 +380,91 @@ Be fair but strict. Consider partial credit for answers that are close but not e
         // Parse the JSON response from ChatGPT
         try {
           const parsed = JSON.parse(data.response)
+          
+          // Extract answerResults from ChatGPT response if available
+          let answerResults: { [key: number]: boolean } = {}
+          
+          if (parsed.answerResults && typeof parsed.answerResults === 'object') {
+            // Convert string keys to numbers and boolean values
+            Object.keys(parsed.answerResults).forEach(key => {
+              const idx = parseInt(key)
+              if (!isNaN(idx)) {
+                answerResults[idx] = Boolean(parsed.answerResults[key])
+              }
+            })
+          }
+          
+          // Fallback to client-side comparison if ChatGPT didn't provide answerResults
+          if (Object.keys(answerResults).length === 0) {
+            questions.forEach((_, idx) => {
+              const userAnswer = (userAnswers[idx] || "").trim().toLowerCase()
+              const correctAnswer = (answers[idx] || "").trim().toLowerCase()
+              
+              if (!userAnswer) {
+                // Not answered - mark as wrong
+                answerResults[idx] = false
+              } else {
+                // Improved comparison: check for exact match first, then word matching
+                if (userAnswer === correctAnswer) {
+                  answerResults[idx] = true
+                } else {
+                  // Check if user answer contains the correct answer or vice versa
+                  const userWords = userAnswer.split(/\s+/).filter(w => w.length > 0)
+                  const correctWords = correctAnswer.split(/\s+/).filter(w => w.length > 0)
+                  
+                  // For single word answers, require exact match (case-insensitive)
+                  if (correctWords.length === 1 && userWords.length === 1) {
+                    answerResults[idx] = userAnswer === correctAnswer
+                  } else {
+                    // For multi-word answers, check if all key words from correct answer are present
+                    const allKeyWordsMatch = correctWords.every(correctWord => 
+                      userWords.some(userWord => 
+                        userWord === correctWord || 
+                        userWord.includes(correctWord) || 
+                        correctWord.includes(userWord)
+                      )
+                    )
+                    answerResults[idx] = allKeyWordsMatch && userWords.length > 0
+                  }
+                }
+              }
+            })
+          }
+          
           result = {
             mark: parsed.mark || 0,
             total: parsed.total || questions.length,
             percentage: parsed.percentage || 0,
             ieltsScore: parsed.ieltsScore || 0,
-            feedback: parsed.feedback || ""
+            feedback: parsed.feedback || "",
+            answerResults: answerResults
           }
         } catch (e) {
-          // Fallback if JSON parsing fails
+          // Fallback if JSON parsing fails - use client-side comparison
+          const answerResults: { [key: number]: boolean } = {}
+          questions.forEach((_, idx) => {
+            const userAnswer = (userAnswers[idx] || "").trim().toLowerCase()
+            const correctAnswer = (answers[idx] || "").trim().toLowerCase()
+            
+            if (!userAnswer) {
+              answerResults[idx] = false
+            } else {
+              answerResults[idx] = userAnswer === correctAnswer
+            }
+          })
+          
           result = {
             mark: 0,
             total: questions.length,
             percentage: 0,
             ieltsScore: 0,
-            feedback: data.response || "Evaluation completed"
+            feedback: data.response || "Evaluation completed",
+            answerResults: answerResults
           }
         }
       } else {
         throw new Error("Invalid response from API")
       }
-
-      // Compare answers client-side to determine which are correct/wrong
-      const answerResults: { [key: number]: boolean } = {}
-      questions.forEach((_, idx) => {
-        const userAnswer = (userAnswers[idx] || "").trim().toLowerCase()
-        const correctAnswer = (answers[idx] || "").trim().toLowerCase()
-        
-        if (!userAnswer) {
-          // Not answered - mark as wrong
-          answerResults[idx] = false
-        } else {
-          // Simple comparison: check if user answer contains key words from correct answer or vice versa
-          // This is a basic comparison - ChatGPT does the actual evaluation
-          const userWords = userAnswer.split(/\s+/).filter(w => w.length > 2)
-          const correctWords = correctAnswer.split(/\s+/).filter(w => w.length > 2)
-          const matchingWords = userWords.filter(word => 
-            correctWords.some(correctWord => 
-              correctWord.includes(word) || word.includes(correctWord)
-            )
-          )
-          // Consider it a match if at least 50% of key words match
-          answerResults[idx] = userWords.length > 0 && (matchingWords.length / userWords.length) >= 0.5
-        }
-      })
-
-      result.answerResults = answerResults
       setEvaluationResult(result)
 
       // Save result to API using the selected level variable
