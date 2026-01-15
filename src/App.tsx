@@ -13,6 +13,10 @@ import { CustomContent } from "./components/CustomContent"
 import { ChatWithAI } from "./components/ChatWithAI"
 import { SpeechChatPage } from "./components/SpeechChatPage"
 import { IELTSModule } from "./components/IELTSModule"
+import { IELTSReadingPage } from "./components/ielts/IELTSReadingPage"
+import { IELTSWritingPage } from "./components/ielts/IELTSWritingPage"
+import { IELTSListeningPage } from "./components/ielts/IELTSListeningPage"
+import { IELTSSpeakingPage } from "./components/ielts/IELTSSpeakingPage"
 import { Profile } from "./components/Profile"
 import { ThemeProvider } from "./components/ThemeProvider"
 import { ContentLibrary } from "./components/ContentLibrary"
@@ -74,6 +78,10 @@ export default function App() {
             <Route path="/chat" element={<ProtectedRoute><ChatWithAI /></ProtectedRoute>} />
             <Route path="/chat/conversation" element={<ProtectedRoute><SpeechChatPage /></ProtectedRoute>} />
             <Route path="/ielts" element={<ProtectedRoute><IELTSModule /></ProtectedRoute>} />
+            <Route path="/ielts/reading" element={<ProtectedRoute><IELTSReadingPage /></ProtectedRoute>} />
+            <Route path="/ielts/writing" element={<ProtectedRoute><IELTSWritingPage /></ProtectedRoute>} />
+            <Route path="/ielts/listening" element={<ProtectedRoute><IELTSListeningPage /></ProtectedRoute>} />
+            <Route path="/ielts/speaking" element={<ProtectedRoute><IELTSSpeakingPage /></ProtectedRoute>} />
             <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
             <Route path="/content-library" element={<ProtectedRoute><ContentLibrary /></ProtectedRoute>} />
             <Route path="/writing-practice" element={<ProtectedRoute><WritingPractice /></ProtectedRoute>} />

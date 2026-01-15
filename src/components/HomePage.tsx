@@ -11,7 +11,6 @@ import { MelloAssistant } from "./MelloAssistant"
 import { motion } from "motion/react"
 import {
   Mic2,
-  UserPlus,
   Star,
   Sparkles,
   Play,
@@ -105,15 +104,8 @@ export function HomePage() {
                 Contact Us
               </button>
               <Button
-                onClick={() => navigate("/signup")}
-                className="linear-gradient-primary text-white rounded-xl px-5 shadow-lg hover:shadow-xl transition-all hover:scale-105"
-              >
-                Sign Up
-              </Button>
-              <Button
                 onClick={() => navigate("/login")}
-                variant="outline"
-                className="border-2 border-white/60 text-white hover:bg-white/10 rounded-xl px-5 transition"
+                className="h-12 px-8 bg-gradient-to-r from-[#3B82F6] to-[#00B9FC] text-white rounded-xl shadow-lg hover:shadow-xl transition-all hover:scale-105 font-semibold text-base"
               >
                 Sign In
               </Button>
@@ -275,12 +267,6 @@ export function HomePage() {
               </div>
 
               <div className="flex flex-col sm:flex-row gap-3 mt-6">
-                <Button
-                  onClick={() => navigate("/signup")}
-                  className="h-12 px-6 linear-gradient-primary text-white rounded-2xl shadow-xl hover:shadow-2xl transition hover:scale-105 text-base"
-                >
-                  <UserPlus className="w-4 h-4 mr-2" /> Get Started for Free
-                </Button>
                 <Button
                   variant="outline"
                   className="h-12 px-6 border-2 border-white/60 text-white hover:bg-white/10 rounded-2xl transition hover:scale-105 text-base bg-transparent"
