@@ -17,6 +17,7 @@ interface AuthData {
   token: string;
   user: User;
   session_id?: string; // Session ID for analytics tracking
+  refresh_token?: string; // Refresh token for token renewal
   tokenExpiry?: number; // Timestamp when token expires
   lastActivity?: number; // Timestamp of last user activity
 }
@@ -95,67 +96,52 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   });
 
   const refreshToken = useCallback(async (): Promise<boolean> => {
-    if (!authData?.token) {
+    if (!authData?.refresh_token) {
+      console.warn('No refresh token available');
       return false;
     }
 
     try {
-      // Try to refresh token by making a request to a refresh endpoint
-      // If no refresh endpoint exists, we'll extend the expiry time
-      // In production, you should have a dedicated refresh token endpoint
-      const isLocal = typeof window !== 'undefined' && (
-        window.location.hostname === 'localhost' || 
-        window.location.hostname === '127.0.0.1'
-      )
+      // Use the refresh token API endpoint
+      const refreshUrl = `${API_BASE_URL}/auth/refresh.php`;
       
-      // Try refresh endpoint first (if it exists)
-      const refreshUrl = isLocal
-        ? '/api/auth/refresh.php'
-        : '/.netlify/functions/authRefresh'
-      
-      try {
-        const response = await fetch(refreshUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${authData.token}`,
-          },
-        });
+      const response = await fetch(refreshUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          refresh_token: authData.refresh_token,
+          platform: 'web',
+        }),
+      });
 
-        if (response.ok) {
-          const data = await response.json();
-          if (data.success && data.data?.token) {
-            const now = Date.now();
-            const updatedAuthData: AuthData = {
-              ...authData,
-              token: data.data.token,
-              tokenExpiry: now + TOKEN_EXPIRY_TIME,
-              lastActivity: now,
-            };
-            setAuthData(updatedAuthData);
-            localStorage.setItem('authData', JSON.stringify(updatedAuthData));
-            console.log('Token refreshed successfully');
-            return true;
-          }
-        }
-      } catch (refreshError) {
-        // Refresh endpoint doesn't exist or failed, continue with fallback
-        console.log('Refresh endpoint not available, using fallback');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Token refresh failed:', response.status, errorData);
+        return false;
       }
 
-      // Fallback: If no refresh endpoint, extend the token expiry time
-      // This assumes the token is still valid and we're just tracking expiry
-      // In production, you should implement a proper refresh token mechanism
-      const now = Date.now();
-      const updatedAuthData: AuthData = {
-        ...authData,
-        tokenExpiry: now + TOKEN_EXPIRY_TIME,
-        lastActivity: now,
-      };
-      setAuthData(updatedAuthData);
-      localStorage.setItem('authData', JSON.stringify(updatedAuthData));
-      console.log('Token expiry extended (no refresh endpoint available)');
-      return true;
+      const data = await response.json();
+      
+      if (data.success && data.data?.token) {
+        const now = Date.now();
+        const updatedAuthData: AuthData = {
+          ...authData,
+          token: data.data.token,
+          // Update refresh_token if a new one is provided
+          refresh_token: data.data.refresh_token || authData.refresh_token,
+          tokenExpiry: now + TOKEN_EXPIRY_TIME,
+          lastActivity: now,
+        };
+        setAuthData(updatedAuthData);
+        localStorage.setItem('authData', JSON.stringify(updatedAuthData));
+        console.log('Token refreshed successfully');
+        return true;
+      } else {
+        console.error('Token refresh response missing token:', data);
+        return false;
+      }
     } catch (error) {
       console.error('Token refresh error:', error);
       return false;
@@ -355,6 +341,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           token: data.data.token,
           user: data.data.user,
           session_id: data.data.session_id, // Store session_id from login response
+          refresh_token: data.data.refresh_token, // Store refresh_token from login response
           tokenExpiry: now + TOKEN_EXPIRY_TIME,
           lastActivity: now,
         };
@@ -367,6 +354,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         }
         if (data.data.token) {
           localStorage.setItem('token', data.data.token);
+        }
+        if (data.data.refresh_token) {
+          localStorage.setItem('refresh_token', data.data.refresh_token);
         }
       } else {
         throw new Error(data.message || 'Login failed. Please check your credentials.');
