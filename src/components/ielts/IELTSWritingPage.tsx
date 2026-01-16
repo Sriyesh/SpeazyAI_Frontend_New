@@ -1,74 +1,389 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
-import { Textarea } from '../ui/textarea';
-import { ThemeToggle } from '../ThemeToggle';
-import { ArrowLeft, PenTool } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
+import { ArrowLeft, PenTool, Loader2, AlertCircle, Sparkles, LogOut, FileText } from 'lucide-react';
+
+interface WritingItem {
+  id: number;
+  content_id: string;
+  title: string;
+  json_url: string;
+  is_published: number;
+  created_at: string;
+  task1_image_url?: string;
+}
+
+interface WritingResponse {
+  success: boolean;
+  items: WritingItem[];
+  paging: {
+    limit: number;
+    offset: number;
+  };
+}
+
+
 
 export function IELTSWritingPage() {
   const navigate = useNavigate();
-  const [writingText, setWritingText] = useState('');
+  const { token, logout } = useAuth();
+  const [items, setItems] = useState<WritingItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch writing items from API
+  useEffect(() => {
+    const fetchWritingItems = async () => {
+      if (!token) {
+        setError('Authentication required. Please log in.');
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        setError(null);
+
+        const response = await fetch(
+          'https://api.exeleratetechnology.com/api/ielts/writing/content/list.php',
+          {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
+            },
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch content: ${response.status} ${response.statusText}`);
+        }
+
+        const data: WritingResponse = await response.json();
+        
+        if (data.success && Array.isArray(data.items)) {
+          // Don't fetch content here - just use the items as-is
+          // Content will be fetched in the task view
+          setItems(data.items);
+        } else {
+          setItems([]);
+        }
+      } catch (err: any) {
+        console.error('Error fetching writing content:', err);
+        setError(err.message || 'Failed to load writing content. Please try again.');
+        setItems([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchWritingItems();
+  }, [token]);
+
+  const handleTileClick = (item: WritingItem) => {
+    // Always start with Task 1 when clicking a tile
+    const contentId = item.content_id || item.id.toString();
+    const url = `/ielts/writing/${contentId}?task=1`;
+    navigate(url);
+  };
+
+  // Inline styles matching the theme
+  const containerStyle: React.CSSProperties = {
+    minHeight: '100vh',
+    background: 'linear-gradient(to bottom right, #000000, rgba(147, 51, 234, 0.3), rgba(99, 102, 241, 0.3))',
+    position: 'relative',
+    overflow: 'hidden',
+  };
+
+  const headerStyle: React.CSSProperties = {
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    backdropFilter: 'blur(12px)',
+    borderBottom: '1px solid rgba(236, 72, 153, 0.3)',
+    position: 'sticky',
+    top: 0,
+    zIndex: 50,
+  };
+
+  const cardStyle: React.CSSProperties = {
+    backgroundColor: 'rgba(17, 24, 39, 0.8)',
+    border: '1px solid rgba(75, 85, 99, 0.5)',
+    borderRadius: '16px',
+    boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2)',
+    overflow: 'hidden',
+    position: 'relative',
+    transition: 'all 0.3s ease',
+  };
+
+  const titleCardStyle: React.CSSProperties = {
+    ...cardStyle,
+    background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(16, 185, 129, 0.15))',
+    border: '2px solid rgba(34, 197, 94, 0.3)',
+  };
+
+  const taskCardStyle: React.CSSProperties = {
+    ...cardStyle,
+    cursor: 'pointer',
+  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-black via-purple-900/30 to-indigo-900/30 dark:from-black dark:via-purple-900/30 dark:to-indigo-900/30 light:from-purple-50 light:via-indigo-50 light:to-white relative overflow-hidden">
-      <header className="bg-black/90 backdrop-blur-sm border-b border-pink-500/30 dark:border-pink-500/30 light:border-pink-300/40 sticky top-0 z-50 dark:bg-black/90 light:bg-white/90">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
+    <div style={containerStyle}>
+      <header style={headerStyle}>
+        <div style={{ maxWidth: '1280px', margin: '0 auto', padding: '0 32px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '64px' }}>
             <Button
               variant="ghost"
               onClick={() => navigate('/ielts')}
-              className="text-gray-400 hover:text-white dark:text-gray-400 dark:hover:text-white light:text-gray-600 light:hover:text-gray-900 uppercase text-xs tracking-wider"
+              style={{
+                color: '#9ca3af',
+                backgroundColor: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                padding: '8px 16px',
+                borderRadius: '8px',
+                textTransform: 'uppercase',
+                fontSize: '12px',
+                letterSpacing: '0.05em',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = '#ffffff';
+                e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = '#9ca3af';
+                e.currentTarget.style.backgroundColor = 'transparent';
+              }}
             >
-              <ArrowLeft className="w-4 h-4 mr-2" />
+              <ArrowLeft style={{ width: '16px', height: '16px', marginRight: '8px', display: 'inline-block' }} />
               IELTS Menu
             </Button>
             
-            <h1 className="text-lg font-bold text-white dark:text-white light:text-gray-900 uppercase tracking-wider">
+            <h1 style={{
+              fontSize: '18px',
+              fontWeight: 'bold',
+              color: '#ffffff',
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+            }}>
               IELTS Writing
             </h1>
 
-            <ThemeToggle />
+            <Button
+              variant="ghost"
+              onClick={logout}
+              style={{
+                color: '#9ca3af',
+                backgroundColor: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                padding: '8px 16px',
+                borderRadius: '8px',
+                textTransform: 'uppercase',
+                fontSize: '12px',
+                letterSpacing: '0.05em',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = '#ffffff';
+                e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = '#9ca3af';
+                e.currentTarget.style.backgroundColor = 'transparent';
+              }}
+            >
+              <LogOut style={{ width: '16px', height: '16px', marginRight: '8px', display: 'inline-block' }} />
+              Logout
+            </Button>
           </div>
         </div>
       </header>
 
-      <div className="relative z-10">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <Card className="bg-gray-900/90 border border-pink-500/30 dark:bg-gray-900/90 dark:border-pink-500/30 light:bg-white light:border-pink-300/40 shadow-2xl glow-pink">
-            <CardHeader>
-              <CardTitle className="text-2xl text-white dark:text-white light:text-gray-900 uppercase tracking-wider flex items-center">
-                <PenTool className="w-6 h-6 mr-3 text-green-400" />
-                Essay Writing
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="bg-gray-800 dark:bg-gray-800 light:bg-gray-100 rounded-lg p-6 border border-gray-700 dark:border-gray-700 light:border-gray-200">
-                <h3 className="text-lg font-bold text-white dark:text-white light:text-gray-900 mb-3 uppercase tracking-wider">Task</h3>
-                <p className="text-gray-300 dark:text-gray-300 light:text-gray-700">
-                  Write an essay discussing the advantages and disadvantages of social media in modern society. 
-                  Provide specific examples to support your arguments. (Minimum 250 words)
+      <div style={{ position: 'relative', zIndex: 10 }}>
+        <div style={{ maxWidth: '1280px', margin: '0 auto', padding: '48px 32px' }}>
+          {loading ? (
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '128px 0',
+            }}>
+              <Loader2 style={{
+                width: '64px',
+                height: '64px',
+                color: '#22c55e',
+                animation: 'spin 1s linear infinite',
+                marginBottom: '24px',
+              }} />
+              <p style={{ color: '#d1d5db', fontSize: '18px' }}>
+                Loading writing content...
+              </p>
+            </div>
+          ) : error ? (
+            <Card style={cardStyle}>
+              <CardContent style={{ padding: '48px', textAlign: 'center' }}>
+                <AlertCircle style={{
+                  width: '64px',
+                  height: '64px',
+                  color: '#f87171',
+                  margin: '0 auto 24px',
+                }} />
+                <h3 style={{
+                  fontSize: '24px',
+                  fontWeight: 'bold',
+                  color: '#ffffff',
+                  marginBottom: '12px',
+                }}>
+                  Error Loading Content
+                </h3>
+                <p style={{ color: '#9ca3af', marginBottom: '32px', fontSize: '18px' }}>
+                  {error}
+                </p>
+                <button
+                  onClick={() => window.location.reload()}
+                  style={{
+                    background: 'linear-gradient(to right, #22c55e, #10b981)',
+                    color: '#ffffff',
+                    border: 'none',
+                    padding: '12px 32px',
+                    borderRadius: '8px',
+                    fontSize: '18px',
+                    cursor: 'pointer',
+                    fontWeight: '600',
+                  }}
+                >
+                  Try Again
+                </button>
+              </CardContent>
+            </Card>
+          ) : items.length === 0 ? (
+            <Card style={cardStyle}>
+              <CardContent style={{ padding: '48px', textAlign: 'center' }}>
+                <PenTool style={{
+                  width: '64px',
+                  height: '64px',
+                  color: '#22c55e',
+                  margin: '0 auto 24px',
+                }} />
+                <h3 style={{
+                  fontSize: '24px',
+                  fontWeight: 'bold',
+                  color: '#ffffff',
+                  marginBottom: '12px',
+                }}>
+                  No Content Available
+                </h3>
+                <p style={{ color: '#9ca3af', fontSize: '18px' }}>
+                  There are no writing materials available at the moment.
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div>
+              <div style={{ marginBottom: '48px', textAlign: 'center' }}>
+                <div style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginBottom: '16px',
+                }}>
+                  <Sparkles style={{ width: '32px', height: '32px', color: '#22c55e', marginRight: '12px' }} />
+                  <h2 style={{
+                    fontSize: '48px',
+                    fontWeight: 'bold',
+                    color: '#ffffff',
+                    marginBottom: '12px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '-0.02em',
+                  }}>
+                    Writing Tasks
+                  </h2>
+                  <Sparkles style={{ width: '32px', height: '32px', color: '#22c55e', marginLeft: '12px' }} />
+                </div>
+                <p style={{ color: '#d1d5db', fontSize: '20px' }}>
+                  Select a writing task to practice your essay composition skills
                 </p>
               </div>
 
-              <Textarea
-                value={writingText}
-                onChange={(e) => setWritingText(e.target.value)}
-                placeholder="Begin writing your essay here..."
-                rows={15}
-                className="bg-gray-800 border-gray-600 text-white dark:bg-gray-800 dark:border-gray-600 dark:text-white light:bg-white light:border-gray-300 light:text-gray-900"
-              />
-
-              <div className="flex justify-between items-center text-sm text-gray-400 dark:text-gray-400 light:text-gray-600">
-                <span>Word count: {writingText.split(/\s+/).filter(w => w).length}</span>
-                <span>Target: 250+ words</span>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))',
+                gap: '32px',
+              }}>
+                {items.map((item, itemIndex) => (
+                  <div
+                    key={item.id}
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '24px',
+                    }}
+                  >
+                    {/* Single Clickable Tile */}
+                    <Card
+                      style={{
+                        ...taskCardStyle,
+                        cursor: 'pointer',
+                      }}
+                      onClick={() => handleTileClick(item)}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = 'translateY(-8px)';
+                        e.currentTarget.style.boxShadow = '0 25px 50px -12px rgba(0, 0, 0, 0.4)';
+                        e.currentTarget.style.borderColor = 'rgba(34, 197, 94, 0.6)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = 'translateY(0)';
+                        e.currentTarget.style.boxShadow = '0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2)';
+                        e.currentTarget.style.borderColor = 'rgba(75, 85, 99, 0.5)';
+                      }}
+                    >
+                      {/* Gradient top border */}
+                      <div style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        height: '4px',
+                        background: 'linear-gradient(to right, #22c55e, #10b981)',
+                      }} />
+                      
+                      <CardHeader style={{ padding: '24px', textAlign: 'center', position: 'relative' }}>
+                        <div style={{
+                          width: '64px',
+                          height: '64px',
+                          margin: '0 auto 16px',
+                          background: 'linear-gradient(to bottom right, #22c55e, #10b981)',
+                          borderRadius: '16px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          boxShadow: '0 10px 15px -3px rgba(34, 197, 94, 0.3)',
+                        }}>
+                          <FileText style={{ width: '32px', height: '32px', color: '#ffffff' }} />
+                        </div>
+                        <CardTitle style={{
+                          fontSize: '20px',
+                          fontWeight: 'bold',
+                          color: '#ffffff',
+                          marginBottom: '8px',
+                        }}>
+                          {item.title}
+                        </CardTitle>
+                        <p style={{
+                          color: '#9ca3af',
+                          fontSize: '14px',
+                          marginTop: '8px',
+                        }}>
+                          Click to start writing
+                        </p>
+                      </CardHeader>
+                    </Card>
+                  </div>
+                ))}
               </div>
-
-              <Button className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:opacity-90 text-white uppercase tracking-wider">
-                Get AI Feedback
-              </Button>
-            </CardContent>
-          </Card>
+            </div>
+          )}
         </div>
       </div>
     </div>
