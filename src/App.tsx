@@ -16,6 +16,7 @@ import { IELTSModule } from "./components/IELTSModule"
 import { IELTSReadingPage } from "./components/ielts/IELTSReadingPage"
 import { IELTSWritingPage } from "./components/ielts/IELTSWritingPage"
 import { IELTSWritingTaskView } from "./components/ielts/IELTSWritingTaskView"
+import { IELTSWritingResults } from "./components/ielts/IELTSWritingResults"
 import { IELTSListeningPage } from "./components/ielts/IELTSListeningPage"
 import { IELTSSpeakingPage } from "./components/ielts/IELTSSpeakingPage"
 import { Profile } from "./components/Profile"
@@ -82,6 +83,7 @@ export default function App() {
             <Route path="/ielts/reading" element={<ProtectedRoute><IELTSReadingPage /></ProtectedRoute>} />
             <Route path="/ielts/writing" element={<ProtectedRoute><IELTSWritingPage /></ProtectedRoute>} />
             <Route path="/ielts/writing/:contentId" element={<ProtectedRoute><IELTSWritingTaskView /></ProtectedRoute>} />
+            <Route path="/ielts/writing/:contentId/results" element={<ProtectedRoute><IELTSWritingResults /></ProtectedRoute>} />
             <Route path="/ielts/listening" element={<ProtectedRoute><IELTSListeningPage /></ProtectedRoute>} />
             <Route path="/ielts/speaking" element={<ProtectedRoute><IELTSSpeakingPage /></ProtectedRoute>} />
             <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />

@@ -85,6 +85,11 @@ export function IELTSWritingPage() {
   const handleTileClick = (item: WritingItem) => {
     // Always start with Task 1 when clicking a tile
     const contentId = item.content_id || item.id.toString();
+    // Clear any previous evaluations for this content when starting new test
+    localStorage.removeItem(`ielts_task1_eval_${contentId}`);
+    localStorage.removeItem(`ielts_task2_eval_${contentId}`);
+    localStorage.removeItem(`ielts_task1_text_${contentId}`);
+    localStorage.removeItem(`ielts_task2_text_${contentId}`);
     const url = `/ielts/writing/${contentId}?task=1`;
     navigate(url);
   };
