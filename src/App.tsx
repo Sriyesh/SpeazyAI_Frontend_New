@@ -17,6 +17,8 @@ import { IELTSReadingPage } from "./components/ielts/IELTSReadingPage"
 import { IELTSWritingPage } from "./components/ielts/IELTSWritingPage"
 import { IELTSWritingTaskView } from "./components/ielts/IELTSWritingTaskView"
 import { IELTSWritingResults } from "./components/ielts/IELTSWritingResults"
+import { IELTSListeningResults } from "./components/ielts/IELTSListeningResults"
+import { IELTSListeningTaskView } from "./components/ielts/IELTSListeningTaskView"
 import { IELTSListeningPage } from "./components/ielts/IELTSListeningPage"
 import { IELTSSpeakingPage } from "./components/ielts/IELTSSpeakingPage"
 import { Profile } from "./components/Profile"
@@ -85,6 +87,8 @@ export default function App() {
             <Route path="/ielts/writing/:contentId" element={<ProtectedRoute><IELTSWritingTaskView /></ProtectedRoute>} />
             <Route path="/ielts/writing/:contentId/results" element={<ProtectedRoute><IELTSWritingResults /></ProtectedRoute>} />
             <Route path="/ielts/listening" element={<ProtectedRoute><IELTSListeningPage /></ProtectedRoute>} />
+            <Route path="/ielts/listening/:contentId" element={<ProtectedRoute><IELTSListeningTaskView /></ProtectedRoute>} />
+            <Route path="/ielts/listening/:contentId/results" element={<ProtectedRoute><IELTSListeningResults /></ProtectedRoute>} />
             <Route path="/ielts/speaking" element={<ProtectedRoute><IELTSSpeakingPage /></ProtectedRoute>} />
             <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
             <Route path="/content-library" element={<ProtectedRoute><ContentLibrary /></ProtectedRoute>} />
