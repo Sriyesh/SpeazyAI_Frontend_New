@@ -106,10 +106,13 @@ export function IELTSListeningResults() {
     saveResultResponse,
   } = state;
   
-  // Calculate total time in minutes
-  const totalTimeMinutes = saveResultResponse?.time?.total_time_seconds 
-    ? Math.round(saveResultResponse.time.total_time_seconds / 60)
-    : 0;
+  // Calculate total time in minutes and seconds
+  const totalTimeSeconds = saveResultResponse?.time?.total_time_seconds || 0;
+  const totalTimeMinutes = Math.floor(totalTimeSeconds / 60);
+  const remainingSeconds = totalTimeSeconds % 60;
+  const timeDisplay = totalTimeSeconds > 0 
+    ? `${totalTimeMinutes} min ${remainingSeconds} sec`
+    : '0 min 0 sec';
 
   const getScoreColor = (score: number) => {
     if (score >= 7) return '#22c55e'; // green
@@ -336,13 +339,13 @@ export function IELTSListeningResults() {
                 color: '#eab308',
                 marginBottom: '4px',
               }}>
-                {totalTimeMinutes}
+                {timeDisplay}
               </div>
               <div style={{
                 fontSize: '14px',
                 color: '#9ca3af',
               }}>
-                Time Taken (minutes)
+                Time Taken
               </div>
             </div>
           </div>
