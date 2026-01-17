@@ -24,7 +24,7 @@ interface ListeningContent {
 export function IELTSListeningTaskView() {
   const { contentId } = useParams<{ contentId: string }>();
   const navigate = useNavigate();
-  const { token } = useAuth();
+  const { token, refreshToken } = useAuth();
   const [listeningContent, setListeningContent] = useState<ListeningContent | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -238,18 +238,45 @@ export function IELTSListeningTaskView() {
       // Fetch correct answers from API for comparison (only after submission)
       let correctAnswersMap: { [key: number]: string | string[] } = {};
       try {
-        const answersResponse = await fetch(
-          `https://api.exeleratetechnology.com/api/ielts/listening/content/get-answers.php?content_id=${contentId}`,
-          {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`,
-            },
+        let currentToken = token;
+        
+        const fetchWithToken = async (authToken: string | null) => {
+          if (!authToken) return null;
+          
+          return await fetch(
+            `https://api.exeleratetechnology.com/api/ielts/listening/content/get-answers.php?content_id=${contentId}`,
+            {
+              method: 'GET',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${authToken}`,
+              },
+            }
+          );
+        };
+        
+        let answersResponse = await fetchWithToken(currentToken);
+        
+        // If 403, try refreshing token and retry
+        if (answersResponse && answersResponse.status === 403) {
+          console.log('Token may be expired, attempting refresh...');
+          const refreshed = await refreshToken();
+          if (refreshed) {
+            // Get updated token from localStorage
+            const updatedAuthData = localStorage.getItem('authData');
+            if (updatedAuthData) {
+              try {
+                const parsed = JSON.parse(updatedAuthData);
+                currentToken = parsed.token;
+                answersResponse = await fetchWithToken(currentToken);
+              } catch (e) {
+                console.error('Error parsing updated auth data:', e);
+              }
+            }
           }
-        );
-
-        if (answersResponse.ok) {
+        }
+        
+        if (answersResponse && answersResponse.ok) {
           const answersData = await answersResponse.json();
           // Map answers by question number
           if (answersData.answers && Array.isArray(answersData.answers)) {
@@ -264,6 +291,13 @@ export function IELTSListeningTaskView() {
               const qNum = q.question_id || q.question_number;
               if (qNum) {
                 correctAnswersMap[qNum] = q.correct_answer || q.answer || '';
+              }
+            });
+          } else if (answersData.data && Array.isArray(answersData.data)) {
+            answersData.data.forEach((item: any) => {
+              const qNum = item.question_id || item.question_number;
+              if (qNum) {
+                correctAnswersMap[qNum] = item.correct_answer || item.answer || '';
               }
             });
           }

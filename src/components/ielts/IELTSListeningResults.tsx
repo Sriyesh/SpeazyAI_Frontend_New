@@ -25,7 +25,7 @@ export function IELTSListeningResults() {
   const navigate = useNavigate();
   const location = useLocation();
   const { contentId } = useParams<{ contentId: string }>();
-  const { token } = useAuth();
+  const { token, refreshToken } = useAuth();
   const [correctAnswers, setCorrectAnswers] = useState<{ [key: number]: string | string[] }>({});
   const [loadingAnswers, setLoadingAnswers] = useState(true);
   
@@ -48,18 +48,48 @@ export function IELTSListeningResults() {
       }
 
       try {
-        const response = await fetch(
-          `https://api.exeleratetechnology.com/api/ielts/listening/content/get-answers.php?content_id=${contentId}`,
-          {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`,
-            },
+        let currentToken = token;
+        
+        // Try to fetch answers
+        const fetchWithToken = async (authToken: string | null) => {
+          if (!authToken) return null;
+          
+          const response = await fetch(
+            `https://api.exeleratetechnology.com/api/ielts/listening/content/get-answers.php?content_id=${contentId}`,
+            {
+              method: 'GET',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${authToken}`,
+              },
+            }
+          );
+          
+          return response;
+        };
+        
+        let response = await fetchWithToken(currentToken);
+        
+        // If 403, try refreshing token and retry
+        if (response && response.status === 403) {
+          console.log('Token may be expired, attempting refresh...');
+          const refreshed = await refreshToken();
+          if (refreshed) {
+            // Get updated token from localStorage
+            const updatedAuthData = localStorage.getItem('authData');
+            if (updatedAuthData) {
+              try {
+                const parsed = JSON.parse(updatedAuthData);
+                currentToken = parsed.token;
+                response = await fetchWithToken(currentToken);
+              } catch (e) {
+                console.error('Error parsing updated auth data:', e);
+              }
+            }
           }
-        );
-
-        if (response.ok) {
+        }
+        
+        if (response && response.ok) {
           const data = await response.json();
           const answersMap: { [key: number]: string | string[] } = {};
           
@@ -78,9 +108,22 @@ export function IELTSListeningResults() {
                 answersMap[qNum] = q.correct_answer || q.answer || '';
               }
             });
+          } else if (data.data && Array.isArray(data.data)) {
+            // Handle data.data structure
+            data.data.forEach((item: any) => {
+              const qNum = item.question_id || item.question_number;
+              if (qNum) {
+                answersMap[qNum] = item.correct_answer || item.answer || '';
+              }
+            });
           }
           
           setCorrectAnswers(answersMap);
+        } else if (response && response.status === 403) {
+          console.error('Access forbidden - unable to fetch answers');
+          // Don't expose this error to users, just show "Not available"
+        } else if (response) {
+          console.error('Failed to fetch answers:', response.status, response.statusText);
         }
       } catch (err) {
         console.error('Error fetching answers:', err);
@@ -141,19 +184,18 @@ export function IELTSListeningResults() {
   };
 
   return (
-    <>
+    <div style={{
+      minHeight: '100vh',
+      background: 'linear-gradient(to bottom right, #000000, rgba(147, 51, 234, 0.3), rgba(99, 102, 241, 0.3))',
+      padding: '24px',
+      color: '#ffffff',
+    }}>
       <style>{`
         @keyframes spin {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
         }
       `}</style>
-      <div style={{
-        minHeight: '100vh',
-        background: 'linear-gradient(to bottom right, #000000, rgba(147, 51, 234, 0.3), rgba(99, 102, 241, 0.3))',
-        padding: '24px',
-        color: '#ffffff',
-      }}>
       <div style={{
         maxWidth: '1200px',
         margin: '0 auto',
@@ -538,6 +580,6 @@ export function IELTSListeningResults() {
           </div>
         </div>
       </div>
-    </>
+    </div>
   );
 }
