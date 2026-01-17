@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { ArrowLeft, Headphones, Loader2, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Headphones, Loader2, AlertCircle, LogOut } from 'lucide-react';
 
 interface ListeningItem {
   id: number;
@@ -23,7 +23,7 @@ interface ListeningResponse {
 
 export function IELTSListeningPage() {
   const navigate = useNavigate();
-  const { token } = useAuth();
+  const { token, logout } = useAuth();
   const [items, setItems] = useState<ListeningItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -213,7 +213,37 @@ export function IELTSListeningPage() {
             <Headphones style={{ width: '24px', height: '24px', color: '#a855f7' }} />
             IELTS Listening
           </h1>
-          <div style={{ width: '120px' }}></div>
+          <button
+            onClick={() => {
+              logout();
+              navigate('/login');
+            }}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: '#9ca3af',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              fontSize: '12px',
+              padding: '8px 16px',
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+              borderRadius: '8px',
+              transition: 'all 0.2s ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = '#ffffff';
+              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = '#9ca3af';
+              e.currentTarget.style.backgroundColor = 'transparent';
+            }}
+          >
+            <LogOut style={{ width: '16px', height: '16px', marginRight: '8px', display: 'inline-block' }} />
+            Logout
+          </button>
         </div>
 
         {/* Error Message */}

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { ArrowLeft, Play, Pause, Clock, Loader2, Headphones, Check } from 'lucide-react';
+import { ArrowLeft, Play, Pause, Clock, Loader2, Headphones, Check, X } from 'lucide-react';
 
 interface ListeningContent {
   id: string;
@@ -230,218 +230,70 @@ export function IELTSListeningTaskView() {
     }));
   };
 
-  const handleSubmit = async () => {
-    if (!listeningContent || !token || !contentId) return;
-
-    setIsSubmitting(true);
-    try {
-      // Fetch correct answers from API for comparison (only after submission)
-      let correctAnswersMap: { [key: number]: string | string[] } = {};
-      try {
-        let currentToken = token;
-        
-        const fetchWithToken = async (authToken: string | null) => {
-          if (!authToken) return null;
-          
-          return await fetch(
-            `https://api.exeleratetechnology.com/api/ielts/listening/content/get-answers.php?content_id=${contentId}`,
-            {
-              method: 'GET',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${authToken}`,
-              },
-            }
-          );
-        };
-        
-        let answersResponse = await fetchWithToken(currentToken);
-        
-        // If 403, try refreshing token and retry
-        if (answersResponse && answersResponse.status === 403) {
-          console.log('Token may be expired, attempting refresh...');
-          const refreshed = await refreshToken();
-          if (refreshed) {
-            // Get updated token from localStorage
-            const updatedAuthData = localStorage.getItem('authData');
-            if (updatedAuthData) {
-              try {
-                const parsed = JSON.parse(updatedAuthData);
-                currentToken = parsed.token;
-                answersResponse = await fetchWithToken(currentToken);
-              } catch (e) {
-                console.error('Error parsing updated auth data:', e);
-              }
-            }
-          }
-        }
-        
-        if (answersResponse && answersResponse.ok) {
-          const answersData = await answersResponse.json();
-          // Map answers by question number
-          if (answersData.answers && Array.isArray(answersData.answers)) {
-            answersData.answers.forEach((ans: any) => {
-              const qNum = ans.question_id || ans.question_number;
-              if (qNum) {
-                correctAnswersMap[qNum] = ans.correct_answer || ans.answer || '';
-              }
-            });
-          } else if (answersData.questions && Array.isArray(answersData.questions)) {
-            answersData.questions.forEach((q: any) => {
-              const qNum = q.question_id || q.question_number;
-              if (qNum) {
-                correctAnswersMap[qNum] = q.correct_answer || q.answer || '';
-              }
-            });
-          } else if (answersData.data && Array.isArray(answersData.data)) {
-            answersData.data.forEach((item: any) => {
-              const qNum = item.question_id || item.question_number;
-              if (qNum) {
-                correctAnswersMap[qNum] = item.correct_answer || item.answer || '';
-              }
-            });
-          }
-        }
-      } catch (answersErr) {
-        console.error('Error fetching answers:', answersErr);
-        // Continue without answers - backend will handle scoring
+  // Handle exit - save with score 0 and "not attempted"
+  const handleExit = async () => {
+    if (window.confirm('Are you sure you want to exit? Your progress will be saved with a score of 0.')) {
+      if (!listeningContent || !token || !contentId) {
+        navigate('/ielts/listening');
+        return;
       }
 
-      // Calculate score using fetched answers
-      let correctCount = 0;
-      const answerResults: { [key: number]: boolean } = {};
+      try {
+        // Calculate total time in seconds
+        const totalTimeSeconds = Math.floor((Date.now() - startTime.current) / 1000);
 
-      listeningContent.questions.forEach((q) => {
-        const userAnswer = userAnswers[q.question_number];
-        const correctAnswer = correctAnswersMap[q.question_number] || '';
+        // Format user_answers - ensure it's non-empty
+        const formattedAnswers: { [key: string]: string } = {};
         
-        let isCorrect = false;
-        
-        // Handle FIB questions - may have multiple blanks
-        if (q.question_type === 'FIB') {
-          if (Array.isArray(correctAnswer)) {
-            // Multiple blanks - compare arrays
-            if (Array.isArray(userAnswer)) {
-              isCorrect = correctAnswer.every((ans, idx) => {
-                const userAns = userAnswer[idx]?.toString().toLowerCase().trim() || '';
-                const correctAns = ans.toString().toLowerCase().trim();
-                return userAns === correctAns;
-              }) && correctAnswer.length === userAnswer.length;
-            } else {
-              // Single blank but correct answer is array - compare first element
-              const userAns = userAnswer?.toString().toLowerCase().trim() || '';
-              const correctAns = correctAnswer[0]?.toString().toLowerCase().trim() || '';
-              isCorrect = userAns === correctAns;
-            }
-          } else {
-            // Single blank
-            const userAns = userAnswer?.toString().toLowerCase().trim() || '';
-            const correctAns = correctAnswer.toString().toLowerCase().trim();
-            isCorrect = userAns === correctAns;
-          }
-        } else {
-          // Handle MCQ and text questions
-          // Extract just the letter/option if user selected a formatted option like "B: Option text"
-          let normalizedUserAnswer = userAnswer?.toString().trim() || '';
-          if (normalizedUserAnswer.includes(':')) {
-            // Extract the part before the colon (e.g., "B" from "B: Option text")
-            normalizedUserAnswer = normalizedUserAnswer.split(':')[0].trim();
-          }
-          
-          if (Array.isArray(correctAnswer)) {
-            if (Array.isArray(userAnswer)) {
-              isCorrect = correctAnswer.every((ans, idx) => {
-                let normalizedAns = ans.toString().trim();
-                if (normalizedAns.includes(':')) {
-                  normalizedAns = normalizedAns.split(':')[0].trim();
-                }
-                return userAnswer[idx]?.toString().toLowerCase().trim() === normalizedAns.toLowerCase();
-              });
-            } else {
-              // Compare single answer against array
-              let normalizedCorrect = correctAnswer[0]?.toString().trim() || '';
-              if (normalizedCorrect.includes(':')) {
-                normalizedCorrect = normalizedCorrect.split(':')[0].trim();
-              }
-              isCorrect = normalizedUserAnswer.toLowerCase() === normalizedCorrect.toLowerCase();
-            }
-          } else {
-            // Extract letter from correct answer if it's formatted
-            let normalizedCorrect = correctAnswer.toString().trim();
-            if (normalizedCorrect.includes(':')) {
-              normalizedCorrect = normalizedCorrect.split(':')[0].trim();
-            }
-            isCorrect = normalizedUserAnswer.toLowerCase() === normalizedCorrect.toLowerCase();
-          }
-        }
-
-        answerResults[q.question_number] = isCorrect;
-        if (isCorrect) correctCount++;
-      });
-
-      const totalQuestions = listeningContent.total_questions || listeningContent.questions.length;
-      const percentage = (correctCount / totalQuestions) * 100;
-      
-      // Convert percentage to IELTS band score (0-9 scale)
-      let ieltsScore = 0;
-      if (percentage >= 93) ieltsScore = 9;
-      else if (percentage >= 85) ieltsScore = 8.5;
-      else if (percentage >= 77) ieltsScore = 8;
-      else if (percentage >= 69) ieltsScore = 7.5;
-      else if (percentage >= 61) ieltsScore = 7;
-      else if (percentage >= 53) ieltsScore = 6.5;
-      else if (percentage >= 45) ieltsScore = 6;
-      else if (percentage >= 37) ieltsScore = 5.5;
-      else if (percentage >= 29) ieltsScore = 5;
-      else if (percentage >= 21) ieltsScore = 4.5;
-      else if (percentage >= 13) ieltsScore = 4;
-      else if (percentage >= 5) ieltsScore = 3.5;
-      else if (percentage > 0) ieltsScore = 3;
-      else ieltsScore = 0; // 0% correct = 0 score
-
-      // Calculate total time in seconds
-      const totalTimeSeconds = Math.floor((Date.now() - startTime.current) / 1000);
-
-      // Save results to API
-      if (token && contentId) {
-        try {
-          // Format user_answers as required by API (question number as key, answer as value)
-          const formattedAnswers: { [key: string]: string } = {};
+        // If user has answered questions, use those answers
+        if (Object.keys(userAnswers).length > 0) {
           Object.keys(userAnswers).forEach((key) => {
             const questionNum = parseInt(key);
             const answer = userAnswers[questionNum];
-            const question = listeningContent.questions.find(q => q.question_number === questionNum);
             
             let answerValue: string;
-            
             if (Array.isArray(answer)) {
-              // For FIB questions with multiple blanks, join with comma or space
-              // For MCQ questions with array answers, take first
-              if (question?.question_type === 'FIB') {
-                answerValue = answer.filter(a => a && a.trim()).join(', ');
-              } else {
-                answerValue = answer[0] || '';
-              }
+              answerValue = answer.filter(a => a && a.trim()).join(', ');
             } else {
               answerValue = answer || '';
             }
             
-            // Extract just the letter if it's formatted (e.g., "B: Option text" -> "B")
-            // But only for MCQ questions, not FIB
-            if (question?.question_type !== 'FIB' && answerValue.includes(':')) {
+            // Extract just the letter if it's formatted
+            if (answerValue.includes(':')) {
               answerValue = answerValue.split(':')[0].trim();
             } else {
               answerValue = answerValue.trim();
             }
             
-            formattedAnswers[key] = answerValue;
+            // Replace empty strings with "Not Attempted"
+            formattedAnswers[key] = answerValue || 'Not Attempted';
           });
+          
+          // Also add "Not Attempted" for any questions that weren't answered
+          listeningContent.questions.forEach((q) => {
+            const qKey = q.question_number.toString();
+            if (!formattedAnswers[qKey]) {
+              formattedAnswers[qKey] = 'Not Attempted';
+            }
+          });
+        } else {
+          // If no answers, create entries for all questions with "Not Attempted"
+          // This ensures user_answers is non-empty as required by API
+          listeningContent.questions.forEach((q) => {
+            formattedAnswers[q.question_number.toString()] = 'Not Attempted';
+          });
+        }
 
-          const response = await fetch('https://api.exeleratetechnology.com/api/ielts/listening/results/save-result.php', {
+        // Save results with score 0
+        let currentToken = token;
+        const saveWithToken = async (authToken: string | null) => {
+          if (!authToken) return null;
+          
+          return await fetch('https://api.exeleratetechnology.com/api/ielts/listening/results/save-result.php', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`,
+              'Authorization': `Bearer ${authToken}`,
             },
             body: JSON.stringify({
               content_id: contentId,
@@ -449,22 +301,209 @@ export function IELTSListeningTaskView() {
               user_answers: formattedAnswers,
             }),
           });
+        };
+        
+        let response = await saveWithToken(currentToken);
+        
+        // If 403, try refreshing token and retry
+        if (response && response.status === 403) {
+          const refreshed = await refreshToken();
+          if (refreshed) {
+            const updatedAuthData = localStorage.getItem('authData');
+            if (updatedAuthData) {
+              try {
+                const parsed = JSON.parse(updatedAuthData);
+                currentToken = parsed.token;
+                response = await saveWithToken(currentToken);
+              } catch (e) {
+                console.error('Error parsing updated auth data:', e);
+              }
+            }
+          }
+        }
+        
+        if (response && response.ok) {
+          await response.json();
+        }
+      } catch (err) {
+        console.error('Error saving exit results:', err);
+      }
+      
+      navigate('/ielts/listening');
+    }
+  };
 
-          if (!response.ok) {
-            const errorText = await response.text();
-            console.error('Failed to save results:', errorText);
+  // Check if back navigation should be disabled
+  const canGoBack = () => {
+    // Once test starts, disable back button
+    return false;
+  };
+
+  // Prevent browser back navigation
+  useEffect(() => {
+    // Replace current history entry to prevent going back
+    window.history.pushState(null, '', window.location.href);
+    
+    const handlePopState = (e: PopStateEvent) => {
+      // Prevent default back navigation
+      window.history.pushState(null, '', window.location.href);
+    };
+    
+    window.addEventListener('popstate', handlePopState);
+    
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, []);
+
+  const handleSubmit = async () => {
+    if (!listeningContent || !token || !contentId) return;
+
+    setIsSubmitting(true);
+    try {
+      // Calculate total time in seconds
+      const totalTimeSeconds = Math.floor((Date.now() - startTime.current) / 1000);
+
+      // Format user_answers as required by API (question number as key, answer as value)
+      const formattedAnswers: { [key: string]: string } = {};
+      
+      // If user has answered questions, use those answers
+      if (Object.keys(userAnswers).length > 0) {
+        Object.keys(userAnswers).forEach((key) => {
+          const questionNum = parseInt(key);
+          const answer = userAnswers[questionNum];
+          const question = listeningContent.questions.find(q => q.question_number === questionNum);
+          
+          let answerValue: string;
+          
+          if (Array.isArray(answer)) {
+            // For FIB questions with multiple blanks, join with comma
+            // For MCQ questions with array answers, take first
+            if (question?.question_type === 'FIB') {
+              answerValue = answer.filter(a => a && a.trim()).join(', ');
+            } else {
+              answerValue = answer[0] || '';
+            }
           } else {
-            // Don't log response data to prevent exposing sensitive info
-            await response.json();
+            answerValue = answer || '';
+          }
+          
+          // Extract just the letter if it's formatted (e.g., "B: Option text" -> "B")
+          // But only for MCQ questions, not FIB
+          if (question?.question_type !== 'FIB' && answerValue.includes(':')) {
+            answerValue = answerValue.split(':')[0].trim();
+          } else {
+            answerValue = answerValue.trim();
+          }
+          
+          // Replace empty strings with "Not Attempted"
+          formattedAnswers[key] = answerValue || 'Not Attempted';
+        });
+        
+        // Also add "Not Attempted" for any questions that weren't answered
+        listeningContent.questions.forEach((q) => {
+          const qKey = q.question_number.toString();
+          if (!formattedAnswers[qKey]) {
+            formattedAnswers[qKey] = 'Not Attempted';
+          }
+        });
+      } else {
+        // If no answers, create entries for all questions with "Not Attempted"
+        // This ensures user_answers is non-empty as required by API
+        listeningContent.questions.forEach((q) => {
+          formattedAnswers[q.question_number.toString()] = 'Not Attempted';
+        });
+      }
+
+      // Save results to API - backend will handle scoring
+      let saveResultResponse: any = null;
+      if (token && contentId) {
+        try {
+          let currentToken = token;
+          
+          const saveWithToken = async (authToken: string | null) => {
+            if (!authToken) return null;
+            
+            return await fetch('https://api.exeleratetechnology.com/api/ielts/listening/results/save-result.php', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${authToken}`,
+              },
+              body: JSON.stringify({
+                content_id: contentId,
+                total_time_seconds: totalTimeSeconds,
+                user_answers: formattedAnswers,
+              }),
+            });
+          };
+          
+          let response = await saveWithToken(currentToken);
+          
+          // If 403, try refreshing token and retry
+          if (response && response.status === 403) {
+            console.log('Token may be expired, attempting refresh...');
+            const refreshed = await refreshToken();
+            if (refreshed) {
+              const updatedAuthData = localStorage.getItem('authData');
+              if (updatedAuthData) {
+                try {
+                  const parsed = JSON.parse(updatedAuthData);
+                  currentToken = parsed.token;
+                  response = await saveWithToken(currentToken);
+                } catch (e) {
+                  console.error('Error parsing updated auth data:', e);
+                }
+              }
+            }
+          }
+          
+          if (response && response.ok) {
+            saveResultResponse = await response.json();
+          } else if (response) {
+            const errorText = await response.text();
+            console.error('Failed to save results:', response.status, errorText);
           }
         } catch (saveErr: any) {
           console.error('Error saving results:', saveErr);
-          // Don't block navigation if save fails
         }
       }
 
-      // Navigate to results page - don't pass correct answers in state
-      // Results page will fetch them securely from API
+      // Extract scoring data from backend response
+      // Response format: { success, message, result, scores: { ielts_score, correct_answers, total_questions, accuracy_percent }, time }
+      const scores = saveResultResponse?.scores || {};
+      const correctCount = scores.correct_answers || 0;
+      const totalQuestions = scores.total_questions || listeningContent.total_questions || listeningContent.questions.length;
+      const percentage = scores.accuracy_percent || 0;
+      const ieltsScore = scores.ielts_score || 0;
+      
+      // Build answer results - we'll need to calculate this from user answers vs correct answers
+      // Since correct answers aren't in the response (for security), we'll mark all as unknown initially
+      // The results page can show user answers without correct answers if needed
+      const answerResults: { [key: number]: boolean } = {};
+      
+      // If we have answer_results in the response, use them
+      if (saveResultResponse?.answer_results) {
+        Object.keys(saveResultResponse.answer_results).forEach((key) => {
+          answerResults[parseInt(key)] = saveResultResponse.answer_results[key];
+        });
+      } else if (saveResultResponse?.raw_result_json) {
+        try {
+          const rawResult = typeof saveResultResponse.raw_result_json === 'string' 
+            ? JSON.parse(saveResultResponse.raw_result_json) 
+            : saveResultResponse.raw_result_json;
+          
+          if (rawResult.answer_results) {
+            Object.keys(rawResult.answer_results).forEach((key) => {
+              answerResults[parseInt(key)] = rawResult.answer_results[key];
+            });
+          }
+        } catch (e) {
+          console.error('Error parsing raw_result_json:', e);
+        }
+      }
+
+      // Navigate to results page with backend-calculated scores
       navigate(`/ielts/listening/${contentId}/results`, {
         state: {
           listeningContent: {
@@ -480,6 +519,7 @@ export function IELTSListeningTaskView() {
           percentage,
           ieltsScore,
           answerResults,
+          saveResultResponse, // Pass full response for correct answers extraction
         },
       });
     } catch (err: any) {
@@ -569,25 +609,31 @@ export function IELTSListeningTaskView() {
       }}>
         <button
           onClick={() => navigate('/ielts/listening')}
+          disabled={!canGoBack()}
           style={{
             background: 'transparent',
             border: 'none',
-            color: '#9ca3af',
-            cursor: 'pointer',
+            color: canGoBack() ? '#9ca3af' : '#4b5563',
+            cursor: canGoBack() ? 'pointer' : 'not-allowed',
             display: 'flex',
             alignItems: 'center',
             fontSize: '14px',
             padding: '8px 16px',
             borderRadius: '8px',
             transition: 'all 0.2s ease',
+            opacity: canGoBack() ? 1 : 0.5,
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.color = '#ffffff';
-            e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+            if (canGoBack()) {
+              e.currentTarget.style.color = '#ffffff';
+              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+            }
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.color = '#9ca3af';
-            e.currentTarget.style.backgroundColor = 'transparent';
+            if (canGoBack()) {
+              e.currentTarget.style.color = '#9ca3af';
+              e.currentTarget.style.backgroundColor = 'transparent';
+            }
           }}
         >
           <ArrowLeft style={{ width: '16px', height: '16px', marginRight: '8px' }} />
@@ -604,7 +650,7 @@ export function IELTSListeningTaskView() {
           {listeningContent.title}
         </h1>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           {/* Timer */}
           <div style={{
             display: 'flex',
@@ -617,6 +663,36 @@ export function IELTSListeningTaskView() {
             <Clock style={{ width: '18px', height: '18px' }} />
             {formatTime(timeRemaining)}
           </div>
+
+          {/* Exit out of test Button */}
+          <button
+            onClick={handleExit}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: 'rgba(239, 68, 68, 0.1)',
+              border: '1px solid rgba(239, 68, 68, 0.3)',
+              color: '#ef4444',
+              padding: '8px 14px',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: '600',
+              transition: 'all 0.2s ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)';
+              e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.5)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)';
+              e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+            }}
+          >
+            <X style={{ width: '16px', height: '16px' }} />
+            Exit out of test
+          </button>
 
           {/* Submit Button */}
           <button
