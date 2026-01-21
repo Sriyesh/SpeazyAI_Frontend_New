@@ -3,20 +3,30 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { ArrowLeft, Play, Pause, Clock, Loader2, Headphones, Check, X } from 'lucide-react';
 
+interface ListeningQuestion {
+  question_number: number;
+  question_type: string;
+  question: string;
+  options?: string[];
+  correct_answer: string | string[];
+  prompt?: string;
+  text?: string;
+  max_words?: number;
+}
+
+interface ListeningPart {
+  part_number: number;
+  audio_url: string;
+  instructions?: string;
+  questions: ListeningQuestion[];
+}
+
 interface ListeningContent {
   id: string;
   title: string;
   audio_url: string;
-  questions: Array<{
-    question_number: number;
-    question_type: string;
-    question: string;
-    options?: string[];
-    correct_answer: string | string[];
-    prompt?: string;
-    text?: string;
-    max_words?: number;
-  }>;
+  questions: ListeningQuestion[];
+  parts?: ListeningPart[];
   total_questions: number;
   time_limit_minutes?: number;
 }
@@ -28,6 +38,7 @@ export function IELTSListeningTaskView() {
   const [listeningContent, setListeningContent] = useState<ListeningContent | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [currentPartIndex, setCurrentPartIndex] = useState(0);
 
   // Removed excessive logging
   const [isPlaying, setIsPlaying] = useState(false);
@@ -88,61 +99,62 @@ export function IELTSListeningTaskView() {
         let processedContent: ListeningContent;
         
         // Extract audio URL - could be audio_url or audio.url
-        const audioUrl = content.audio_url || (content.audio && content.audio.url) || (content.audio && typeof content.audio === 'string' ? content.audio : null);
+        const fallbackAudioUrl = content.audio_url || (content.audio && content.audio.url) || (content.audio && typeof content.audio === 'string' ? content.audio : null);
         
         // Extract questions - could be directly in content.questions or in content.parts
-        let questions: any[] = [];
-        if (content.questions && Array.isArray(content.questions)) {
-          questions = content.questions;
-        } else if (content.parts && Array.isArray(content.parts)) {
-          // Flatten questions from all parts
-          questions = content.parts.flatMap((part: any) => {
-            if (part.questions && Array.isArray(part.questions)) {
-              return part.questions.map((q: any, idx: number) => {
-                // Handle question type - could be 'type' or 'question_type'
-                const questionType = q.type || q.question_type || 'text';
-                // Normalize question types
-                let normalizedType = 'text';
-                const typeLower = questionType.toString().toLowerCase();
-                if (typeLower === 'mcq' || typeLower === 'multiple_choice' || questionType === 'MCQ' || questionType === 'Multiple Choice') {
-                  normalizedType = 'MCQ';
-                } else if (typeLower === 'fib' || typeLower === 'fill_in_blank' || questionType === 'FIB' || questionType === 'Fill in the Blank') {
-                  normalizedType = 'FIB';
-                }
-                
-                // Ensure options is an array if it exists
-                let options: string[] | undefined = undefined;
-                if (q.options) {
-                  if (Array.isArray(q.options)) {
-                    options = q.options;
-                  } else if (typeof q.options === 'object' && q.options !== null) {
-                    // Convert object to array format: {A: '...', B: '...'} -> ['A: ...', 'B: ...']
-                    options = Object.entries(q.options).map(([key, value]) => {
-                      return `${key}: ${value}`;
-                    });
-                  } else if (typeof q.options === 'string') {
-                    // If options is a string, try to split it
-                    options = [q.options];
-                  }
-                }
-                
-                // Don't extract or store correct answers here - fetch them separately after submission
-                // This prevents students from seeing answers in console or network tab
-                return {
-                  question_number: q.question_id || q.question_number || idx + 1,
-                  question_type: normalizedType,
-                  question: q.question || q.text || '',
-                  options: options,
-                  correct_answer: '', // Don't store correct answers - fetch from API after submission
-                  prompt: q.prompt,
-                  text: q.text,
-                  max_words: q.max_words,
-                };
-              });
+        let questions: ListeningQuestion[] = [];
+        let parts: ListeningPart[] | undefined = undefined;
+
+        const normalizeQuestion = (q: any, idx: number): ListeningQuestion => {
+          const questionType = q.type || q.question_type || 'text';
+          let normalizedType = 'text';
+          const typeLower = questionType.toString().toLowerCase();
+          if (typeLower === 'mcq' || typeLower === 'multiple_choice' || questionType === 'MCQ' || questionType === 'Multiple Choice') {
+            normalizedType = 'MCQ';
+          } else if (typeLower === 'fib' || typeLower === 'fill_in_blank' || questionType === 'FIB' || questionType === 'Fill in the Blank') {
+            normalizedType = 'FIB';
+          }
+          
+          let options: string[] | undefined = undefined;
+          if (q.options) {
+            if (Array.isArray(q.options)) {
+              options = q.options;
+            } else if (typeof q.options === 'object' && q.options !== null) {
+              options = Object.entries(q.options).map(([key, value]) => `${key}: ${value}`);
+            } else if (typeof q.options === 'string') {
+              options = [q.options];
             }
-            return [];
+          }
+          
+          return {
+            question_number: q.question_id || q.question_number || idx + 1,
+            question_type: normalizedType,
+            question: q.question || q.text || '',
+            options,
+            correct_answer: '', // Do not expose correct answers
+            prompt: q.prompt,
+            text: q.text,
+            max_words: q.max_words,
+          };
+        };
+
+        if (content.questions && Array.isArray(content.questions)) {
+          questions = content.questions.map((q: any, idx: number) => normalizeQuestion(q, idx));
+        } else if (content.parts && Array.isArray(content.parts)) {
+          parts = content.parts.map((part: any, partIdx: number) => {
+            const partAudio = part.audio_url || fallbackAudioUrl || '';
+            const partQuestions = (part.questions || []).map((q: any, idx: number) => normalizeQuestion(q, idx));
+            return {
+              part_number: part.part || part.part_number || partIdx + 1,
+              audio_url: partAudio,
+              instructions: part.instructions,
+              questions: partQuestions,
+            };
           });
+          questions = parts.flatMap((p) => p.questions);
         }
+        
+        const audioUrl = parts && parts.length > 0 ? parts[0].audio_url : fallbackAudioUrl;
         
         if (!audioUrl) {
           throw new Error('Invalid content structure. Missing audio URL.');
@@ -156,7 +168,8 @@ export function IELTSListeningTaskView() {
           id: content.id || contentId || '',
           title: content.title || 'Listening Exercise',
           audio_url: audioUrl,
-          questions: questions,
+          questions,
+          parts,
           total_questions: questions.length,
           time_limit_minutes: content.time_limit_minutes || 30,
         };
@@ -178,6 +191,18 @@ export function IELTSListeningTaskView() {
 
     fetchListeningContent();
   }, [token, contentId]);
+
+  // Reset to first part when new content arrives
+  useEffect(() => {
+    if (listeningContent?.parts && listeningContent.parts.length > 0) {
+      setCurrentPartIndex(0);
+      setIsPlaying(false);
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+      }
+    }
+  }, [listeningContent?.parts?.length]);
 
   // Timer countdown
   useEffect(() => {
@@ -212,7 +237,7 @@ export function IELTSListeningTaskView() {
   };
 
   const handlePlayPause = () => {
-    if (!audioRef.current || !listeningContent?.audio_url) return;
+    if (!audioRef.current) return;
 
     if (isPlaying) {
       audioRef.current.pause();
@@ -228,6 +253,38 @@ export function IELTSListeningTaskView() {
       ...prev,
       [questionNumber]: answer,
     }));
+  };
+
+  // Determine current part and all questions
+  const currentPart = listeningContent?.parts?.[currentPartIndex];
+  const allQuestions = listeningContent?.parts
+    ? listeningContent.parts.flatMap((p) => p.questions)
+    : listeningContent?.questions || [];
+
+  const currentAudioUrl = currentPart?.audio_url || listeningContent?.audio_url || '';
+
+  const goToNextPart = () => {
+    if (!listeningContent?.parts) return;
+    if (currentPartIndex < listeningContent.parts.length - 1) {
+      setIsPlaying(false);
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+      }
+      setCurrentPartIndex((prev) => prev + 1);
+    }
+  };
+
+  const goToPrevPart = () => {
+    if (!listeningContent?.parts) return;
+    if (currentPartIndex > 0) {
+      setIsPlaying(false);
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+      }
+      setCurrentPartIndex((prev) => prev - 1);
+    }
   };
 
   // Handle exit - save with score 0 and "not attempted"
@@ -270,7 +327,7 @@ export function IELTSListeningTaskView() {
           });
           
           // Also add "Not Attempted" for any questions that weren't answered
-          listeningContent.questions.forEach((q) => {
+          allQuestions.forEach((q) => {
             const qKey = q.question_number.toString();
             if (!formattedAnswers[qKey]) {
               formattedAnswers[qKey] = 'Not Attempted';
@@ -279,7 +336,7 @@ export function IELTSListeningTaskView() {
         } else {
           // If no answers, create entries for all questions with "Not Attempted"
           // This ensures user_answers is non-empty as required by API
-          listeningContent.questions.forEach((q) => {
+          allQuestions.forEach((q) => {
             formattedAnswers[q.question_number.toString()] = 'Not Attempted';
           });
         }
@@ -372,7 +429,7 @@ export function IELTSListeningTaskView() {
         Object.keys(userAnswers).forEach((key) => {
           const questionNum = parseInt(key);
           const answer = userAnswers[questionNum];
-          const question = listeningContent.questions.find(q => q.question_number === questionNum);
+          const question = allQuestions.find(q => q.question_number === questionNum);
           
           let answerValue: string;
           
@@ -401,7 +458,7 @@ export function IELTSListeningTaskView() {
         });
         
         // Also add "Not Attempted" for any questions that weren't answered
-        listeningContent.questions.forEach((q) => {
+        allQuestions.forEach((q) => {
           const qKey = q.question_number.toString();
           if (!formattedAnswers[qKey]) {
             formattedAnswers[qKey] = 'Not Attempted';
@@ -410,7 +467,7 @@ export function IELTSListeningTaskView() {
       } else {
         // If no answers, create entries for all questions with "Not Attempted"
         // This ensures user_answers is non-empty as required by API
-        listeningContent.questions.forEach((q) => {
+        allQuestions.forEach((q) => {
           formattedAnswers[q.question_number.toString()] = 'Not Attempted';
         });
       }
@@ -473,7 +530,7 @@ export function IELTSListeningTaskView() {
       // Response format: { success, message, result, scores: { ielts_score, correct_answers, total_questions, accuracy_percent }, time }
       const scores = saveResultResponse?.scores || {};
       const correctCount = scores.correct_answers || 0;
-      const totalQuestions = scores.total_questions || listeningContent.total_questions || listeningContent.questions.length;
+      const totalQuestions = scores.total_questions || listeningContent.total_questions || allQuestions.length;
       const percentage = scores.accuracy_percent || 0;
       const ieltsScore = scores.ielts_score || 0;
       
@@ -508,7 +565,7 @@ export function IELTSListeningTaskView() {
         state: {
           listeningContent: {
             ...listeningContent,
-            questions: listeningContent.questions.map(q => ({
+            questions: allQuestions.map(q => ({
               ...q,
               correct_answer: '', // Don't pass correct answers in navigation state
             })),
@@ -745,6 +802,116 @@ export function IELTSListeningTaskView() {
         padding: '32px',
         width: '100%',
       }}>
+        {/* Part Indicator and Navigation - Separate Box */}
+        {listeningContent?.parts && listeningContent.parts.length > 0 && (
+          <div style={{
+            backgroundColor: 'rgba(17, 24, 39, 0.8)',
+            border: '1px solid rgba(75, 85, 99, 0.5)',
+            borderRadius: '16px',
+            padding: '24px',
+            marginBottom: '24px',
+          }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <span style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '10px 16px',
+                  borderRadius: '999px',
+                  background: 'linear-gradient(135deg, rgba(168,85,247,0.3), rgba(99,102,241,0.4))',
+                  border: '2px solid rgba(168, 85, 247, 0.6)',
+                  color: '#ffffff',
+                  fontSize: '16px',
+                  fontWeight: 700,
+                  letterSpacing: '0.05em',
+                  boxShadow: '0 4px 16px rgba(168, 85, 247, 0.4)',
+                  textTransform: 'uppercase',
+                }}>
+                  <span style={{
+                    width: '12px',
+                    height: '12px',
+                    borderRadius: '50%',
+                    backgroundColor: '#a855f7',
+                    boxShadow: '0 0 12px rgba(168,85,247,0.8)',
+                  }} />
+                  Part {currentPartIndex + 1} of {listeningContent.parts.length}
+                </span>
+                {currentPart?.instructions && (
+                  <span style={{ color: '#e5e7eb', fontSize: '15px', fontWeight: 500 }}>
+                    {currentPart.instructions}
+                  </span>
+                )}
+              </div>
+              <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                <button
+                  onClick={goToPrevPart}
+                  disabled={currentPartIndex === 0}
+                  style={{
+                    padding: '10px 16px',
+                    borderRadius: '8px',
+                    border: '1px solid rgba(75, 85, 99, 0.5)',
+                    background: currentPartIndex === 0 ? 'rgba(75, 85, 99, 0.2)' : 'rgba(75, 85, 99, 0.4)',
+                    color: '#e5e7eb',
+                    cursor: currentPartIndex === 0 ? 'not-allowed' : 'pointer',
+                    transition: 'all 0.2s ease',
+                    fontSize: '14px',
+                    fontWeight: 600,
+                  }}
+                  onMouseEnter={(e) => {
+                    if (currentPartIndex > 0) {
+                      e.currentTarget.style.background = 'rgba(75, 85, 99, 0.6)';
+                      e.currentTarget.style.borderColor = 'rgba(168, 85, 247, 0.5)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (currentPartIndex > 0) {
+                      e.currentTarget.style.background = 'rgba(75, 85, 99, 0.4)';
+                      e.currentTarget.style.borderColor = 'rgba(75, 85, 99, 0.5)';
+                    }
+                  }}
+                >
+                  ← Previous Part
+                </button>
+                <button
+                  onClick={goToNextPart}
+                  disabled={currentPartIndex >= listeningContent.parts.length - 1}
+                  style={{
+                    padding: '10px 16px',
+                    borderRadius: '8px',
+                    border: '1px solid rgba(168, 85, 247, 0.6)',
+                    background: currentPartIndex >= listeningContent.parts.length - 1 
+                      ? 'rgba(168, 85, 247, 0.2)' 
+                      : 'linear-gradient(135deg, #a855f7, #6366f1)',
+                    color: '#ffffff',
+                    cursor: currentPartIndex >= listeningContent.parts.length - 1 ? 'not-allowed' : 'pointer',
+                    transition: 'all 0.2s ease',
+                    boxShadow: currentPartIndex >= listeningContent.parts.length - 1 
+                      ? 'none' 
+                      : '0 4px 12px rgba(168, 85, 247, 0.4)',
+                    fontSize: '14px',
+                    fontWeight: 600,
+                  }}
+                  onMouseEnter={(e) => {
+                    if (currentPartIndex < listeningContent.parts.length - 1) {
+                      e.currentTarget.style.transform = 'scale(1.05)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'scale(1)';
+                  }}
+                >
+                  Next Part →
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Audio Player - IELTS Exam Style */}
         <div style={{
           backgroundColor: 'rgba(17, 24, 39, 0.8)',
@@ -784,7 +951,7 @@ export function IELTSListeningTaskView() {
           }}>
             <button
               onClick={handlePlayPause}
-              disabled={!listeningContent.audio_url || timeExpired}
+              disabled={!currentAudioUrl || timeExpired}
               style={{
                 width: '72px',
                 height: '72px',
@@ -849,10 +1016,10 @@ export function IELTSListeningTaskView() {
             </div>
           </div>
 
-          {listeningContent.audio_url && (
+          {currentAudioUrl && (
             <audio
               ref={audioRef}
-              src={listeningContent.audio_url}
+              src={currentAudioUrl}
               onPlay={() => setIsPlaying(true)}
               onPause={() => setIsPlaying(false)}
               onEnded={() => setIsPlaying(false)}
@@ -878,14 +1045,16 @@ export function IELTSListeningTaskView() {
             borderBottom: '2px solid rgba(168, 85, 247, 0.3)',
             paddingBottom: '12px',
           }}>
-            Answer the questions below
+            {listeningContent?.parts && listeningContent.parts.length > 0
+              ? `Part ${currentPart?.part_number || currentPartIndex + 1} Questions`
+              : 'Answer the questions below'}
           </h2>
 
           <div style={{
             display: 'grid',
             gap: '32px',
           }}>
-            {listeningContent.questions.map((question) => (
+            {(currentPart?.questions || listeningContent.questions).map((question) => (
               <div
                 key={question.question_number}
                 style={{

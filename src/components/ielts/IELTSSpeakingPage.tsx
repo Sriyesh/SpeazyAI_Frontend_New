@@ -1,104 +1,307 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button } from '../ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
-import { ThemeToggle } from '../ThemeToggle';
-import { ArrowLeft, Mic, CheckCircle, Star } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
+import { ArrowLeft, Mic, Loader2, AlertCircle, LogOut } from 'lucide-react';
+
+interface SpeakingItem {
+  id: number;
+  content_id: string;
+  title: string;
+  json_url: string;
+  is_published: number;
+  created_at: string;
+}
+
+interface SpeakingResponse {
+  success: boolean;
+  items: SpeakingItem[];
+  paging: {
+    limit: number;
+    offset: number;
+  };
+}
 
 export function IELTSSpeakingPage() {
   const navigate = useNavigate();
-  const [isRecording, setIsRecording] = useState(false);
-  const [completed, setCompleted] = useState(false);
+  const { token, logout } = useAuth();
+  const [items, setItems] = useState<SpeakingItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleStartRecording = () => {
-    setIsRecording(true);
-    setTimeout(() => {
-      setIsRecording(false);
-      setCompleted(true);
-      setTimeout(() => setCompleted(false), 3000);
-    }, 4000);
+  // Fetch speaking items from API
+  useEffect(() => {
+    const fetchSpeakingItems = async () => {
+      if (!token) {
+        setError('Authentication required. Please log in.');
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        setError(null);
+
+        const response = await fetch(
+          'https://api.exeleratetechnology.com/api/ielts/speaking/content/list.php',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify({}),
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch content: ${response.status} ${response.statusText}`);
+        }
+
+        const data: SpeakingResponse = await response.json();
+        
+        if (data.success && Array.isArray(data.items)) {
+          setItems(data.items);
+        } else {
+          setItems([]);
+        }
+      } catch (err: any) {
+        console.error('Error fetching speaking content:', err);
+        setError(err.message || 'Failed to load speaking content. Please try again.');
+        setItems([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSpeakingItems();
+  }, [token]);
+
+  const handleTileClick = (item: SpeakingItem) => {
+    const contentId = item.content_id || item.id.toString();
+    // Navigate to speaking detail page (to be created)
+    navigate(`/ielts/speaking/${contentId}`);
+  };
+
+  // Inline styles matching the theme
+  const containerStyle: React.CSSProperties = {
+    minHeight: '100vh',
+    background: 'linear-gradient(to bottom right, #000000, rgba(147, 51, 234, 0.3), rgba(99, 102, 241, 0.3))',
+    padding: '32px',
+  };
+
+  const headerStyle: React.CSSProperties = {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: '32px',
+    paddingBottom: '16px',
+    borderBottom: '1px solid rgba(236, 72, 153, 0.3)',
+  };
+
+  const titleStyle: React.CSSProperties = {
+    fontSize: '24px',
+    fontWeight: 'bold',
+    color: '#ffffff',
+    textTransform: 'uppercase',
+    letterSpacing: '0.1em',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+  };
+
+  const gridStyle: React.CSSProperties = {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+    gap: '24px',
+  };
+
+  const tileStyle: React.CSSProperties = {
+    backgroundColor: 'rgba(17, 24, 39, 0.8)',
+    border: '1px solid rgba(75, 85, 99, 0.5)',
+    borderRadius: '16px',
+    padding: '24px',
+    cursor: 'pointer',
+    transition: 'all 0.3s ease',
+    display: 'flex',
+    flexDirection: 'column',
+    minHeight: '200px',
+  };
+
+  const tileHoverStyle: React.CSSProperties = {
+    ...tileStyle,
+    borderColor: 'rgba(236, 72, 153, 0.6)',
+    backgroundColor: 'rgba(17, 24, 39, 0.95)',
+    transform: 'translateY(-4px)',
+    boxShadow: '0 8px 24px rgba(236, 72, 153, 0.4)',
+  };
+
+  const tileTitleStyle: React.CSSProperties = {
+    fontSize: '18px',
+    fontWeight: '600',
+    color: '#ffffff',
+    marginBottom: '12px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+  };
+
+  const tileDescriptionStyle: React.CSSProperties = {
+    fontSize: '14px',
+    color: '#d1d5db',
+    marginTop: 'auto',
+    paddingTop: '16px',
+    borderTop: '1px solid rgba(75, 85, 99, 0.5)',
+  };
+
+  const backButtonStyle: React.CSSProperties = {
+    background: 'transparent',
+    border: 'none',
+    color: '#9ca3af',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    fontSize: '14px',
+    padding: '8px 16px',
+    textTransform: 'uppercase',
+    letterSpacing: '0.05em',
+    borderRadius: '8px',
+    transition: 'all 0.2s ease',
+  };
+
+  const loadingStyle: React.CSSProperties = {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: '400px',
+    color: '#ffffff',
+    gap: '16px',
+  };
+
+  const errorStyle: React.CSSProperties = {
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    border: '1px solid rgba(239, 68, 68, 0.3)',
+    borderRadius: '12px',
+    padding: '24px',
+    color: '#f87171',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    marginBottom: '24px',
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-black via-purple-900/30 to-indigo-900/30 dark:from-black dark:via-purple-900/30 dark:to-indigo-900/30 light:from-purple-50 light:via-indigo-50 light:to-white relative overflow-hidden">
-      <header className="bg-black/90 backdrop-blur-sm border-b border-pink-500/30 dark:border-pink-500/30 light:border-pink-300/40 sticky top-0 z-50 dark:bg-black/90 light:bg-white/90">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <Button
-              variant="ghost"
-              onClick={() => navigate('/ielts')}
-              className="text-gray-400 hover:text-white dark:text-gray-400 dark:hover:text-white light:text-gray-600 light:hover:text-gray-900 uppercase text-xs tracking-wider"
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              IELTS Menu
-            </Button>
-            
-            <h1 className="text-lg font-bold text-white dark:text-white light:text-gray-900 uppercase tracking-wider">
-              IELTS Speaking
-            </h1>
+    <div style={containerStyle}>
+      <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+        {/* Header */}
+        <div style={headerStyle}>
+          <button
+            onClick={() => navigate('/ielts')}
+            style={backButtonStyle}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = '#ffffff';
+              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = '#9ca3af';
+              e.currentTarget.style.backgroundColor = 'transparent';
+            }}
+          >
+            <ArrowLeft style={{ width: '16px', height: '16px', marginRight: '8px' }} />
+            Back
+          </button>
+          <h1 style={titleStyle}>
+            <Mic style={{ width: '24px', height: '24px', color: '#ec4899' }} />
+            IELTS Speaking
+          </h1>
+          <button
+            onClick={() => {
+              logout();
+              navigate('/login');
+            }}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: '#9ca3af',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              fontSize: '12px',
+              padding: '8px 16px',
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+              borderRadius: '8px',
+              transition: 'all 0.2s ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = '#ffffff';
+              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = '#9ca3af';
+              e.currentTarget.style.backgroundColor = 'transparent';
+            }}
+          >
+            <LogOut style={{ width: '16px', height: '16px', marginRight: '8px', display: 'inline-block' }} />
+            Logout
+          </button>
+        </div>
 
-            <ThemeToggle />
+        {/* Error Message */}
+        {error && (
+          <div style={errorStyle}>
+            <AlertCircle style={{ width: '20px', height: '20px' }} />
+            <span>{error}</span>
           </div>
-        </div>
-      </header>
+        )}
 
-      <div className="relative z-10">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <Card className="bg-gray-900/90 border border-pink-500/30 dark:bg-gray-900/90 dark:border-pink-500/30 light:bg-white light:border-pink-300/40 shadow-2xl glow-pink">
-            <CardHeader>
-              <CardTitle className="text-2xl text-white dark:text-white light:text-gray-900 uppercase tracking-wider flex items-center">
-                <Mic className="w-6 h-6 mr-3 text-pink-400" />
-                Speaking Assessment
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="bg-gray-800 dark:bg-gray-800 light:bg-gray-100 rounded-lg p-6 border border-gray-700 dark:border-gray-700 light:border-gray-200">
-                <h3 className="text-lg font-bold text-white dark:text-white light:text-gray-900 mb-3 uppercase tracking-wider">Speaking Prompt</h3>
-                <p className="text-gray-300 dark:text-gray-300 light:text-gray-700">
-                  Describe a memorable journey you have taken. You should say:
-                </p>
-                <ul className="list-disc list-inside text-gray-300 dark:text-gray-300 light:text-gray-700 mt-2 space-y-1">
-                  <li>Where you went</li>
-                  <li>Who you went with</li>
-                  <li>What you did there</li>
-                  <li>Why it was memorable</li>
-                </ul>
+        {/* Loading State */}
+        {loading ? (
+          <div style={loadingStyle}>
+            <Loader2 style={{ width: '48px', height: '48px', animation: 'spin 1s linear infinite', color: '#ec4899' }} />
+            <p style={{ color: '#d1d5db' }}>Loading speaking content...</p>
+          </div>
+        ) : items.length === 0 ? (
+          <div style={loadingStyle}>
+            <Mic style={{ width: '64px', height: '64px', color: '#6b7280', opacity: 0.5 }} />
+            <p style={{ color: '#9ca3af' }}>No speaking content available</p>
+          </div>
+        ) : (
+          /* Tiles Grid */
+          <div style={gridStyle}>
+            {items.map((item) => (
+              <div
+                key={item.content_id || item.id}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleTileClick(item);
+                }}
+                style={tileStyle}
+                onMouseEnter={(e) => {
+                  Object.assign(e.currentTarget.style, tileHoverStyle);
+                }}
+                onMouseLeave={(e) => {
+                  Object.assign(e.currentTarget.style, tileStyle);
+                }}
+              >
+                <div style={tileTitleStyle}>
+                  <Mic style={{ width: '20px', height: '20px', color: '#ec4899' }} />
+                  {item.title}
+                </div>
+                <div style={tileDescriptionStyle}>
+                  Click to start speaking exercise
+                </div>
               </div>
+            ))}
+          </div>
+        )}
 
-              <div className="text-center py-8">
-                {completed ? (
-                  <div>
-                    <div className="w-32 h-32 mx-auto mb-6 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center kid-bounce">
-                      <CheckCircle className="w-16 h-16 text-white" />
-                    </div>
-                    <h3 className="text-2xl font-bold text-white dark:text-white light:text-gray-900 mb-2">Excellent Work!</h3>
-                    <div className="flex justify-center space-x-2 mb-4">
-                      {[1, 2, 3, 4, 5].map((star) => (
-                        <Star key={star} className="w-8 h-8 text-yellow-400 fill-yellow-400" />
-                      ))}
-                    </div>
-                  </div>
-                ) : (
-                  <div>
-                    <div className={`w-32 h-32 mx-auto mb-6 bg-gradient-to-br from-pink-500 to-rose-600 rounded-full flex items-center justify-center ${isRecording ? 'kid-pulse' : ''}`}>
-                      <Mic className="w-16 h-16 text-white" />
-                    </div>
-                    <Button
-                      onClick={handleStartRecording}
-                      disabled={isRecording}
-                      className={`bg-gradient-to-r from-pink-500 to-rose-600 hover:opacity-90 text-white uppercase tracking-wider px-8 ${isRecording ? 'opacity-50' : ''}`}
-                    >
-                      {isRecording ? 'Recording...' : 'Start Recording'}
-                    </Button>
-                    {isRecording && (
-                      <p className="text-pink-400 mt-4 kid-pulse">🎤 Speak clearly and naturally...</p>
-                    )}
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        <style>{`
+          @keyframes spin {
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
       </div>
     </div>
   );
