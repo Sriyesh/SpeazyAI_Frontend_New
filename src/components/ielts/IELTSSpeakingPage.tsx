@@ -4,12 +4,13 @@ import { useAuth } from '../../contexts/AuthContext';
 import { ArrowLeft, Mic, Loader2, AlertCircle, LogOut } from 'lucide-react';
 
 interface SpeakingItem {
-  id: number;
-  content_id: string;
+  id?: number;
+  content_id?: string;
+  json_key?: string; // API returns json_key instead of content_id
   title: string;
   json_url: string;
-  is_published: number;
-  created_at: string;
+  is_published?: number;
+  created_at?: string;
 }
 
 interface SpeakingResponse {
@@ -58,7 +59,6 @@ export function IELTSSpeakingPage() {
         }
 
         const data: SpeakingResponse = await response.json();
-        
         if (data.success && Array.isArray(data.items)) {
           setItems(data.items);
         } else {
@@ -76,10 +76,34 @@ export function IELTSSpeakingPage() {
     fetchSpeakingItems();
   }, [token]);
 
+  const deriveContentId = (item: SpeakingItem): string | null => {
+    if (item.content_id) return item.content_id;
+    if (item.json_key) {
+      const parts = item.json_key.split('/').filter(Boolean);
+      const idx = parts.indexOf('speaking');
+      if (idx >= 0 && parts[idx + 1]) return parts[idx + 1];
+      if (parts.length > 0) return parts[parts.length - 1].replace('content.json', '').replace('.json', '');
+    }
+    if (item.json_url) {
+      try {
+        const url = new URL(item.json_url);
+        const segments = url.pathname.split('/').filter(Boolean);
+        const idx = segments.indexOf('speaking');
+        if (idx >= 0 && segments[idx + 1]) return segments[idx + 1];
+        if (segments.length > 0) return segments[segments.length - 1].replace('content.json', '').replace('.json', '');
+      } catch {
+        // ignore parse errors
+      }
+    }
+    if (item.id != null) return item.id.toString();
+    return null;
+  };
+
   const handleTileClick = (item: SpeakingItem) => {
-    const contentId = item.content_id || item.id.toString();
-    // Navigate to speaking detail page (to be created)
-    navigate(`/ielts/speaking/${contentId}`);
+    if (!item) return;
+    const contentId = deriveContentId(item);
+    if (!contentId) return;
+    navigate(`/ielts/speaking/${encodeURIComponent(contentId)}`, { state: { item } });
   };
 
   // Inline styles matching the theme
@@ -269,31 +293,42 @@ export function IELTSSpeakingPage() {
         ) : (
           /* Tiles Grid */
           <div style={gridStyle}>
-            {items.map((item) => (
-              <div
-                key={item.content_id || item.id}
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  handleTileClick(item);
-                }}
-                style={tileStyle}
-                onMouseEnter={(e) => {
-                  Object.assign(e.currentTarget.style, tileHoverStyle);
-                }}
-                onMouseLeave={(e) => {
-                  Object.assign(e.currentTarget.style, tileStyle);
-                }}
-              >
-                <div style={tileTitleStyle}>
-                  <Mic style={{ width: '20px', height: '20px', color: '#ec4899' }} />
-                  {item.title}
-                </div>
-                <div style={tileDescriptionStyle}>
-                  Click to start speaking exercise
-                </div>
-              </div>
-            ))}
+            {items
+              .filter((item) => item && item.title && deriveContentId(item)) // Filter out invalid items
+              .map((item, index) => {
+                const contentId = deriveContentId(item) || `item-${index}`;
+                const itemTitle = item.title || 'Untitled Speaking Exercise';
+                
+                return (
+                  <div
+                    key={contentId}
+                    onClick={() => handleTileClick(item)}
+                    style={tileStyle}
+                    onMouseEnter={(e) => {
+                      const target = e.currentTarget;
+                      target.style.borderColor = 'rgba(236, 72, 153, 0.6)';
+                      target.style.backgroundColor = 'rgba(17, 24, 39, 0.95)';
+                      target.style.transform = 'translateY(-4px)';
+                      target.style.boxShadow = '0 8px 24px rgba(236, 72, 153, 0.4)';
+                    }}
+                    onMouseLeave={(e) => {
+                      const target = e.currentTarget;
+                      target.style.borderColor = 'rgba(75, 85, 99, 0.5)';
+                      target.style.backgroundColor = 'rgba(17, 24, 39, 0.8)';
+                      target.style.transform = 'translateY(0)';
+                      target.style.boxShadow = 'none';
+                    }}
+                  >
+                    <div style={tileTitleStyle}>
+                      <Mic style={{ width: '20px', height: '20px', color: '#ec4899' }} />
+                      {itemTitle}
+                    </div>
+                    <div style={tileDescriptionStyle}>
+                      Click to start speaking exercise
+                    </div>
+                  </div>
+                );
+              })}
           </div>
         )}
 

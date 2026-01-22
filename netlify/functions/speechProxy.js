@@ -1,5 +1,6 @@
 exports.handler = async (event) => {
-  const allowedOrigin = "https://speazyai.netlify.app";
+  // Allow requests from any origin for development, or specific origin for production
+  const allowedOrigin = event.headers.origin || "https://speazyai.netlify.app";
 
   // Handle CORS preflight
   if (event.httpMethod === "OPTIONS") {
@@ -7,7 +8,7 @@ exports.handler = async (event) => {
       statusCode: 200,
       headers: {
         "Access-Control-Allow-Origin": allowedOrigin,
-        "Access-Control-Allow-Headers": "Content-Type",
+        "Access-Control-Allow-Headers": "Content-Type, lc-beta-features",
         "Access-Control-Allow-Methods": "POST, OPTIONS",
       },
       body: "",
@@ -23,13 +24,24 @@ exports.handler = async (event) => {
     const targetEndpoint =
       qsEndpoint || "https://apis.languageconfidence.ai/speech-assessment/unscripted/uk";
 
+    // Get API key from environment variable (set in Netlify dashboard)
+    const apiKey = process.env.LC_API_KEY || process.env.SPEECH_API_KEY;
+    
+    if (!apiKey) {
+      console.error("API key not found in environment variables");
+      return {
+        statusCode: 500,
+        headers: { "Access-Control-Allow-Origin": allowedOrigin },
+        body: JSON.stringify({ error: "API key not configured" }),
+      };
+    }
+
     const response = await fetch(targetEndpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "api-key": process.env.LC_API_KEY,
-        "lc-beta-features": "false",
-        ...(event.headers["lc-beta-features"] && { "lc-beta-features": event.headers["lc-beta-features"] }),
+        "api-key": apiKey,
+        "lc-beta-features": event.headers["lc-beta-features"] || "false",
       },
       body: JSON.stringify(apiBody),
     });

@@ -10,12 +10,16 @@ export function IELTSAudioRecorder({
   expectedText = "",
   lessonColor = "from-pink-500 to-rose-500",
   endpoint = "https://apis.languageconfidence.ai/speech-assessment/scripted/uk",
-  onApiResponse = null
+  onApiResponse = null,
+  autoStart = false,
+  onRecordingStart = undefined
 }: {
   expectedText?: string;
   lessonColor?: string;
   endpoint?: string;
   onApiResponse?: any;
+  autoStart?: boolean;
+  onRecordingStart?: () => void;
 }) {
   const [isRecording, setIsRecording] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
@@ -35,6 +39,17 @@ export function IELTSAudioRecorder({
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const recordedAudioUrlRef = useRef<string | null>(null)
+
+  // Auto-start recording when autoStart prop is true
+  useEffect(() => {
+    if (autoStart && !isRecording && !audioUrl && !isLoading) {
+      const timer = setTimeout(() => {
+        startRecording();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoStart, isRecording, audioUrl, isLoading]);
 
   // Recording timer
   useEffect(() => {
@@ -89,6 +104,11 @@ export function IELTSAudioRecorder({
       setRecordingTime(0)
       setAudioUrl(null)
       setApiResponse(null)
+      
+      // Notify parent that recording has started
+      if (onRecordingStart) {
+        onRecordingStart()
+      }
     } catch (error) {
       console.error("Error accessing microphone:", error)
       alert("Unable to access microphone. Please check permissions.")
@@ -202,7 +222,11 @@ export function IELTSAudioRecorder({
     // If we're running on localhost, use the local express server (port 4000)
     // If we're on Netlify, use the Netlify function
     const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
-    const proxyUrl = isLocal ? "http://localhost:4000/speechProxy" : "/.netlify/functions/speechProxy"
+    // Add endpoint as query parameter for Netlify function
+    const endpointParam = endpoint ? `?endpoint=${encodeURIComponent(endpoint)}` : ''
+    const proxyUrl = isLocal 
+      ? `http://localhost:4000/speechProxy${endpointParam}` 
+      : `/.netlify/functions/speechProxy${endpointParam}`
     
     console.log(`Using proxy URL: ${proxyUrl} (isLocal: ${isLocal})`)
     setIsLoading(true)
@@ -220,7 +244,7 @@ export function IELTSAudioRecorder({
     const payload = JSON.stringify(payloadObj)
 
     try {
-      const response = await fetch(`${proxyUrl}?endpoint=${encodeURIComponent(endpoint)}`, {
+      const response = await fetch(proxyUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
