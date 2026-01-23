@@ -10,17 +10,27 @@ export async function main(event) {
   
   // CORS: Determine allowed origin (single value only)
   const requestOrigin = headers.origin || headers.Origin || "";
-  const allowedOrigins = [
-    process.env.ALLOWED_ORIGIN || "https://exeleratetechnology.com",
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-  ];
+  const productionOrigin = process.env.ALLOWED_ORIGIN || "https://exeleratetechnology.com";
   
-  // Use request origin if it's in allowed list, otherwise use production origin
-  // Never return "*" as it causes issues when combined with credentials
-  const allowedOrigin = allowedOrigins.includes(requestOrigin) 
-    ? requestOrigin 
-    : (process.env.ALLOWED_ORIGIN || "https://exeleratetechnology.com");
+  // Check if origin is allowed
+  let allowedOrigin = productionOrigin; // Default to production
+  
+  if (requestOrigin) {
+    // Allow localhost for development
+    if (requestOrigin === "http://localhost:3000" || requestOrigin === "http://127.0.0.1:3000") {
+      allowedOrigin = requestOrigin;
+    }
+    // Allow DigitalOcean App Platform URLs (*.ondigitalocean.app)
+    else if (requestOrigin.includes(".ondigitalocean.app")) {
+      allowedOrigin = requestOrigin;
+    }
+    // Allow exact production domain match
+    else if (requestOrigin === productionOrigin) {
+      allowedOrigin = requestOrigin;
+    }
+  }
+  
+  // NEVER return "*" - always return a specific origin
 
   // Handle CORS preflight
   if (method === "OPTIONS") {
