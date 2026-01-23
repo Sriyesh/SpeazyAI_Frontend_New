@@ -15,6 +15,9 @@
 2. Click **"Create App"**
 3. Connect your GitHub repository
 4. Select branch: `master`
+5. **IMPORTANT**: When DigitalOcean detects your app, make sure it shows **"Static Site"** (NOT "Web Service")
+   - If it shows "Web Service", click "Edit" and change to "Static Site"
+   - Static sites don't need a Run Command or Dockerfile
 
 ### 3. Configure Build
 - **Build Command**: `npm run build`
@@ -64,3 +67,9 @@ Your app will be live at `https://exeleratetechnology.com`
 **Env vars not working?**
 - Must start with `VITE_` prefix
 - Set in App Platform, not in code
+
+**"Start command required" error?**
+- Your app is detected as "Web Service" instead of "Static Site"
+- Go to Component Settings → Change Type to "Static Site"
+- Remove any Run Command or Dockerfile
+- See `STATIC_SITE_FIX.md` for detailed steps
