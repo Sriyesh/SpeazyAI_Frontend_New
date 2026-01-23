@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback, ReactNode } from 'react';
 import { clearAllPdfTextCache } from '../utils/pdfTextExtractor';
 import useHeartbeat from '../hooks/useHeartbeat';
+import { API_URLS } from '@/config/apiConfig';
 
 interface User {
   id: number;
@@ -307,7 +308,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       // Determine the correct API URL based on environment
       // Development: Use Vite proxy (configured in vite.config.ts)
-      // Production: Use Netlify function to avoid CORS issues
+      // Use API config for consistent URL handling
       const isLocal = typeof window !== 'undefined' && (
         window.location.hostname === 'localhost' || 
         window.location.hostname === '127.0.0.1'
@@ -315,7 +316,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       const apiUrl = isLocal
         ? '/api/auth/login.php' // Vite proxy in development
-        : '/.netlify/functions/authProxy' // Netlify function in production
+        : API_URLS.authProxy // DigitalOcean function in production
       
       const response = await fetch(apiUrl, {
         method: 'POST',

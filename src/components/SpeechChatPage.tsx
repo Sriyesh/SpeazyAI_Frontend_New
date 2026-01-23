@@ -7,6 +7,7 @@ import { Button } from "./ui/button"
 import { ScrollArea } from "./ui/scroll-area"
 import { ArrowLeft, Mic, Square, Bot, User, Volume2, VolumeX } from "lucide-react"
 import { motion } from "motion/react"
+import { API_URLS } from '@/config/apiConfig';
 
 type Message = {
   id: number
@@ -193,10 +194,7 @@ export function SpeechChatPage() {
 
     try {
       // Call ChatGPT API
-      const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
-      const proxyUrl = isLocal
-        ? "http://localhost:4001/chatgptProxy"
-        : "/.netlify/functions/chatgptProxy"
+      const proxyUrl = API_URLS.chatgptProxy
 
       const response = await fetch(proxyUrl, {
         method: "POST",

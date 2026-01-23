@@ -4,6 +4,7 @@ import React from "react"
 
 //@ts-ignore
 import { useState, useRef, useEffect, useMemo } from "react"
+import { API_URLS, getSpeechProxyUrl } from '@/config/apiConfig';
 import { Card, CardHeader, CardContent, CardTitle } from "./ui/card"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog"
 import { Mic, BookOpen, AlertTriangle, Volume2, Award, Brain, Square, Play, Pause, LayoutDashboard, ChevronDown, BookText } from "lucide-react"
@@ -72,8 +73,7 @@ export function ReadingAssessmentResults({ data, audioUrl: propAudioUrl }) {
 
     const run = async () => {
       try {
-        const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
-        const proxyUrl = isLocal ? "http://localhost:4001/chatgptProxy" : "/.netlify/functions/chatgptProxy"
+        const proxyUrl = API_URLS.chatgptProxy
 
         const resp = await fetch(proxyUrl, {
           method: "POST",
@@ -128,8 +128,7 @@ export function ReadingAssessmentResults({ data, audioUrl: propAudioUrl }) {
       // Generate believable scores using ChatGPT
       const generateScores = async () => {
         try {
-          const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
-          const proxyUrl = isLocal ? "http://localhost:4001/chatgptProxy" : "/.netlify/functions/chatgptProxy"
+          const proxyUrl = API_URLS.chatgptProxy
 
           console.log("Calling ChatGPT API to generate word scores...")
           const response = await fetch(proxyUrl, {
@@ -310,9 +309,7 @@ export function ReadingAssessmentResults({ data, audioUrl: propAudioUrl }) {
       
       // Determine endpoint - use scripted endpoint for word practice
       const endpoint = "https://apis.languageconfidence.ai/speech-assessment/scripted/uk"
-      const proxyUrl = process.env.NODE_ENV === "production" 
-        ? "/.netlify/functions/speechProxy"
-        : "http://localhost:4000/speechProxy"
+      const proxyUrl = getSpeechProxyUrl(endpoint)
 
       const payload = JSON.stringify({
         audio_base64: base64Audio,

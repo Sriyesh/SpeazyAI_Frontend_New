@@ -5,6 +5,7 @@ import { Button } from "../ui/button"
 import { Mic, Square, Play, Pause, RotateCcw } from "lucide-react"
 import { RecordingWaveform } from "../recordingWaveform"
 import { LoadingAssessment } from "../loadingAssessment"
+import { getSpeechProxyUrl } from '@/config/apiConfig';
 
 export function IELTSAudioRecorder({
   expectedText = "",
@@ -218,17 +219,10 @@ export function IELTSAudioRecorder({
   // 🔥 API Integration
   const callSpeechAssessmentAPI = async (base64Audio, format) => {
     console.log("Calling LanguageConfidence API through CORS proxy...")
-    // Determine the correct proxy URL based on the environment
-    // If we're running on localhost, use the local express server (port 4000)
-    // If we're on Netlify, use the Netlify function
-    const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
-    // Add endpoint as query parameter for Netlify function
-    const endpointParam = endpoint ? `?endpoint=${encodeURIComponent(endpoint)}` : ''
-    const proxyUrl = isLocal 
-      ? `http://localhost:4000/speechProxy${endpointParam}` 
-      : `/.netlify/functions/speechProxy${endpointParam}`
+    // Use API config for consistent URL handling
+    const proxyUrl = getSpeechProxyUrl(endpoint)
     
-    console.log(`Using proxy URL: ${proxyUrl} (isLocal: ${isLocal})`)
+    console.log(`Using proxy URL: ${proxyUrl}`)
     setIsLoading(true)
 
     const isScripted = typeof endpoint === "string" && endpoint.includes("speech-assessment/scripted")
@@ -288,7 +282,7 @@ export function IELTSAudioRecorder({
         if (isLocal) {
           alert("Network error: Could not connect to the proxy server at localhost:4000.\n\nPlease make sure the proxy server is running:\n1. Open a terminal\n2. Run: node speechProxyServer.js\n3. Then try recording again.")
         } else {
-          alert("Network error: Could not connect to the server.\n\nPlease check:\n1. Your internet connection\n2. If you're on a production site, the Netlify function may not be deployed\n3. Try refreshing the page and recording again")
+          alert("Network error: Could not connect to the server.\n\nPlease check:\n1. Your internet connection\n2. The DigitalOcean function may not be available\n3. Try refreshing the page and recording again")
         }
       } else if (errorMessage.includes("404")) {
         alert("Service not found (404). The proxy endpoint may not be available. Please contact support if this issue persists.")

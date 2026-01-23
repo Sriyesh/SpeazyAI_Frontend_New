@@ -4,6 +4,7 @@ import React from "react"
 
 //@ts-ignore
 import { useState, useRef, useEffect } from "react"
+import { API_URLS } from '@/config/apiConfig';
 import { Card, CardHeader, CardContent, CardTitle } from "./ui/card"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog"
 import { Mic, BookOpen, AlertTriangle, Volume2, Award, Brain, Square, Play, Pause, LayoutDashboard, ChevronDown, BookText } from "lucide-react"
@@ -74,8 +75,7 @@ export function SpeechAssessmentResults({ data, audioUrl: propAudioUrl }) {
 
     const run = async () => {
       try {
-        const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
-        const proxyUrl = isLocal ? "http://localhost:4001/chatgptProxy" : "/.netlify/functions/chatgptProxy"
+        const proxyUrl = API_URLS.chatgptProxy
 
         const resp = await fetch(proxyUrl, {
           method: "POST",
@@ -129,8 +129,7 @@ export function SpeechAssessmentResults({ data, audioUrl: propAudioUrl }) {
       // Generate believable scores using ChatGPT
       const generateScores = async () => {
         try {
-          const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
-          const proxyUrl = isLocal ? "http://localhost:4001/chatgptProxy" : "/.netlify/functions/chatgptProxy"
+          const proxyUrl = API_URLS.chatgptProxy
 
           const response = await fetch(proxyUrl, {
             method: "POST",

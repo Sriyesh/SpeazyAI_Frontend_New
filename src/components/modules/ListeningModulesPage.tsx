@@ -8,6 +8,7 @@ import { PageHeader } from "../PageHeader"
 import type { CSSProperties } from "react"
 import { useState, useEffect, useRef } from "react"
 import { useAuth } from "../../contexts/AuthContext"
+import { API_URLS } from '@/config/apiConfig';
 
 const API_URL = "https://api.exeleratetechnology.com/api/content/list_bundle.php?section=listening"
 const SAVE_RESULT_API = "https://api.exeleratetechnology.com/api/listening/save-result.php"
@@ -346,8 +347,7 @@ Return your response as JSON in this exact format:
 
 Be fair but strict. Consider partial credit for answers that are close but not exact. The answerResults object must have an entry for each question index (0-based).`
 
-      const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-      const proxyUrl = isLocal ? "http://localhost:4001/chatgptProxy" : "/.netlify/functions/chatgptProxy"
+      const proxyUrl = API_URLS.chatgptProxy
 
       const response = await fetch(proxyUrl, {
         method: "POST",

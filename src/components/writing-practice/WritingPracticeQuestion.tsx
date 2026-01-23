@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { ArrowLeft, Send, Loader2 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
+import { API_URLS } from '@/config/apiConfig';
 
 interface WritingPracticeQuestionProps {
   question: string;
@@ -230,8 +231,7 @@ export function WritingPracticeQuestion({
     setError(null);
 
     try {
-      const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
-      const proxyUrl = isLocal ? "http://localhost:4001/chatgptProxy" : "/.netlify/functions/chatgptProxy";
+      const proxyUrl = API_URLS.chatgptProxy;
 
       console.log("Calling ChatGPT proxy at:", proxyUrl);
 

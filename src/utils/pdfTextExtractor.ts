@@ -3,6 +3,8 @@
  * and managing PDF text cache in browser storage
  */
 
+import { API_URLS } from '@/config/apiConfig';
+
 const PDF_TEXT_CACHE_PREFIX = 'pdfText_'
 const PDF_TEXT_CACHE_KEYS = 'pdfTextCacheKeys'
 
@@ -137,7 +139,7 @@ const extractTextFromPdf = async (pdfUrl: string): Promise<string> => {
         
         const proxyUrl = isLocal
           ? `/api/pdf-proxy?url=${encodeURIComponent(pdfUrl)}` // Local proxy (if you create one)
-          : `/.netlify/functions/pdfProxy?url=${encodeURIComponent(pdfUrl)}` // Netlify function
+          : `${API_URLS.pdfProxy}?url=${encodeURIComponent(pdfUrl)}` // DigitalOcean function
         
         const proxyResponse = await fetch(proxyUrl)
         
@@ -210,7 +212,7 @@ const processTextWithChatGPT = async (
 
     const apiUrl = isLocal
       ? 'http://localhost:4001/pdfExtractProxy' // Local proxy (port 4001 for chatgptProxy)
-      : '/.netlify/functions/pdfExtractProxy' // Netlify function for PDF extraction
+      : API_URLS.pdfExtractProxy // DigitalOcean function for PDF extraction
 
     // Truncate text if too long (ChatGPT has token limits)
     const maxLength = 100000 // Approximate character limit

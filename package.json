@@ -72,5 +72,9 @@
     "proxy:chatgpt": "node chatgptProxyServer.js",
     "proxy:all": "concurrently \"npm run proxy:speech\" \"npm run proxy:chatgpt\""
   },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
   "type": "module"
 }

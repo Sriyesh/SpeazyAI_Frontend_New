@@ -4,6 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { ArrowLeft, Play, Pause, Clock, Loader2, Mic, X } from 'lucide-react';
 import { IELTSAudioRecorder } from './IELTSAudioRecorder';
 import { IELTSQuestionRecorder } from './IELTSQuestionRecorder';
+import { API_URLS, getSpeechProxyUrl } from '@/config/apiConfig';
 
 interface SpeakingQuestion {
   question_number: number;
@@ -440,9 +441,7 @@ export function IELTSSpeakingTaskView() {
       duration: number;
     }> = [];
 
-    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    const localProxyUrl = 'http://localhost:4000/speechProxy?endpoint=https://apis.languageconfidence.ai/speech-assessment/unscripted/uk';
-    const netlifyProxyUrl = '/.netlify/functions/speechProxy?endpoint=https://apis.languageconfidence.ai/speech-assessment/unscripted/uk';
+    const proxyUrl = getSpeechProxyUrl('https://apis.languageconfidence.ai/speech-assessment/unscripted/uk');
 
     // Evaluate regular questions for this part - process ALL questions
     const partQuestions = part.questions || [];
@@ -488,39 +487,18 @@ export function IELTSSpeakingTaskView() {
 
         console.log(`Evaluating Question ${questionId} from localStorage...`);
 
-        // Try local proxy first, then Netlify function
-        let response: Response | null = null;
-        if (isLocal) {
-          try {
-            response = await fetch(localProxyUrl, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'lc-beta-features': 'false',
-              },
-              body: JSON.stringify({
-                audio_base64: cleanBase64,
-                audio_format: audioFormat,
-              }),
-            });
-          } catch (localError: any) {
-            console.warn('Local proxy not available, falling back to Netlify function');
-          }
-        }
-
-        if (!response) {
-          response = await fetch(netlifyProxyUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'lc-beta-features': 'false',
-            },
-            body: JSON.stringify({
-              audio_base64: cleanBase64,
-              audio_format: audioFormat,
-            }),
-          });
-        }
+        // Use DigitalOcean function
+        const response = await fetch(proxyUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'lc-beta-features': 'false',
+          },
+          body: JSON.stringify({
+            audio_base64: cleanBase64,
+            audio_format: audioFormat,
+          }),
+        });
 
         if (!response.ok) {
           const errorText = await response.text();
@@ -582,38 +560,17 @@ export function IELTSSpeakingTaskView() {
             audioFormat = 'm4a';
           }
 
-          let response: Response | null = null;
-          if (isLocal) {
-            try {
-              response = await fetch(localProxyUrl, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'lc-beta-features': 'false',
-                },
-                body: JSON.stringify({
-                  audio_base64: cleanBase64,
-                  audio_format: audioFormat,
-                }),
-              });
-            } catch (localError: any) {
-              console.warn('Local proxy not available, falling back to Netlify function');
-            }
-          }
-
-          if (!response) {
-            response = await fetch(netlifyProxyUrl, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'lc-beta-features': 'false',
-              },
-              body: JSON.stringify({
-                audio_base64: cleanBase64,
-                audio_format: audioFormat,
-              }),
-            });
-          }
+          const response = await fetch(proxyUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'lc-beta-features': 'false',
+            },
+            body: JSON.stringify({
+              audio_base64: cleanBase64,
+              audio_format: audioFormat,
+            }),
+          });
 
           if (response && response.ok) {
             const result = await response.json();
@@ -692,10 +649,7 @@ export function IELTSSpeakingTaskView() {
       if (!skipEvaluatingState) {
         setIsEvaluating(true);
       }
-      const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-      const proxyUrl = isLocal 
-        ? 'http://localhost:4001/chatgptProxy' 
-        : '/.netlify/functions/chatgptProxy';
+      const proxyUrl = API_URLS.chatgptProxy;
 
       // Get additional info from speech assessment result
       const fluencyScore = speechAssessmentResult?.fluency_score || 0;

@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Button } from '../ui/button';
 import { useAuth } from '../../contexts/AuthContext';
 import { ArrowLeft, ChevronLeft, ChevronRight, Check, Clock, X, Loader2 } from 'lucide-react';
+import { API_URLS } from '@/config/apiConfig';
 
 interface TaskContent {
   id: string;
@@ -300,8 +301,7 @@ export function IELTSWritingTaskView() {
 
     try {
       // Evaluate Task 1 with ChatGPT
-      const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
-      const proxyUrl = isLocal ? "http://localhost:4001/chatgptProxy" : "/.netlify/functions/chatgptProxy";
+      const proxyUrl = API_URLS.chatgptProxy;
 
       const response = await fetch(proxyUrl, {
         method: "POST",
@@ -362,8 +362,7 @@ export function IELTSWritingTaskView() {
     setIsSubmitting(true);
 
     try {
-      const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
-      const proxyUrl = isLocal ? "http://localhost:4001/chatgptProxy" : "/.netlify/functions/chatgptProxy";
+      const proxyUrl = API_URLS.chatgptProxy;
 
       const response = await fetch(proxyUrl, {
         method: "POST",

@@ -1,0 +1,20 @@
+# DigitalOcean App Platform Configuration
+# This file helps DigitalOcean understand your app structure
+
+name: speech-skills-ai
+
+# Static Site Configuration
+static_sites:
+  - name: frontend
+    github:
+      repo: your-username/SppechSkillsAi  # Update with your GitHub username/repo
+      branch: master  # or 'main' if that's your default branch
+    build_command: npm run build
+    output_dir: build
+    environment_slug: node-js
+    routes:
+      - path: /
+    catchall_document: index.html  # Required for SPA routing
+
+# Note: Functions are deployed separately via DigitalOcean Functions
+# They don't need to be in this app.yaml file
