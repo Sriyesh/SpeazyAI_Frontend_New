@@ -9,7 +9,7 @@ import { Alert, AlertDescription } from "./ui/alert"
 import { MelloAssistant } from "./MelloAssistant"
 import { Eye, EyeOff, AlertCircle, Loader2 } from "lucide-react"
 import { motion } from "motion/react"
-import { useNavigate, Navigate } from "react-router-dom"
+import { useNavigate, useLocation } from "react-router-dom"
 import { useAuth } from "../contexts/AuthContext"
 import { toast } from "sonner"
 
@@ -22,7 +22,10 @@ export function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
 
   const navigate = useNavigate()
+  const location = useLocation()
   const { login, isAuthenticated, loading } = useAuth()
+  // Where to redirect after login: the page user was trying to open, or default dashboard
+  const fromPath = (location.state as { from?: { pathname?: string } })?.from?.pathname || "/skills-home"
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -53,9 +56,9 @@ export function LoginPage() {
           border: "none",
         },
       })
-      // Navigate to dashboard after a brief delay to show the toast
+      // Navigate back to the page user was trying to open (e.g. /progress-dashboard) or default dashboard
       setTimeout(() => {
-        navigate("/skills-home")
+        navigate(fromPath, { replace: true })
       }, 500)
     } catch (err) {
       // Handle login error - show error toast

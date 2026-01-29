@@ -16,7 +16,8 @@ static_sites:
     http_port: 8080
     routes:
       - path: /
-    catchall_document: index.html  # Required for SPA routing
+    # Serve index.html for 404s so /login, /about, etc. work (SPA client-side routing)
+    error_document: index.html
     # NO run_command or dockerfile_path - static sites don't need these
 
 # Note: Functions are deployed separately via DigitalOcean Functions

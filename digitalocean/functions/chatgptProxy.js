@@ -1,242 +1,146 @@
 // DigitalOcean Serverless Function - ChatGPT Proxy
-// This function proxies requests to OpenAI's ChatGPT API
+// Works with Dashboard "Test Parameters" + real HTTP POST from frontend
 
-export async function main(event) {
-  // DigitalOcean Functions event structure
-  const method = event.http?.method || event.method || 'POST';
-  const headers = event.http?.headers || event.headers || {};
-  const body = event.http?.body ? (typeof event.http.body === 'string' ? JSON.parse(event.http.body) : event.http.body) : (event.body || {});
-  
-  // CORS: Determine allowed origin (single value only)
-  const requestOrigin = headers.origin || headers.Origin || "";
-  const productionOrigin = process.env.ALLOWED_ORIGIN || "https://exeleratetechnology.com";
-  
-  // Check if origin is allowed
-  let allowedOrigin = productionOrigin; // Default to production
-  
-  if (requestOrigin) {
-    // Allow localhost for development
-    if (requestOrigin === "http://localhost:3000" || requestOrigin === "http://127.0.0.1:3000") {
-      allowedOrigin = requestOrigin;
+const hasUseful = (o) => o && (o.question != null || o.answer != null || o.mode != null || o.predicted_text != null || o.expected_text != null || (o.messages != null && Array.isArray(o.messages)) || o.words != null);
+
+function parseBody(event) {
+  let body = {};
+
+  const use = (val) => {
+    if (val && hasUseful(val)) {
+      body = val;
+      return true;
     }
-    // Allow DigitalOcean App Platform URLs (*.ondigitalocean.app)
-    else if (requestOrigin.includes(".ondigitalocean.app")) {
-      allowedOrigin = requestOrigin;
+    return false;
+  };
+
+  const parseStr = (s) => {
+    if (typeof s !== "string" || !s.trim()) return null;
+    try {
+      const o = JSON.parse(s);
+      return hasUseful(o) ? o : (o?.body && typeof o.body === "object" && hasUseful(o.body) ? o.body : null);
+    } catch {
+      return null;
     }
-    // Allow exact production domain match
-    else if (requestOrigin === productionOrigin) {
-      allowedOrigin = requestOrigin;
+  };
+
+  const unwrap = (o) => {
+    if (!o) return null;
+    if (hasUseful(o)) return o;
+    if (o?.body && typeof o.body === "object" && hasUseful(o.body)) return o.body;
+    return null;
+  };
+
+  // 1. __ow_body (DO HTTP; may be base64)
+  if (event?.__ow_body) {
+    let s = event.__ow_body;
+    if (event.__ow_isBase64Encoded && typeof s === "string") {
+      try {
+        s = Buffer.from(s, "base64").toString("utf8");
+      } catch (_) {}
     }
+    let o = null;
+    if (typeof s === "string") o = parseStr(s);
+    else if (typeof s === "object") o = unwrap(s) || (hasUseful(s) ? s : null);
+    use(o);
   }
-  
-  // NEVER return "*" - always return a specific origin
 
-  // Handle CORS preflight
-  if (method === "OPTIONS") {
-    return {
-      statusCode: 200,
-      headers: {
-        "Access-Control-Allow-Origin": allowedOrigin,
-        "Access-Control-Allow-Headers": "Content-Type",
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
-      },
-      body: "",
+  // 2. event.http.body
+  if (!hasUseful(body) && event?.http?.body) {
+    const hb = event.http.body;
+    let o = null;
+    if (typeof hb === "string") o = parseStr(hb);
+    else if (typeof hb === "object") o = unwrap(hb) || (hasUseful(hb) ? hb : null);
+    use(o);
+  }
+
+  // 3. event.body
+  if (!hasUseful(body) && event?.body) {
+    const b = event.body;
+    let o = null;
+    if (typeof b === "string") o = parseStr(b);
+    else if (typeof b === "object") o = unwrap(b) || (hasUseful(b) ? b : null);
+    use(o);
+  }
+
+  // 4. Envelope event.http.body.body
+  if (!hasUseful(body) && event?.http?.body?.body && typeof event.http.body.body === "object" && hasUseful(event.http.body.body)) body = event.http.body.body;
+
+  // 5. Top-level merge (Dashboard / DO merge)
+  if (!hasUseful(body) && (event?.question != null || event?.answer != null || event?.mode != null || event?.predicted_text != null || event?.expected_text != null || (event?.messages != null && Array.isArray(event.messages)))) {
+    body = {
+      question: event.question,
+      answer: event.answer,
+      level: event.level ?? "intermediate",
+      mode: event.mode,
+      messages: event.messages,
+      words: event.words,
+      predicted_text: event.predicted_text,
+      expected_text: event.expected_text,
     };
   }
 
+  // 6. Supplement from event
+  if (event?.mode != null && body.mode == null) body.mode = event.mode;
+  if (event?.messages != null && Array.isArray(event.messages) && !Array.isArray(body.messages)) body.messages = event.messages;
+  if (event?.question != null && body.question == null) body.question = event.question;
+  if (event?.answer != null && body.answer == null) body.answer = event.answer;
+  if (event?.words != null && body.words == null) body.words = event.words;
+  if (event?.predicted_text != null && body.predicted_text == null) body.predicted_text = event.predicted_text;
+  if (event?.expected_text != null && body.expected_text == null) body.expected_text = event.expected_text;
+
+  return body;
+}
+
+function formatOpenAIError(errText) {
   try {
-    const { mode, predicted_text, expected_text, question, answer, level, words, messages } = body;
-
-    // New mode: generate word scores when all scores are 0
-    if (mode === "generate_word_scores" && words) {
-      const wordsList = Array.isArray(words) ? words : [];
-      
-      if (wordsList.length === 0) {
-        return {
-          statusCode: 400,
-          headers: { "Access-Control-Allow-Origin": allowedOrigin },
-          body: JSON.stringify({ error: "words array is required" }),
-        };
-      }
-
-      const wordTexts = wordsList.map((w) => (w.word_text || w).toString().trim()).filter(Boolean);
-      
-      if (wordTexts.length === 0) {
-        return {
-          statusCode: 400,
-          headers: { "Access-Control-Allow-Origin": allowedOrigin },
-          body: JSON.stringify({ error: "No valid words provided" }),
-        };
-      }
-
-      const prompt = `You are a pronunciation assessment assistant. Given a list of words from a speech assessment, generate believable pronunciation scores (0-100) for each word. 
-
-The scores should:
-- Range between 60-95 for most words (typical pronunciation scores)
-- Vary naturally (not all the same)
-- Be realistic (common words typically score higher, complex words may score lower)
-- Avoid extremes (don't give all 100s or all 60s)
-
-Words to score:
-${wordTexts.slice(0, 200).join(", ")}
-
-Return a JSON object mapping each word to a score (0-100):
-{
-  "word_scores": {
-    "word1": 85,
-    "word2": 78,
-    ...
+    const p = typeof errText === "string" ? JSON.parse(errText) : errText;
+    const msg = p?.error?.message ?? p?.error ?? p?.message ?? errText;
+    const code = p?.error?.code ?? p?.code;
+    return { error: typeof msg === "string" ? msg : JSON.stringify(msg), code };
+  } catch {
+    return { error: String(errText), code: null };
   }
-}`;
+}
 
-      const openaiApiKey = process.env.OPENAI_API_KEY;
-      if (!openaiApiKey) {
-        return {
-          statusCode: 500,
-          headers: { "Access-Control-Allow-Origin": allowedOrigin },
-          body: JSON.stringify({ error: "OpenAI API key not configured" }),
-        };
-      }
+export async function main(event) {
+  const method = event?.__ow_method ?? event?.http?.method ?? event?.method ?? "POST";
 
-      const response = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${openaiApiKey}`,
-        },
-        body: JSON.stringify({
-          model: "gpt-4o-mini",
-          messages: [
-            {
-              role: "system",
-              content: "Return only JSON. Generate realistic pronunciation scores (0-100) for words.",
-            },
-            { role: "user", content: prompt },
-          ],
-          temperature: 0.7,
-          response_format: { type: "json_object" },
-        }),
-      });
+  if (method === "OPTIONS") {
+    return { statusCode: 204 };
+  }
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("OpenAI API Error:", errorText);
-        return {
-          statusCode: response.status,
-          headers: { "Access-Control-Allow-Origin": allowedOrigin },
-          body: JSON.stringify({ error: `OpenAI API error: ${errorText}` }),
-        };
-      }
+  const body = parseBody(event);
+  const bodyKeys = Object.keys(body);
+  console.log("chatgptProxy parsed body keys:", bodyKeys.join(", ") || "(none)");
 
-      const data = await response.json();
-      const content = data.choices[0]?.message?.content;
-      if (!content) {
-        return {
-          statusCode: 500,
-          headers: { "Access-Control-Allow-Origin": allowedOrigin },
-          body: JSON.stringify({ error: "No response from OpenAI" }),
-        };
-      }
+  const mode = body.mode;
+  const predicted_text = (body.predicted_text ?? "").toString().trim();
+  const expected_text = (body.expected_text ?? "").toString().trim();
+  const question = body.question != null ? String(body.question).trim() : "";
+  const answer = body.answer != null ? String(body.answer).trim() : "";
+  const level = body.level ?? "intermediate";
 
-      let result;
-      try {
-        result = JSON.parse(content);
-      } catch {
-        // Fallback: generate random scores between 70-90
-        const fallbackScores = {};
-        wordTexts.forEach((word) => {
-          fallbackScores[word] = Math.floor(Math.random() * 21) + 70; // 70-90
-        });
-        result = { word_scores: fallbackScores };
-      }
+  const openaiApiKey = process.env.OPENAI_API_KEY;
+  if (!openaiApiKey) {
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: "OpenAI API key not configured" }),
+    };
+  }
 
-      return {
-        statusCode: 200,
-        headers: {
-          "Access-Control-Allow-Origin": allowedOrigin,
-          "Access-Control-Allow-Headers": "Content-Type",
-        },
-        body: JSON.stringify(result),
-      };
-    }
-
-    // Chat mode: handle conversational chat with role-based system messages
-    if (mode === "chat" && messages) {
-      const openaiApiKey = process.env.OPENAI_API_KEY;
-      if (!openaiApiKey) {
-        return {
-          statusCode: 500,
-          headers: { "Access-Control-Allow-Origin": allowedOrigin },
-          body: JSON.stringify({ error: "OpenAI API key not configured" }),
-        };
-      }
-
-      const response = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${openaiApiKey}`,
-        },
-        body: JSON.stringify({
-          model: "gpt-4o-mini",
-          messages: messages,
-          temperature: 0.7,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("OpenAI API Error:", errorText);
-        return {
-          statusCode: response.status,
-          headers: { "Access-Control-Allow-Origin": allowedOrigin },
-          body: JSON.stringify({ error: `OpenAI API error: ${errorText}` }),
-        };
-      }
-
-      const data = await response.json();
-      const content = data.choices[0]?.message?.content;
-      if (!content) {
-        return {
-          statusCode: 500,
-          headers: { "Access-Control-Allow-Origin": allowedOrigin },
-          body: JSON.stringify({ error: "No response from OpenAI" }),
-        };
-      }
-
-      return {
-        statusCode: 200,
-        headers: {
-          "Access-Control-Allow-Origin": allowedOrigin,
-          "Access-Control-Allow-Headers": "Content-Type",
-        },
-        body: JSON.stringify({ response: content }),
-      };
-    }
-
-    // New mode: speech word breakdown verification/cleanup
-    if (mode === "speech_word_breakdown" || predicted_text || expected_text) {
-      const predicted = (predicted_text || "").toString().trim();
-      const expected = (expected_text || "").toString().trim();
-
-      if (!predicted) {
-        return {
-          statusCode: 400,
-          headers: { "Access-Control-Allow-Origin": allowedOrigin },
-          body: JSON.stringify({ error: "predicted_text is required" }),
-        };
-      }
-
-      const prompt = `You are a transcript alignment assistant.
+  // ---- speech_word_breakdown: transcript cleanup for Pronunciation Breakdown UI ----
+  if ((mode === "speech_word_breakdown" || predicted_text || expected_text) && predicted_text) {
+    const prompt = `You are a transcript alignment assistant.
 
 Input 1 (predicted_text): The ASR transcript of what the user actually said.
-Input 2 (expected_text): The script the user was supposed to read. This can include noise like headings (UNIT/CHAPTER), page numbers, standalone question numbers, etc.
+Input 2 (expected_text): The script the user was supposed to read.
 
 Your task: return a JSON object with a clean list of words to display in a "Pronunciation Breakdown" UI.
 
 Rules:
 - Prefer predicted_text for display unless it is empty or clearly unusable.
-- Remove obvious noise tokens from expected_text (e.g., UNIT, CHAPTER, LESSON, standalone numbers like 7, 12, 13, etc).
+- Remove obvious noise tokens from expected_text (e.g., UNIT, CHAPTER, LESSON, standalone numbers).
 - Output tokens (words) in reading order.
 - Keep contractions like "it's", "don't" as a single token if they appear.
 - Do NOT invent new content beyond predicted_text/expected_text.
@@ -250,20 +154,12 @@ Return JSON in this shape:
 }
 
 predicted_text:
-${predicted.slice(0, 8000)}
+${predicted_text.slice(0, 8000)}
 
 expected_text:
-${expected.slice(0, 8000)}`;
+${expected_text.slice(0, 8000)}`;
 
-      const openaiApiKey = process.env.OPENAI_API_KEY;
-      if (!openaiApiKey) {
-        return {
-          statusCode: 500,
-          headers: { "Access-Control-Allow-Origin": allowedOrigin },
-          body: JSON.stringify({ error: "OpenAI API key not configured" }),
-        };
-      }
-
+    try {
       const response = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -271,209 +167,220 @@ ${expected.slice(0, 8000)}`;
           Authorization: `Bearer ${openaiApiKey}`,
         },
         body: JSON.stringify({
-          model: "gpt-4o",
+          model: "gpt-4o-mini",
           messages: [
-            {
-              role: "system",
-              content:
-                "Return only JSON. You clean transcripts and produce token lists for UI display.",
-            },
+            { role: "system", content: "Return only JSON. You clean transcripts and produce token lists for UI display." },
             { role: "user", content: prompt },
           ],
           temperature: 0.1,
           response_format: { type: "json_object" },
         }),
       });
-
+      const errText = await response.text();
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error("OpenAI API Error:", errorText);
+        console.error("OpenAI error (speech_word_breakdown):", errText.slice(0, 500));
+        const err = formatOpenAIError(errText);
         return {
           statusCode: response.status,
-          headers: { "Access-Control-Allow-Origin": allowedOrigin },
-          body: JSON.stringify({ error: `OpenAI API error: ${errorText}` }),
+          body: JSON.stringify(err.code ? { error: err.error, code: err.code } : { error: err.error }),
         };
       }
-
-      const data = await response.json();
-      const content = data.choices[0]?.message?.content;
+      let data;
+      try {
+        data = JSON.parse(errText);
+      } catch {
+        return { statusCode: 500, body: JSON.stringify({ error: "Invalid OpenAI response" }) };
+      }
+      const content = data.choices?.[0]?.message?.content;
       if (!content) {
-        return {
-          statusCode: 500,
-          headers: { "Access-Control-Allow-Origin": allowedOrigin },
-          body: JSON.stringify({ error: "No response from OpenAI" }),
-        };
+        return { statusCode: 500, body: JSON.stringify({ error: "No response from OpenAI" }) };
       }
-
       let result;
       try {
         result = JSON.parse(content);
       } catch {
         result = {
           display_source: "predicted",
-          display_text: predicted,
-          display_words: predicted.split(/\s+/).slice(0, 200),
+          display_text: predicted_text,
+          display_words: predicted_text.split(/\s+/).slice(0, 200),
         };
       }
-
+      return { statusCode: 200, body: JSON.stringify(result) };
+    } catch (e) {
+      console.error("chatgptProxy speech_word_breakdown error:", e);
       return {
-        statusCode: 200,
-        headers: {
-          "Access-Control-Allow-Origin": allowedOrigin,
-          "Access-Control-Allow-Headers": "Content-Type",
-        },
-        body: JSON.stringify(result),
+        statusCode: 500,
+        body: JSON.stringify({ error: "Proxy failure", details: e?.message || "Server error" }),
       };
     }
+  }
 
-    if (!question || !answer) {
+  // ---- chat: Hold to Speak / SpeechChatPage (mode=chat + messages) ----
+  const msgList = Array.isArray(body.messages) ? body.messages : [];
+  const isChat = (mode === "chat" || (msgList.length > 0 && !question && !answer)) && msgList.length > 0;
+  if (isChat) {
+    console.log("chatgptProxy: chat branch, messages=" + msgList.length);
+    const openaiMessages = msgList
+      .filter((m) => m && (m.role === "system" || m.role === "user" || m.role === "assistant") && m.content != null)
+      .map((m) => ({ role: m.role, content: String(m.content).slice(0, 16000) }));
+    if (openaiMessages.length === 0) {
       return {
         statusCode: 400,
-        headers: {
-          "Access-Control-Allow-Origin": allowedOrigin,
-        },
-        body: JSON.stringify({ error: "Question and answer are required" }),
+        body: JSON.stringify({ error: "messages must contain at least one object with role and content" }),
       };
     }
+    try {
+      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${openaiApiKey}`,
+        },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          messages: openaiMessages,
+          temperature: 0.7,
+        }),
+      });
+      const errText = await response.text();
+      if (!response.ok) {
+        console.error("OpenAI error (chat):", errText.slice(0, 500));
+        const err = formatOpenAIError(errText);
+        return {
+          statusCode: response.status,
+          body: JSON.stringify(err.code ? { error: err.error, code: err.code } : { error: err.error }),
+        };
+      }
+      let data;
+      try {
+        data = JSON.parse(errText);
+      } catch {
+        return { statusCode: 500, body: JSON.stringify({ error: "Invalid OpenAI response" }) };
+      }
+      const content = data.choices?.[0]?.message?.content ?? "";
+      return {
+        statusCode: 200,
+        body: JSON.stringify({ response: content, content: content, message: content }),
+      };
+    } catch (e) {
+      console.error("chatgptProxy chat error:", e);
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ error: "Proxy failure", details: e?.message || "Server error" }),
+      };
+    }
+  }
 
-    // Construct the prompt for IELTS assessment
-    const escapedAnswer = answer.replace(/"/g, '\\"').replace(/\n/g, '\\n');
-    const prompt = `You are an IELTS writing examiner. Please assess the following writing task according to IELTS Writing Task 2 standards.
+  // ---- IELTS writing: question + answer required ----
+  if (!question || !answer) {
+    return {
+      statusCode: 400,
+      body: JSON.stringify({
+        error: "Question and answer are required",
+        hint: "Send JSON body with question, answer, and optional level. For Hold to Speak / chat use mode=chat with messages. For Pronunciation Breakdown use mode=speech_word_breakdown with predicted_text and expected_text.",
+      }),
+    };
+  }
 
-Question/Prompt: ${question}
+  const prompt = `You are an IELTS writing examiner.
 
-Student's Answer: ${answer}
+Question:
+${question.slice(0, 12000)}
+
+Student Answer:
+${answer.slice(0, 12000)}
 
 Level: ${level}
 
-Please provide:
-1. An overall IELTS band score (0-9 scale)
-2. Detailed feedback on:
-   - Task Response (how well the answer addresses the question)
-   - Coherence and Cohesion (organization and linking)
-   - Lexical Resource (vocabulary range and accuracy)
-   - Grammatical Range and Accuracy
-3. Specific corrections - identify exact phrases/sentences from the student's answer that need improvement
-4. Strengths of the writing
-
-IMPORTANT: In the "corrections" array, identify specific text from the student's answer that needs improvement. Each correction should have:
-- "original": the exact text from the student's answer (must match exactly)
-- "corrected": the improved version
-- "explanation": why this change improves the writing
-
-Format your response as JSON with the following structure:
+Return ONLY valid JSON in this format:
 {
-  "ieltsScore": <number>,
-  "feedback": "<overall feedback text>",
-  "originalText": "${answer.replace(/"/g, '\\"').replace(/\n/g, '\\n')}",
+  "ieltsScore": number,
+  "feedback": string,
   "corrections": [
-    {
-      "original": "<exact text from student's answer that needs improvement>",
-      "corrected": "<improved version>",
-      "explanation": "<why this change is better>"
-    }
+    { "original": string, "corrected": string, "explanation": string }
   ],
   "breakdown": {
-    "taskResponse": "<feedback>",
-    "coherenceAndCohesion": "<feedback>",
-    "lexicalResource": "<feedback>",
-    "grammaticalRangeAndAccuracy": "<feedback>"
+    "taskResponse": string,
+    "coherenceAndCohesion": string,
+    "lexicalResource": string,
+    "grammaticalRangeAndAccuracy": string
   },
-  "suggestions": ["<suggestion1>", "<suggestion2>", ...],
-  "strengths": ["<strength1>", "<strength2>", ...]
+  "suggestions": string[],
+  "strengths": string[]
 }
+`;
 
-Be encouraging but honest. Adjust your expectations based on the level (beginner, intermediate, advanced). Find at least 2-5 specific corrections if there are errors.`;
+  const model = process.env.OPENAI_IELTS_MODEL || "gpt-4o-mini";
+  const req = {
+    model,
+    messages: [
+      { role: "system", content: "Return only valid JSON. No markdown or extra text." },
+      { role: "user", content: prompt },
+    ],
+    temperature: 0.6,
+    response_format: { type: "json_object" },
+  };
 
-    // Call OpenAI API
-    const openaiApiKey = process.env.OPENAI_API_KEY;
-    if (!openaiApiKey) {
-      return {
-        statusCode: 500,
-        headers: {
-          "Access-Control-Allow-Origin": allowedOrigin,
-        },
-        body: JSON.stringify({ error: "OpenAI API key not configured" }),
-      };
-    }
-
+  try {
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${openaiApiKey}`,
       },
-      body: JSON.stringify({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: "You are an expert IELTS writing examiner. Provide detailed, constructive feedback in JSON format.",
-          },
-          {
-            role: "user",
-            content: prompt,
-          },
-        ],
-        temperature: 0.7,
-        response_format: { type: "json_object" },
-      }),
+      body: JSON.stringify(req),
     });
 
+    const errText = await response.text();
+
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error("OpenAI API Error:", errorText);
+      console.error("OpenAI error:", errText.slice(0, 500));
+      const err = formatOpenAIError(errText);
+      const payload = { error: err.error };
+      if (err.code) payload.code = err.code;
       return {
         statusCode: response.status,
-        headers: {
-          "Access-Control-Allow-Origin": allowedOrigin,
-        },
-        body: JSON.stringify({ error: `OpenAI API error: ${errorText}` }),
+        body: JSON.stringify(payload),
       };
     }
 
-    const data = await response.json();
-    const content = data.choices[0]?.message?.content;
+    let data;
+    try {
+      data = JSON.parse(errText);
+    } catch {
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ error: "Invalid OpenAI response" }),
+      };
+    }
 
+    const content = data.choices?.[0]?.message?.content;
     if (!content) {
       return {
         statusCode: 500,
-        headers: {
-          "Access-Control-Allow-Origin": allowedOrigin,
-        },
         body: JSON.stringify({ error: "No response from OpenAI" }),
       };
     }
 
-    // Parse the JSON response
-    let assessmentResult;
+    let parsed;
     try {
-      assessmentResult = JSON.parse(content);
-    } catch (parseError) {
-      // If parsing fails, return the raw response as feedback
-      assessmentResult = {
-        ieltsScore: null,
-        feedback: content,
-        response: content,
-      };
+      parsed = JSON.parse(content);
+    } catch {
+      parsed = { ieltsScore: null, feedback: content };
     }
 
     return {
       statusCode: 200,
-      headers: {
-        "Access-Control-Allow-Origin": allowedOrigin,
-        "Access-Control-Allow-Headers": "Content-Type",
-      },
-      body: JSON.stringify(assessmentResult),
+      body: JSON.stringify(parsed),
     };
-  } catch (error) {
-    console.error("Proxy error:", error);
+  } catch (e) {
+    console.error("chatgptProxy error:", e);
     return {
       statusCode: 500,
-      headers: {
-        "Access-Control-Allow-Origin": allowedOrigin,
-      },
-      body: JSON.stringify({ error: error.message }),
+      body: JSON.stringify({
+        error: "Proxy failure",
+        details: e?.message || "Server error",
+      }),
     };
   }
 }

@@ -5,24 +5,14 @@ import { ContactPage } from "./components/ContactPage"
 import { LoginPage } from "./components/LoginPage"
 import { SignUpPage } from "./components/SignUpPage"
 import { ForgotPasswordPage } from "./components/ForgotPasswordPage"
+import { Dashboard } from "./components/Dashboard"
 import { FamousSpeeches } from "./components/FamousSpeeches"
 import { AcademicSamples } from "./components/AcademicSamples"
 import { ChapterView } from "./components/ChapterView"
 import { MyLessons } from "./components/MyLessons"
 import { CustomContent } from "./components/CustomContent"
 import { ChatWithAI } from "./components/ChatWithAI"
-import { SpeechChatPage } from "./components/SpeechChatPage"
 import { IELTSModule } from "./components/IELTSModule"
-import { IELTSReadingPage } from "./components/ielts/IELTSReadingPage"
-import { IELTSWritingPage } from "./components/ielts/IELTSWritingPage"
-import { IELTSWritingTaskView } from "./components/ielts/IELTSWritingTaskView"
-import { IELTSWritingResults } from "./components/ielts/IELTSWritingResults"
-import { IELTSListeningResults } from "./components/ielts/IELTSListeningResults"
-import { IELTSListeningTaskView } from "./components/ielts/IELTSListeningTaskView"
-import { IELTSListeningPage } from "./components/ielts/IELTSListeningPage"
-import { IELTSSpeakingPage } from "./components/ielts/IELTSSpeakingPage"
-import { IELTSSpeakingTaskView } from "./components/ielts/IELTSSpeakingTaskView"
-import { IELTSSpeakingResults } from "./components/ielts/IELTSSpeakingResults"
 import { Profile } from "./components/Profile"
 import { ThemeProvider } from "./components/ThemeProvider"
 import { ContentLibrary } from "./components/ContentLibrary"
@@ -34,6 +24,10 @@ import { OfficialConversations } from "./components/listening-practice/OfficialC
 import { FormalConversations } from "./components/listening-practice/FormalConversations";
 import { Connectteacher } from "./components/Connectteacher";
 import { NewDashboard } from "./components/NewDashboard";
+import { EduDashboard } from "./components/EduDashboard";
+import { ClassManagement } from "./components/ClassManagement";
+import { LicenseManagement } from "./components/LicenseManagement";
+import { StudentDetailsPage } from "./components/StudentDetailsPage";
 import { SkillDetail } from "./components/SkillDetail"
 import ReadingPage from "./components/ReadingPage"
 import { ReadingModulesPage } from "./components/modules/ReadingModulesPage"
@@ -47,12 +41,7 @@ import { StoryDetail } from "./components/StoryDetail"
 import { NovelDetail } from "./components/NovelDetail"
 import { AssessmentResultsPage } from "./components/AssessmentResultsPage"
 import { SpeechAssessmentResultsPage } from "./components/SpeechAssessmentResultsPage"
-import { ReadingAssessmentResultsPage } from "./components/ReadingAssessmentResultsPage"
 import { VideoContent } from "./components/VideoContent"
-import { EduDashboard } from "./components/dashboard/EduDashboard"
-import { ClassManagement } from "./components/dashboard/ClassManagement"
-import { StudentDetailsPage } from "./components/dashboard/StudentdetailsPage"
-import { LicenseManagement } from "./components/dashboard/LicenseManagement"
 import { AuthProvider } from "./contexts/AuthContext"
 import { Toaster } from "./components/ui/sonner"
 import { ProtectedRoute } from "./components/ProtectedRoute"
@@ -74,30 +63,17 @@ export default function App() {
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             
             {/* Protected Routes */}
+            <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/quick-practice" element={<ProtectedRoute><QuickPractice /></ProtectedRoute>} />
             <Route path="/application" element={<Navigate to="/login" replace />} />
             <Route path="/famous-speeches" element={<ProtectedRoute><FamousSpeeches /></ProtectedRoute>} />
-            <Route path="/famous-speeches/results" element={<ProtectedRoute><SpeechAssessmentResultsPage /></ProtectedRoute>} />
             <Route path="/academic-samples" element={<ProtectedRoute><AcademicSamples /></ProtectedRoute>} />
             <Route path="/academic-samples/chapter/:chapterId" element={<ProtectedRoute><ChapterView /></ProtectedRoute>} />
             <Route path="/academic-samples/results" element={<ProtectedRoute><SpeechAssessmentResultsPage /></ProtectedRoute>} />
-            <Route path="/custom-content/results" element={<ProtectedRoute><SpeechAssessmentResultsPage /></ProtectedRoute>} />
-            <Route path="/my-lessons/results" element={<ProtectedRoute><SpeechAssessmentResultsPage /></ProtectedRoute>} />
             <Route path="/my-lessons" element={<ProtectedRoute><MyLessons /></ProtectedRoute>} />
             <Route path="/custom-content" element={<ProtectedRoute><CustomContent /></ProtectedRoute>} />
             <Route path="/chat" element={<ProtectedRoute><ChatWithAI /></ProtectedRoute>} />
-            <Route path="/chat/conversation" element={<ProtectedRoute><SpeechChatPage /></ProtectedRoute>} />
             <Route path="/ielts" element={<ProtectedRoute><IELTSModule /></ProtectedRoute>} />
-            <Route path="/ielts/reading" element={<ProtectedRoute><IELTSReadingPage /></ProtectedRoute>} />
-            <Route path="/ielts/writing" element={<ProtectedRoute><IELTSWritingPage /></ProtectedRoute>} />
-            <Route path="/ielts/writing/:contentId" element={<ProtectedRoute><IELTSWritingTaskView /></ProtectedRoute>} />
-            <Route path="/ielts/writing/:contentId/results" element={<ProtectedRoute><IELTSWritingResults /></ProtectedRoute>} />
-            <Route path="/ielts/listening" element={<ProtectedRoute><IELTSListeningPage /></ProtectedRoute>} />
-            <Route path="/ielts/listening/:contentId" element={<ProtectedRoute><IELTSListeningTaskView /></ProtectedRoute>} />
-            <Route path="/ielts/listening/:contentId/results" element={<ProtectedRoute><IELTSListeningResults /></ProtectedRoute>} />
-            <Route path="/ielts/speaking" element={<ProtectedRoute><IELTSSpeakingPage /></ProtectedRoute>} />
-            <Route path="/ielts/speaking/:contentId" element={<ProtectedRoute><IELTSSpeakingTaskView /></ProtectedRoute>} />
-            <Route path="/ielts/speaking/:contentId/results" element={<ProtectedRoute><IELTSSpeakingResults /></ProtectedRoute>} />
             <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
             <Route path="/content-library" element={<ProtectedRoute><ContentLibrary /></ProtectedRoute>} />
             <Route path="/writing-practice" element={<ProtectedRoute><WritingPractice /></ProtectedRoute>} />
@@ -106,11 +82,11 @@ export default function App() {
             <Route path="/official-conversations" element={<ProtectedRoute><OfficialConversations /></ProtectedRoute>} />
             <Route path="/formal-conversations" element={<ProtectedRoute><FormalConversations /></ProtectedRoute>} />
             <Route path="/connect-teacher" element={<ProtectedRoute><Connectteacher /></ProtectedRoute>} />
-            <Route path="/progress-dashboard" element={<ProtectedRoute><EduDashboard /></ProtectedRoute>} />
-            <Route path="/progress-dashboard/classes" element={<ProtectedRoute><ClassManagement /></ProtectedRoute>} />
-            <Route path="/progress-dashboard/students" element={<ProtectedRoute><StudentDetailsPage /></ProtectedRoute>} />
-            <Route path="/progress-dashboard/license" element={<ProtectedRoute><LicenseManagement /></ProtectedRoute>} />
             <Route path="/skills-home" element={<ProtectedRoute><NewDashboard /></ProtectedRoute>} />
+            <Route path="/edu/home" element={<ProtectedRoute><EduDashboard /></ProtectedRoute>} />
+            <Route path="/student-details" element={<ProtectedRoute><StudentDetailsPage /></ProtectedRoute>} />
+            <Route path="/class-management" element={<ProtectedRoute><ClassManagement /></ProtectedRoute>} />
+            <Route path="/license-management" element={<ProtectedRoute><LicenseManagement /></ProtectedRoute>} />
             <Route path="/skills/:skillId" element={<ProtectedRoute><SkillDetail /></ProtectedRoute>} />
             <Route path="/reading-page" element={<ProtectedRoute><ReadingPage /></ProtectedRoute>} />
             <Route path="/reading-modules" element={<ProtectedRoute><ReadingModulesPage /></ProtectedRoute>} />
@@ -119,10 +95,8 @@ export default function App() {
             <Route path="/listening-modules" element={<ProtectedRoute><ListeningModulesPage /></ProtectedRoute>} />
             <Route path="/stories" element={<ProtectedRoute><Stories /></ProtectedRoute>} />
             <Route path="/story/:storyId" element={<ProtectedRoute><StoryDetail /></ProtectedRoute>} />
-            <Route path="/stories/results" element={<ProtectedRoute><ReadingAssessmentResultsPage /></ProtectedRoute>} />
             <Route path="/novel" element={<ProtectedRoute><Novel /></ProtectedRoute>} />
             <Route path="/novel/:novelId" element={<ProtectedRoute><NovelDetail /></ProtectedRoute>} />
-            <Route path="/novels/results" element={<ProtectedRoute><ReadingAssessmentResultsPage /></ProtectedRoute>} />
             <Route path="/phoneme-guide" element={<ProtectedRoute><PhonemeGuide /></ProtectedRoute>} />
             <Route path="/sample-videos" element={<ProtectedRoute><VideoContent /></ProtectedRoute>} />
             

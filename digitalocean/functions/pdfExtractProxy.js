@@ -1,67 +1,67 @@
 // DigitalOcean Serverless Function - PDF Extract Proxy
-// This function processes extracted PDF text with ChatGPT
+// POST { extracted_text, prompt } → process with ChatGPT → return { text }
 
-export async function main(event) {
-  // DigitalOcean Functions event structure
-  const method = event.http?.method || event.method || 'POST';
-  const headers = event.http?.headers || event.headers || {};
-  const body = event.http?.body ? (typeof event.http.body === 'string' ? JSON.parse(event.http.body) : event.http.body) : (event.body || {});
-  
-  // CORS: Determine allowed origin (single value only)
-  const requestOrigin = headers.origin || headers.Origin || "";
-  const productionOrigin = process.env.ALLOWED_ORIGIN || "https://exeleratetechnology.com";
-  
-  // Check if origin is allowed
-  let allowedOrigin = productionOrigin; // Default to production
-  
-  if (requestOrigin) {
-    // Allow localhost for development
-    if (requestOrigin === "http://localhost:3000" || requestOrigin === "http://127.0.0.1:3000") {
-      allowedOrigin = requestOrigin;
+function parseBody(event) {
+  let body = {};
+
+  const raw = event?.__ow_body ?? event?.http?.body ?? event?.body ?? null;
+  if (raw != null) {
+    let str = raw;
+    if (event?.__ow_isBase64Encoded && typeof raw === "string") {
+      try {
+        str = Buffer.from(raw, "base64").toString("utf8");
+      } catch {
+        str = raw;
+      }
     }
-    // Allow DigitalOcean App Platform URLs (*.ondigitalocean.app)
-    else if (requestOrigin.includes(".ondigitalocean.app")) {
-      allowedOrigin = requestOrigin;
-    }
-    // Allow exact production domain match
-    else if (requestOrigin === productionOrigin) {
-      allowedOrigin = requestOrigin;
+    if (typeof str === "string" && str.trim()) {
+      try {
+        body = JSON.parse(str);
+      } catch {
+        body = {};
+      }
+    } else if (typeof str === "object") {
+      body = str;
     }
   }
-  
-  // NEVER return "*" - always return a specific origin
 
-  // Handle CORS preflight
-  if (method === "OPTIONS") {
-    return {
-      statusCode: 200,
-      headers: {
-        "Access-Control-Allow-Origin": allowedOrigin,
-        "Access-Control-Allow-Headers": "Content-Type",
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
-      },
-      body: "",
+  if (!body.extracted_text && !body.prompt && (event?.extracted_text != null || event?.prompt != null)) {
+    body = {
+      extracted_text: event.extracted_text,
+      prompt: event.prompt,
+      pdf_base64: event.pdf_base64,
     };
   }
 
-  try {
-    const { pdf_base64, extracted_text, prompt } = body;
+  if (event?.http?.body && typeof event.http.body === "object" && !body.extracted_text && event.http.body.extracted_text) {
+    body = { ...body, ...event.http.body };
+  }
 
-    // If we have extracted_text, process it with ChatGPT
+  return body;
+}
+
+export async function main(event) {
+  const method = event?.__ow_method ?? event?.http?.method ?? event?.method ?? "POST";
+
+  if (method === "OPTIONS") {
+    return { statusCode: 204 };
+  }
+
+  try {
+    const body = parseBody(event);
+    const { extracted_text, prompt, pdf_base64 } = body;
+
     if (extracted_text) {
       const openaiApiKey = process.env.OPENAI_API_KEY;
       if (!openaiApiKey) {
         return {
           statusCode: 500,
-          headers: {
-            "Access-Control-Allow-Origin": allowedOrigin,
-          },
           body: JSON.stringify({ error: "OpenAI API key not configured" }),
         };
       }
 
-      const processingPrompt = prompt || 
-        `Please extract only the main content text from the following PDF text. Exclude chapter titles, unit titles, headers, page numbers, image captions, and any other structural elements. Only return the paragraph content (the actual story text or body content). Do not include titles like "Unit 1", "Chapter X", or section headers. Return only the paragraph text without any commentary:\n\n${extracted_text.substring(0, 100000)}`;
+      const defaultPrompt = `Please extract only the main content text from the following PDF text. Exclude chapter titles, unit titles, headers, page numbers, image captions, and any other structural elements. Only return the paragraph content (the actual story text or body content). Do not include titles like "Unit 1", "Chapter X", or section headers. Return only the paragraph text without any commentary:\n\n`;
+      const processingPrompt = (prompt && String(prompt).trim()) || defaultPrompt + extracted_text.substring(0, 100000);
 
       const response = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
@@ -76,10 +76,7 @@ export async function main(event) {
               role: "system",
               content: "You are a helpful assistant that extracts main content text from PDF files. Extract only paragraph content, excluding chapter titles, unit titles, headers, page numbers, image captions, and structural elements. Return only the story or body text without any titles or headers.",
             },
-            {
-              role: "user",
-              content: processingPrompt,
-            },
+            { role: "user", content: processingPrompt },
           ],
           max_tokens: 4000,
           temperature: 0.3,
@@ -87,15 +84,10 @@ export async function main(event) {
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error("OpenAI API Error:", errorText);
-        // Return the raw extracted text if ChatGPT processing fails
+        const errText = await response.text();
+        console.error("pdfExtractProxy OpenAI error:", errText.slice(0, 500));
         return {
           statusCode: 200,
-          headers: {
-            "Access-Control-Allow-Origin": allowedOrigin,
-            "Access-Control-Allow-Headers": "Content-Type",
-          },
           body: JSON.stringify({ text: extracted_text }),
         };
       }
@@ -105,33 +97,35 @@ export async function main(event) {
 
       return {
         statusCode: 200,
-        headers: {
-          "Access-Control-Allow-Origin": allowedOrigin,
-          "Access-Control-Allow-Headers": "Content-Type",
-        },
         body: JSON.stringify({ text: processedText }),
       };
     }
 
-    // If we have pdf_base64, we would need a PDF parsing library on the server
-    // For now, return an error suggesting client-side extraction
+    if (pdf_base64) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({
+          error: "Please extract PDF text client-side first, then send extracted_text for processing",
+        }),
+      };
+    }
+
+    console.error("pdfExtractProxy: missing extracted_text. Body keys:", Object.keys(body).join(", "));
     return {
       statusCode: 400,
-      headers: {
-        "Access-Control-Allow-Origin": allowedOrigin,
-      },
-      body: JSON.stringify({ 
-        error: "Please extract PDF text client-side first, then send extracted_text for processing" 
+      body: JSON.stringify({
+        error: "extracted_text is required",
+        hint: "POST JSON body with { extracted_text: string, prompt?: string }.",
       }),
     };
-  } catch (error) {
-    console.error("PDF Extract Proxy error:", error);
+  } catch (err) {
+    console.error("pdfExtractProxy error:", err);
     return {
       statusCode: 500,
-      headers: {
-        "Access-Control-Allow-Origin": allowedOrigin,
-      },
-      body: JSON.stringify({ error: error.message }),
+      body: JSON.stringify({
+        error: "Proxy failure",
+        details: err?.message || "Server error",
+      }),
     };
   }
 }

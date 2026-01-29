@@ -66,12 +66,12 @@ export function SpeechAssessmentResultsPage() {
   // Save result to database when component mounts
   useEffect(() => {
     const saveResultToDatabase = async () => {
-      // Prevent duplicate saves
-      if (hasSavedRef.current || !apiResponse || apiResponse.error || !authToken) {
-        console.warn("Cannot save result: missing token or invalid response", { 
-          hasToken: !!authToken, 
-          hasResponse: !!apiResponse, 
-          hasError: !!apiResponse?.error 
+      if (hasSavedRef.current) return
+      if (!apiResponse || apiResponse.error || !authToken) {
+        console.warn("Cannot save result: missing token or invalid response", {
+          hasToken: !!authToken,
+          hasResponse: !!apiResponse,
+          hasError: !!apiResponse?.error,
         })
         return
       }

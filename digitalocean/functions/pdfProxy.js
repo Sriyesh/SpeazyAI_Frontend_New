@@ -1,104 +1,88 @@
 // DigitalOcean Serverless Function - PDF Proxy
-// This function proxies PDF file requests
+// Proxies PDF fetches to avoid CORS (frontend calls ?url=...)
+
+function parseQuery(q) {
+  if (q == null) return {};
+  if (typeof q === "object" && !Array.isArray(q)) return q;
+  const str = typeof q === "string" ? q : String(q);
+  const out = {};
+  for (const part of str.split("&")) {
+    const i = part.indexOf("=");
+    const k = i >= 0 ? decodeURIComponent(part.slice(0, i).replace(/\+/g, " ")) : decodeURIComponent(part.replace(/\+/g, " "));
+    const v = i >= 0 ? decodeURIComponent((part.slice(i + 1) || "").replace(/\+/g, " ")) : "";
+    if (k) out[k] = v;
+  }
+  return out;
+}
 
 export async function main(event) {
-  // DigitalOcean Functions event structure
-  const method = event.http?.method || event.method || 'GET';
-  const headers = event.http?.headers || event.headers || {};
-  const queryParams = event.http?.query || event.query || {};
-  
-  // CORS: Determine allowed origin (single value only)
-  const requestOrigin = headers.origin || headers.Origin || "";
-  const productionOrigin = process.env.ALLOWED_ORIGIN || "https://exeleratetechnology.com";
-  
-  // Check if origin is allowed
-  let allowedOrigin = productionOrigin; // Default to production
-  
-  if (requestOrigin) {
-    // Allow localhost for development
-    if (requestOrigin === "http://localhost:3000" || requestOrigin === "http://127.0.0.1:3000") {
-      allowedOrigin = requestOrigin;
-    }
-    // Allow DigitalOcean App Platform URLs (*.ondigitalocean.app)
-    else if (requestOrigin.includes(".ondigitalocean.app")) {
-      allowedOrigin = requestOrigin;
-    }
-    // Allow exact production domain match
-    else if (requestOrigin === productionOrigin) {
-      allowedOrigin = requestOrigin;
-    }
-  }
-  
-  // NEVER return "*" - always return a specific origin
+  const method = event?.__ow_method ?? event?.http?.method ?? event?.method ?? "GET";
 
-  // Handle CORS preflight
   if (method === "OPTIONS") {
-    return {
-      statusCode: 200,
-      headers: {
-        "Access-Control-Allow-Origin": allowedOrigin,
-        "Access-Control-Allow-Headers": "Content-Type",
-        "Access-Control-Allow-Methods": "GET, OPTIONS",
-      },
-      body: "",
-    };
+    return { statusCode: 204 };
   }
 
   try {
-    // Get PDF URL from query parameter
-    const pdfUrl = queryParams.url || event.url;
+    const query = parseQuery(event?.__ow_query ?? event?.http?.query ?? event?.query);
+    // url can be in query (?url=...) or top-level (web:true merge)
+    let pdfUrl = query.url ?? query.URL ?? event?.url ?? event?.URL;
+    if (!pdfUrl && event?.http?.url) {
+      try {
+        const u = new URL(event.http.url);
+        pdfUrl = u.searchParams.get("url") ?? u.searchParams.get("URL");
+      } catch (_) {}
+    }
 
-    if (!pdfUrl) {
+    if (!pdfUrl || typeof pdfUrl !== "string" || !pdfUrl.trim()) {
+      const keys = Object.keys(event || {}).filter((k) => !k.startsWith("__ow") || k === "__ow_query");
+      const qs = typeof event?.__ow_query === "string" ? event.__ow_query.slice(0, 200) : String(event?.__ow_query ?? "");
+      console.error("pdfProxy: missing url. Query keys:", Object.keys(query).join(", "), "| event.url:", !!event?.url, "| __ow_query snippet:", qs || "(none)", "| event keys:", keys.join(", "));
       return {
         statusCode: 400,
-        headers: {
-          "Access-Control-Allow-Origin": allowedOrigin,
-        },
-        body: JSON.stringify({ error: "PDF URL is required" }),
+        body: JSON.stringify({
+          error: "PDF URL is required",
+          hint: "Use GET ?url=<encoded-pdf-url>. Check function logs for received query.",
+        }),
       };
     }
 
-    // Fetch the PDF from the source
-    const response = await fetch(pdfUrl, {
-      headers: {
-        "User-Agent": "Mozilla/5.0",
-      },
+    const url = pdfUrl.trim();
+    console.log("pdfProxy: fetching", url.slice(0, 80) + (url.length > 80 ? "..." : ""));
+
+    const response = await fetch(url, {
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; pdfProxy/1.0)" },
     });
 
     if (!response.ok) {
       return {
         statusCode: response.status,
-        headers: {
-          "Access-Control-Allow-Origin": allowedOrigin,
-        },
-        body: JSON.stringify({ error: `Failed to fetch PDF: ${response.statusText}` }),
+        body: JSON.stringify({
+          error: `Failed to fetch PDF: ${response.status} ${response.statusText}`,
+        }),
       };
     }
 
-    // Get the PDF as array buffer
     const pdfBuffer = await response.arrayBuffer();
     const pdfBase64 = Buffer.from(pdfBuffer).toString("base64");
 
-    // Return the PDF with proper headers
     return {
       statusCode: 200,
       headers: {
-        "Access-Control-Allow-Origin": allowedOrigin,
-        "Access-Control-Allow-Headers": "Content-Type",
         "Content-Type": "application/pdf",
+        "Content-Disposition": "inline",
         "Cache-Control": "public, max-age=3600",
       },
       body: pdfBase64,
-      isBase64Encoded: true,
+      binary: true,
     };
-  } catch (error) {
-    console.error("PDF Proxy error:", error);
+  } catch (err) {
+    console.error("pdfProxy error:", err);
     return {
       statusCode: 500,
-      headers: {
-        "Access-Control-Allow-Origin": allowedOrigin,
-      },
-      body: JSON.stringify({ error: error.message }),
+      body: JSON.stringify({
+        error: "Proxy failure",
+        details: err?.message || "Server error",
+      }),
     };
   }
 }

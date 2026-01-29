@@ -33,6 +33,7 @@ import {
   Target,
   Zap,
   FileText,
+  Trash2,
 } from "lucide-react"
 import { AudioRecorder } from "./audioRecorder"
 import { useNavigate, useLocation } from "react-router-dom"
@@ -111,7 +112,8 @@ export function MyLessons() {
   const navigate = useNavigate()
   const location = useLocation()
   const backRoute = (location.state as any)?.backRoute || "/reading-modules"
-  const { token } = useAuth()
+  const { token, userRole } = useAuth()
+  const isTeacher = userRole?.toLowerCase() === "teacher"
   const [currentView, setCurrentView] = useState<View>("lesson-list")
   const [contentItems, setContentItems] = useState<ContentItem[]>([])
   const [isLoadingContent, setIsLoadingContent] = useState(true)
@@ -187,6 +189,35 @@ export function MyLessons() {
 
     fetchContentItems()
   }, [token])
+
+  const handleDeleteLesson = async (e: React.MouseEvent, item: ContentItem) => {
+    e.stopPropagation()
+    if (!token) return
+    try {
+      const numericId = typeof item.id === "string" ? parseInt(item.id, 10) : item.id
+      if (Number.isNaN(numericId)) {
+        toast.error("Invalid lesson id.")
+        return
+      }
+      const response = await fetch("https://api.exeleratetechnology.com/api/content/delete.php", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify({ id: numericId }),
+      })
+      if (!response.ok) {
+        const errText = await response.text()
+        throw new Error(errText || `Delete failed: ${response.status}`)
+      }
+      setContentItems((prev) => prev.filter((i) => i.id !== item.id))
+      toast.success("Lesson deleted.")
+    } catch (err) {
+      console.error("Delete lesson error:", err)
+      toast.error("Failed to delete lesson. Please try again.")
+    }
+  }
 
   const handleLessonSelect = async (lesson: ContentItem) => {
     // If PDF URL exists, extract text (with automatic caching)
@@ -518,6 +549,40 @@ export function MyLessons() {
                   }}
                   onClick={() => handleLessonSelect(item)}
                 >
+                  {isTeacher && (
+                    <button
+                      type="button"
+                      onClick={(e) => handleDeleteLesson(e, item)}
+                      aria-label="Delete lesson"
+                      style={{
+                        position: 'absolute',
+                        top: '12px',
+                        right: '12px',
+                        zIndex: 10,
+                        width: '36px',
+                        height: '36px',
+                        borderRadius: '10px',
+                        border: 'none',
+                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                        color: '#EF4444',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        transition: 'all 0.2s ease',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.2)'
+                        e.currentTarget.style.transform = 'scale(1.1)'
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)'
+                        e.currentTarget.style.transform = 'scale(1)'
+                      }}
+                    >
+                      <Trash2 style={{ width: '18px', height: '18px' }} />
+                    </button>
+                  )}
                   <CardHeader style={{ padding: '24px 24px 16px 24px' }}>
                     <div
                       style={{

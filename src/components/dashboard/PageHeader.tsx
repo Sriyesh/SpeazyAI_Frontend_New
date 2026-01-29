@@ -1,18 +1,14 @@
 "use client"
 
 import { useNavigate } from "react-router-dom"
-import { useState, useEffect } from "react"
-import { Button } from "./ui/button"
-import { MelloEyes } from "./MelloEyes"
+import { Button } from "../ui/button"
+import { MelloEyes } from "../MelloEyes"
 import { Star, LogOut, LayoutDashboard } from "lucide-react"
-import { useAuth } from "../contexts/AuthContext"
-import { fetchStreakData } from "../utils/streakApi"
+import { useAuth } from "../../contexts/AuthContext"
 
 export function PageHeader() {
   const navigate = useNavigate()
-  const { authData, logout, token } = useAuth()
-  const [streakDays, setStreakDays] = useState<number>(0)
-  const [loadingStreak, setLoadingStreak] = useState(true)
+  const { authData, logout } = useAuth()
 
   // Get user initials from auth data
   const userInitials = authData?.user
@@ -23,30 +19,6 @@ export function PageHeader() {
     logout()
     navigate("/login", { replace: true })
   }
-
-  // Fetch streak data on mount and when token changes
-  useEffect(() => {
-    const loadStreakData = async () => {
-      if (!token) {
-        setLoadingStreak(false)
-        return
-      }
-
-      try {
-        setLoadingStreak(true)
-        const streakData = await fetchStreakData(token)
-        if (streakData) {
-          setStreakDays(streakData.current_streak || streakData.streak_days || 0)
-        }
-      } catch (error) {
-        console.error('Error loading streak data:', error)
-      } finally {
-        setLoadingStreak(false)
-      }
-    }
-
-    loadStreakData()
-  }, [token])
 
   return (
     <>
@@ -147,7 +119,7 @@ export function PageHeader() {
                   color: "#FFFFFF",
                 }}
               >
-                {loadingStreak ? "..." : `${streakDays} day${streakDays !== 1 ? 's' : ''} streak`}
+                7 day streak
               </span>
             </div>
 
@@ -155,7 +127,9 @@ export function PageHeader() {
               variant="ghost"
               size="sm"
               onClick={() => navigate("/progress-dashboard")}
-              title="Progress Dashboard"
+              style={{
+                color: "#FFFFFF",
+              }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.1)"
               }}
@@ -165,11 +139,12 @@ export function PageHeader() {
             >
               <LayoutDashboard
                 style={{
-                  width: "20px",
-                  height: "20px",
-                  color: "#FFFFFF",
+                  width: "16px",
+                  height: "16px",
+                  marginRight: "6px",
                 }}
               />
+              <span style={{ fontSize: "14px" }}>Dashboard</span>
             </Button>
 
             <Button

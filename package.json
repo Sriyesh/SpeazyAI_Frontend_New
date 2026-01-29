@@ -66,6 +66,7 @@
     "vite": "6.3.5"
   },
   "scripts": {
+    "deploy": "bash deploy.sh",
     "dev": "vite",
     "build": "vite build",
     "proxy:speech": "node speechProxyServer.js",

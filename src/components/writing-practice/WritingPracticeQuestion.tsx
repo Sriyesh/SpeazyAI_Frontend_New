@@ -249,7 +249,18 @@ export function WritingPracticeQuestion({
 
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`API Error (${response.status}): ${errorText}`);
+        let errMsg = `API Error (${response.status}): ${errorText}`;
+        try {
+          const errJson = JSON.parse(errorText);
+          const apiErr = errJson?.error ?? errJson?.message;
+          if (typeof apiErr === "string") {
+            errMsg = apiErr;
+            if (errJson?.details) {
+              console.error("API error details:", errJson.details);
+            }
+          }
+        } catch (_) {}
+        throw new Error(errMsg);
       }
 
       const data = await response.json();
