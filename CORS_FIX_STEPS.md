@@ -9,7 +9,6 @@ Based on the screenshot, your current CORS config has:
 - ❓ AllowedHeaders: Not visible (might be missing `*` or specific headers)
 
 ## Exact CORS Configuration to Apply
-
 ### Option 1: Via DigitalOcean Dashboard (Recommended)
 
 1. Go to DigitalOcean Dashboard → Spaces → `exeleratetechnology` bucket
