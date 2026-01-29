@@ -1,0 +1,24 @@
+name: Create PR from develop to main
+
+on:
+  push:
+    branches:
+      - develop
+
+jobs:
+  create-pr:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          base: main
+          head: develop
+          title: "Release: Sync develop → main"
+          body: |
+            Auto-generated PR.
+            Source: develop
+            Target: main
+            CI and approval required. 
