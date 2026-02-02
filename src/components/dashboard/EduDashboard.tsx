@@ -1029,10 +1029,12 @@ const renderSpeakingDetailedView = (data: any, getOrganizationName: (id: any) =>
 }
 
 export function EduDashboard() {
+  // Feature flag: Temporarily disable Skills tab - can be re-enabled by setting to true
+  const SHOW_SKILLS_TAB = false
+  
   const navigate = useNavigate()
   const [selectedOrganization, setSelectedOrganization] = useState("")
   const [activeFilter, setActiveFilter] = useState("My Analysis")
-  const [showClasses, setShowClasses] = useState(false)
   const [selectedClass, setSelectedClass] = useState<string | null>(null)
   const [selectedStudent, setSelectedStudent] = useState<string | null>(null)
   const [activeSkill, setActiveSkill] = useState<"speaking" | "reading" | "writing" | "listening" | null>(null)
@@ -1047,6 +1049,15 @@ export function EduDashboard() {
   const [expandedResultId, setExpandedResultId] = useState<string | number | null>(null)
   const [expandedDetailedResult, setExpandedDetailedResult] = useState<any>(null)
   const [isLoadingDetailedResult, setIsLoadingDetailedResult] = useState(false)
+  
+  // State to store all skill results (combined from all APIs)
+  const [allSkillResults, setAllSkillResults] = useState<Record<string, SkillResult[]>>({
+    reading: [],
+    writing: [],
+    listening: [],
+    speaking: []
+  })
+  const [isLoadingAllSkills, setIsLoadingAllSkills] = useState(false)
 
   // State for users and classes from API
   interface ApiUser {
@@ -1065,7 +1076,13 @@ export function EduDashboard() {
   const [usersList, setUsersList] = useState<ApiUser[]>([])
   const [isLoadingUsers, setIsLoadingUsers] = useState(false)
   const [usersError, setUsersError] = useState<string | null>(null)
-  const [classesData, setClassesData] = useState<Record<string, { students: ApiUser[], teacher: string }>>({})
+  const [classesData, setClassesData] = useState<Record<string, { students: ApiUser[], teacher: string, allUsers: ApiUser[] }>>({})
+  
+  // State for teacher dashboard data (overall scores per class and per user)
+  const [teacherDashboardData, setTeacherDashboardData] = useState<Record<string, any>>({})
+  const [teacherDashboardUserScores, setTeacherDashboardUserScores] = useState<Record<string, any>>({}) // Key: user email or ID, Value: scores
+  const [isLoadingTeacherDashboard, setIsLoadingTeacherDashboard] = useState(false)
+  const [teacherDashboardError, setTeacherDashboardError] = useState<string | null>(null)
 
   // State for organizations from API
   interface Organisation {
@@ -1108,30 +1125,102 @@ export function EduDashboard() {
     { date: "Nov-11", score: 92 },
   ]
 
-   // Get table data - shows students with scores if class is selected, otherwise shows skill results
+   // Helper function to check if a result belongs to a specific class
+   const resultBelongsToClass = (result: any, className: string): boolean => {
+     if (!result || !className) return false
+     
+     // Check user_class field (can be string, array, or JSON string)
+     let userClass = result.user_class || result.class || result.userClass
+     
+     if (!userClass) return false
+     
+     // Handle JSON string format
+     if (typeof userClass === "string" && userClass.startsWith("[")) {
+       try {
+         const parsed = JSON.parse(userClass)
+         if (Array.isArray(parsed)) {
+           return parsed.some((c: any) => String(c).trim() === String(className).trim())
+         }
+       } catch (e) {
+         // Not valid JSON, treat as string
+       }
+     }
+     
+     // Handle array format
+     if (Array.isArray(userClass)) {
+       return userClass.some((c: any) => String(c).trim() === String(className).trim())
+     }
+     
+     // Handle string format
+     if (typeof userClass === "string") {
+       return String(userClass).trim() === String(className).trim()
+     }
+     
+     return false
+   }
+
+   // Get table data - shows all users in the class when class is selected
    const getTableData = () => {
-     // If a class is selected, show students from API
+     // If a class is selected, show users with their scores (listening, speaking, reading, writing, overall)
      if (selectedClass) {
        const classData = classesData[selectedClass]
-       if (classData && classData.students.length > 0) {
-         return classData.students.map((student) => ({
-           type: "student",
-           name: (student.first_name && student.last_name) 
-             ? `${student.first_name} ${student.last_name}`.trim()
-             : student.first_name || student.name || student.email || "Unknown",
-           email: student.email || "",
-           id: student.id || student.user_id,
+       
+       console.log(`[getTableData] Selected class: ${selectedClass}`)
+       console.log(`[getTableData] Class data exists:`, !!classData)
+       console.log(`[getTableData] All users count:`, classData?.allUsers?.length || 0)
+       console.log(`[getTableData] Full class data:`, classData)
+       console.log(`[getTableData] All classesData keys:`, Object.keys(classesData))
+       
+       if (classData && classData.allUsers && classData.allUsers.length > 0) {
+         return classData.allUsers.map((user: any) => {
+           const userRole = (user.role || "").toLowerCase()
+           const isStudent = userRole !== "teacher" && userRole !== "principal" && userRole !== "administrator" && !userRole.includes("admin")
+           
+           // Get scores from user object (from teacher dashboard API)
+           const scoresObj = user.scores || {}
+           const speakingScore = (user.speaking !== undefined && user.speaking !== null) 
+             ? user.speaking 
+             : ((scoresObj.speaking !== undefined && scoresObj.speaking !== null) ? scoresObj.speaking : 0)
+           const readingScore = (user.reading !== undefined && user.reading !== null) 
+             ? user.reading 
+             : ((scoresObj.reading !== undefined && scoresObj.reading !== null) ? scoresObj.reading : 0)
+           const writingScore = (user.writing !== undefined && user.writing !== null) 
+             ? user.writing 
+             : ((scoresObj.writing !== undefined && scoresObj.writing !== null) ? scoresObj.writing : 0)
+           const listeningScore = (user.listening !== undefined && user.listening !== null) 
+             ? user.listening 
+             : ((scoresObj.listening !== undefined && scoresObj.listening !== null) ? scoresObj.listening : 0)
+           
+           // Calculate overall score
+           let overallScore: number | undefined = undefined
+           const scoreValues = [listeningScore, speakingScore, readingScore, writingScore].filter(s => s > 0)
+           if (scoreValues.length > 0) {
+             overallScore = scoreValues.reduce((sum, score) => sum + score, 0) / scoreValues.length
+           }
+           
+           return {
+             type: "user",
+             name: user.name || (user.first_name && user.last_name) 
+               ? `${user.first_name} ${user.last_name}`.trim()
+               : user.first_name || user.email || "Unknown",
+             email: user.email || "",
+             id: user.id || user.user_id,
            class: selectedClass,
-           // Scores will be fetched separately or from student data if available
-           speaking: student.speaking_score || student.speaking || 0,
-           reading: student.reading_score || student.reading || 0,
-           writing: student.writing_score || student.writing || 0,
-           listening: student.listening_score || student.listening || 0,
-         }))
+             role: user.role || "student",
+             isStudent: isStudent,
+             // Order: Listening, Speaking, Reading, Writing (as requested)
+             listening: listeningScore,
+             speaking: speakingScore,
+             reading: readingScore,
+             writing: writingScore,
+             overall_score: overallScore,
+           }
+         })
        }
-       // Fallback to empty if no class data
+       
        return []
      }
+     
      // If a skill is selected, return the skill results from API
      if (activeSkill && skillResults.length > 0) {
        return skillResults.map((result) => ({
@@ -1275,8 +1364,101 @@ export function EduDashboard() {
   }
 
   // API function to fetch organizations list (requires auth token)
+  // API function to fetch organization from teacher dashboard (for teachers/principals)
+  const fetchOrganizationFromTeacherDashboard = async () => {
+    if (!isTeacherOrPrincipal()) {
+      return null
+    }
+
+    const API_URL = `${apiBase}/teacher/dashboard.php`
+    
+    try {
+      console.log("Fetching organization from teacher dashboard API...")
+
+      // Try GET first
+      let response = await fetch(API_URL, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${API_TOKEN}`,
+        },
+      })
+
+      // If GET returns 405, try POST as fallback
+      if (!response.ok && response.status === 405) {
+        console.log("GET returned 405, trying POST method...")
+        response = await fetch(API_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${API_TOKEN}`,
+          },
+          body: JSON.stringify({}),
+        })
+      }
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error(`Teacher Dashboard API Error (${response.status}):`, errorText)
+        throw new Error(`API Error (${response.status}): ${errorText || response.statusText}`)
+      }
+
+      const data = await response.json()
+      console.log("Teacher Dashboard API Response (for organization):", data)
+
+      // Extract organization information from response
+      let orgId: string | null = null
+      let orgName: string | null = null
+
+      // Try to extract from various possible response formats
+      if (data.organisation_id || data.organization_id || data.org_id) {
+        orgId = String(data.organisation_id || data.organization_id || data.org_id)
+        orgName = data.organisation || data.organization || data.organisation_name || data.organization_name || `Organization ${orgId}`
+      } else if (data.data) {
+        const dataObj = data.data
+        if (dataObj.organisation_id || dataObj.organization_id || dataObj.org_id) {
+          orgId = String(dataObj.organisation_id || dataObj.organization_id || dataObj.org_id)
+          orgName = dataObj.organisation || dataObj.organization || dataObj.organisation_name || dataObj.organization_name || `Organization ${orgId}`
+        }
+      } else if (Array.isArray(data) && data.length > 0) {
+        // If array, get organization from first item
+        const firstItem = data[0]
+        if (firstItem.organisation_id || firstItem.organization_id || firstItem.org_id) {
+          orgId = String(firstItem.organisation_id || firstItem.organization_id || firstItem.org_id)
+          orgName = firstItem.organisation || firstItem.organization || firstItem.organisation_name || firstItem.organization_name || `Organization ${orgId}`
+        }
+      }
+
+      // If still no org found, try to get from user's auth data
+      if (!orgId) {
+        const userOrgId = getUserOrganizationId()
+        if (userOrgId) {
+          orgId = userOrgId
+          orgName = `Organization ${orgId}`
+        }
+      }
+
+      if (orgId) {
+        return {
+          id: orgId,
+          organisation_id: orgId,
+          organization_id: orgId,
+          organisation: orgName || undefined,
+          name: orgName || undefined,
+          organisation_name: orgName || undefined,
+          organization_name: orgName || undefined
+        }
+      }
+
+      return null
+    } catch (error: any) {
+      console.error("Error fetching organization from teacher dashboard:", error)
+      // Don't throw error, just return null - we'll fall back to user's org_id
+      return null
+    }
+  }
+
   const fetchOrganizationsList = async () => {
-    const API_URL = `${apiBase}/org/list.php`
     const authToken = token || ""
     if (!authToken) {
       setOrganizationsError("Authentication required. Please log in.")
@@ -1287,6 +1469,45 @@ export function EduDashboard() {
     try {
       setIsLoadingOrganizations(true)
       setOrganizationsError(null)
+
+      // For teachers/principals, skip organizations list API and use teacher dashboard instead
+      if (isTeacherOrPrincipal()) {
+        console.log("User is teacher/principal, fetching organization from teacher dashboard...")
+        const orgFromDashboard = await fetchOrganizationFromTeacherDashboard()
+        
+        if (orgFromDashboard) {
+          setOrganizationsList([orgFromDashboard])
+          console.log("Organization from teacher dashboard:", orgFromDashboard)
+          setIsLoadingOrganizations(false)
+          return [orgFromDashboard]
+        } else {
+          // Fallback to user's organisation_id from auth data
+          const userOrgId = getUserOrganizationId()
+          if (userOrgId) {
+            const orgName = `Organization ${userOrgId}`
+            const fallbackOrg: Organisation = {
+              id: userOrgId,
+              organisation_id: userOrgId,
+              organization_id: userOrgId,
+              organisation: orgName,
+              name: orgName,
+              organisation_name: orgName,
+              organization_name: orgName
+            }
+            setOrganizationsList([fallbackOrg])
+            setIsLoadingOrganizations(false)
+            return [fallbackOrg]
+          }
+        }
+        
+        // If no organization found, set empty list
+        setOrganizationsList([])
+        setIsLoadingOrganizations(false)
+        return []
+      }
+
+      // For administrators, fetch from organizations list API
+      const API_URL = `${apiBase}/org/list.php`
 
       const response = await fetch(API_URL, {
         method: "GET",
@@ -1329,14 +1550,19 @@ export function EduDashboard() {
       
       // Log all organization IDs and names for debugging
       organizations.forEach((org, index) => {
+        const orgId = org.id || org.organisation_id || org.organization_id
+        const orgName = org.organisation || org.name || org.organisation_name || org.organization_name || org.org_name || org.title
         console.log(`Organization ${index + 1}:`, {
-          id: org.id,
-          organisation_id: org.organisation_id,
-          organisation: org.organisation,  // Primary field name from API
-          name: org.name,
-          organisation_name: org.organisation_name,
-          organization_name: org.organization_name
+          id: orgId,
+          name: orgName || "NO NAME FOUND",
+          allFields: Object.keys(org),
+          fullObject: org
         })
+        
+        // Warn if name is missing or same as ID
+        if (!orgName || orgName === String(orgId)) {
+          console.warn(`Organization ${orgId} is missing a name field or name equals ID. Available fields:`, Object.keys(org))
+        }
       })
 
       return organizations
@@ -1387,6 +1613,26 @@ export function EduDashboard() {
   // API Token - Use token from authentication context (from login API)
   // IMPORTANT: No hardcoded token fallback - user must be logged in to use this page
   const API_TOKEN = token || ""
+  
+  // Check if logged-in user is teacher or principal
+  const isTeacherOrPrincipal = () => {
+    if (!authData?.user?.role) return false
+    const userRole = (authData.user.role || "").toLowerCase()
+    return userRole === "teacher" || userRole === "principal" || userRole.includes("teacher") || userRole.includes("principal")
+  }
+
+  // Check if logged-in user is administrator
+  const isAdministrator = () => {
+    if (!authData?.user?.role) return false
+    const userRole = (authData.user.role || "").toLowerCase()
+    return userRole === "administrator" || userRole.includes("admin")
+  }
+
+  // Get user's organization ID from auth data
+  const getUserOrganizationId = () => {
+    if (!authData?.user) return null
+    return authData.user.organisation_id ? String(authData.user.organisation_id) : null
+  }
   
   // Note: This component should be protected by ProtectedRoute, so token should always exist
   // If token is missing, API calls will fail (which is correct behavior)
@@ -1490,9 +1736,39 @@ export function EduDashboard() {
 
        setUsersList(filteredUsers)
 
-       // First pass: Map teachers to their classes
+       // Initialize groupedByClass - will collect all classes from ALL users (students, teachers, etc.)
+       const groupedByClass: Record<string, { students: ApiUser[], teacher: string, allUsers: ApiUser[] }> = {}
        const teacherByClass: Record<string, string> = {} // class name -> teacher name
        
+       // First pass: Collect ALL unique classes from ALL users (students, teachers, etc.) and create class entries
+       filteredUsers.forEach((user: ApiUser) => {
+         // Get user's classes (class is an array)
+         const userClasses = user.class || []
+         const classArray = Array.isArray(userClasses) ? userClasses : [userClasses].filter(Boolean)
+         
+         if (classArray.length === 0) {
+           return // Skip users with no class assignment
+         }
+
+         // Create class entries for all classes that have any users
+         classArray.forEach((className: any) => {
+           if (!className) return
+           
+           const classKey = String(className).trim()
+           if (!classKey) return
+
+           // Create class entry if it doesn't exist (with default "No teacher assigned")
+           if (!groupedByClass[classKey]) {
+             groupedByClass[classKey] = {
+               students: [],
+               teacher: "No teacher assigned",
+               allUsers: []
+             }
+           }
+         })
+       })
+
+       // Second pass: Map teachers to their classes (update teacher name if teacher exists)
        filteredUsers.forEach((user: ApiUser) => {
          const userRole = (user.role || "").toLowerCase()
          
@@ -1511,8 +1787,22 @@ export function EduDashboard() {
            classArray.forEach((className: any) => {
              if (className) {
                const classKey = String(className).trim()
-               if (classKey && !teacherByClass[classKey]) {
+               if (classKey) {
+                 // Store teacher mapping
+                 if (!teacherByClass[classKey]) {
                  teacherByClass[classKey] = teacherName
+                 }
+                 
+                 // Update class entry with teacher name (create if doesn't exist from students)
+                 if (!groupedByClass[classKey]) {
+                   groupedByClass[classKey] = {
+                     students: [],
+                     teacher: teacherName,
+                     allUsers: []
+                   }
+                 } else {
+                   groupedByClass[classKey].teacher = teacherName
+                 }
                  console.log(`Assigned teacher "${teacherName}" to class "${classKey}"`)
                }
              }
@@ -1522,29 +1812,12 @@ export function EduDashboard() {
 
        console.log("Teachers mapped to classes:", teacherByClass)
 
-       // Initialize all classes that have teachers assigned (even if no students yet)
-       const groupedByClass: Record<string, { students: ApiUser[], teacher: string }> = {}
-       
-       // First, create entries ONLY for classes that have teachers assigned (valid classes from API)
-       Object.keys(teacherByClass).forEach((classKey) => {
-         if (classKey && classKey.trim()) {
-           groupedByClass[classKey] = {
-             students: [],
-             teacher: teacherByClass[classKey]
-           }
-         }
-       })
-
-       // Second pass: Group students by class, but ONLY add students to classes that have teachers (valid classes)
+       // Third pass: Add ALL users (students, teachers, etc.) to their classes
+       let usersAddedCount = 0
        filteredUsers.forEach((user: ApiUser) => {
          const userRole = (user.role || "").toLowerCase()
          
-         // Skip teachers, principals, administrators from student list
-         if (userRole === "teacher" || userRole === "principal" || userRole === "administrator" || userRole.includes("admin")) {
-           return
-         }
-
-         // Get student's classes (class is an array)
+         // Get user's classes (class is an array)
          const userClasses = user.class || []
          const classArray = Array.isArray(userClasses) ? userClasses : [userClasses].filter(Boolean)
          
@@ -1552,24 +1825,41 @@ export function EduDashboard() {
            return // Skip users with no class assignment
          }
 
-         // Add student to each of their classes, but ONLY if that class has a teacher assigned (is valid)
+         // Add user to each of their classes (all classes now exist)
          classArray.forEach((className: any) => {
            if (!className) return
            
            const classKey = String(className).trim()
            if (!classKey) return
 
-           // Only add students to classes that exist in teacherByClass (have teachers assigned)
-           // Skip classes that don't have teachers - they're invalid/not in API
+           // Add user to the class (class should exist from first pass)
            if (groupedByClass[classKey]) {
-             // Add student to the valid class
+             // Add to allUsers array
+             groupedByClass[classKey].allUsers.push(user)
+             usersAddedCount++
+             
+             // Also add to students array if user is a student
+             if (userRole !== "teacher" && userRole !== "principal" && userRole !== "administrator" && !userRole.includes("admin")) {
              groupedByClass[classKey].students.push(user)
+               console.log(`Added student ${user.first_name || user.email || user.id} to class "${classKey}"`)
            } else {
-             // Log warning for students in invalid classes (classes without teachers)
-             console.warn(`Student ${user.first_name || user.email || user.id} has invalid class "${classKey}" - no teacher assigned. Skipping.`)
+               console.log(`Added ${userRole} ${user.first_name || user.email || user.id} to class "${classKey}"`)
+             }
+           } else {
+             // This should rarely happen, but handle edge case
+             console.warn(`Class "${classKey}" not found when adding user ${user.first_name || user.email || user.id}. Creating entry.`)
+             const isStudent = userRole !== "teacher" && userRole !== "principal" && userRole !== "administrator" && !userRole.includes("admin")
+             groupedByClass[classKey] = {
+               students: isStudent ? [user] : [],
+               teacher: "No teacher assigned",
+               allUsers: [user]
+             }
+             usersAddedCount++
            }
          })
        })
+       
+       console.log(`Total users added to classes: ${usersAddedCount}`)
 
        // Verify the structure before setting state
        Object.keys(groupedByClass).forEach(key => {
@@ -1582,20 +1872,45 @@ export function EduDashboard() {
            console.error(`Missing teacher property for class "${key}":`, classData)
            groupedByClass[key].teacher = "Unknown Teacher"
          }
+         // Ensure students is always an array (defensive check)
          if (!Array.isArray(classData.students)) {
-           console.error(`Missing students array for class "${key}":`, classData)
+           console.error(`Missing or invalid students array for class "${key}". Current value:`, classData.students, "Type:", typeof classData.students)
+           // Only reset if it's truly invalid - preserve existing array if it exists
+           if (classData.students === null || classData.students === undefined) {
            groupedByClass[key].students = []
+           } else {
+             // Try to convert to array if it's not null/undefined
+             groupedByClass[key].students = Array.isArray(classData.students) ? classData.students : []
+           }
+         }
+         if (!Array.isArray(classData.allUsers)) {
+           console.error(`Missing allUsers array for class "${key}":`, classData)
+           if (classData.allUsers === null || classData.allUsers === undefined) {
+             groupedByClass[key].allUsers = []
+           } else {
+             groupedByClass[key].allUsers = Array.isArray(classData.allUsers) ? classData.allUsers : []
+           }
          }
        })
        
-       setClassesData(groupedByClass)
-       console.log("Grouped classes data (full structure):", JSON.parse(JSON.stringify(groupedByClass)))
-       console.log("Detailed grouped classes:", Object.keys(groupedByClass).map(key => ({
+       // Log final state before setting
+       const finalSummary = Object.keys(groupedByClass).map(key => ({
          class: key,
          teacher: groupedByClass[key]?.teacher || "MISSING",
          studentCount: groupedByClass[key]?.students?.length || 0,
-         studentIds: groupedByClass[key]?.students?.map(s => s.id || s.user_id) || []
-       })))
+         allUsersCount: groupedByClass[key]?.allUsers?.length || 0,
+         studentIds: groupedByClass[key]?.students?.map(s => s.id || s.user_id) || [],
+         studentNames: groupedByClass[key]?.students?.map(s => s.first_name || s.email || s.id) || [],
+         allUserNames: groupedByClass[key]?.allUsers?.map(s => s.first_name || s.email || s.id) || []
+       }))
+       
+       console.log("=== FINAL CLASSES SUMMARY ===")
+       console.log(`Total classes: ${Object.keys(groupedByClass).length}`)
+       console.log(`Total users added: ${usersAddedCount}`)
+       console.log("Detailed grouped classes:", finalSummary)
+       console.log("Grouped classes data (full structure):", JSON.parse(JSON.stringify(groupedByClass)))
+       
+       setClassesData(groupedByClass)
        
        if (Object.keys(groupedByClass).length === 0) {
          console.warn("No classes found. This could be because:")
@@ -1619,6 +1934,459 @@ export function EduDashboard() {
     }
   }
 
+  // API function to fetch teacher dashboard data (for teachers and principals)
+  const fetchTeacherDashboard = async (orgId?: string | null) => {
+    if (!isTeacherOrPrincipal()) {
+      console.log("User is not a teacher or principal, skipping teacher dashboard fetch")
+      return
+    }
+
+    // Use token from login (from auth context)
+    const authToken = token || ""
+    if (!authToken) {
+      console.error("No authentication token available. User must be logged in.")
+      setTeacherDashboardError("Authentication required. Please log in.")
+      return
+    }
+
+    const API_URL = `${apiBase}/teacher/dashboard.php`
+    
+    try {
+      setIsLoadingTeacherDashboard(true)
+      setTeacherDashboardError(null)
+
+      console.log("Fetching teacher dashboard data for organization:", orgId)
+      console.log("Using token from login:", authToken.substring(0, 20) + "...")
+
+      // Try GET first
+      let response = await fetch(API_URL, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${authToken}`,
+        },
+      })
+
+      // If GET returns 405, try POST as fallback
+      if (!response.ok && response.status === 405) {
+        console.log("GET returned 405, trying POST method...")
+        response = await fetch(API_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${API_TOKEN}`,
+          },
+          body: JSON.stringify({}),
+        })
+      }
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error(`Teacher Dashboard API Error (${response.status}):`, errorText)
+        throw new Error(`API Error (${response.status}): ${errorText || response.statusText}`)
+      }
+
+      const data = await response.json()
+      console.log("Teacher Dashboard API Response:", data)
+
+      // Parse response - handle different formats
+      // The API response structure: { success: true, classes: [{ class_name: "9-A", students: [...] }] }
+      let dashboardData: any = null
+      if (data.success === true && data.classes) {
+        // Direct structure: { success: true, classes: [...] }
+        dashboardData = data
+      } else if (data.success === true && data.data) {
+        dashboardData = data.data
+      } else if (data.data) {
+        dashboardData = data.data
+      } else if (data.success === true && data.dashboard) {
+        dashboardData = data.dashboard
+      } else if (data.dashboard) {
+        dashboardData = data.dashboard
+      } else if (data.classes) {
+        // Direct classes array
+        dashboardData = data
+      } else {
+        dashboardData = data
+      }
+
+      // Filter by organization if orgId is provided
+      if (orgId && dashboardData) {
+        // If dashboardData is an array, filter by organisation_id
+        if (Array.isArray(dashboardData)) {
+          dashboardData = dashboardData.filter((item: any) => {
+            const itemOrgId = item.organisation_id || item.organization_id || item.org_id
+            return String(itemOrgId) === String(orgId)
+          })
+        }
+        // If dashboardData is an object with classes, filter classes by organization
+        else if (dashboardData.classes && Array.isArray(dashboardData.classes)) {
+          dashboardData = {
+            ...dashboardData,
+            classes: dashboardData.classes.filter((item: any) => {
+              const itemOrgId = item.organisation_id || item.organization_id || item.org_id
+              return String(itemOrgId) === String(orgId)
+            })
+          }
+        }
+      }
+
+      // Store dashboard data organized by class and by user
+      const classScores: Record<string, any> = {}
+      const userScores: Record<string, any> = {}
+      const classStudents: Record<string, any[]> = {} // Store students by class_name
+      
+      // Helper function to extract scores from item
+      const extractScores = (item: any) => {
+        // Check if scores are in a nested "scores" object
+        if (item.scores && typeof item.scores === "object") {
+          return {
+            speaking: (item.scores.speaking !== undefined && item.scores.speaking !== null) ? item.scores.speaking : (item.scores.speaking_score !== undefined && item.scores.speaking_score !== null ? item.scores.speaking_score : 0),
+            reading: (item.scores.reading !== undefined && item.scores.reading !== null) ? item.scores.reading : (item.scores.reading_score !== undefined && item.scores.reading_score !== null ? item.scores.reading_score : 0),
+            writing: (item.scores.writing !== undefined && item.scores.writing !== null) ? item.scores.writing : (item.scores.writing_score !== undefined && item.scores.writing_score !== null ? item.scores.writing_score : 0),
+            listening: (item.scores.listening !== undefined && item.scores.listening !== null) ? item.scores.listening : (item.scores.listening_score !== undefined && item.scores.listening_score !== null ? item.scores.listening_score : 0),
+          }
+        }
+        // Check for direct score properties
+        return {
+          speaking: (item.speaking !== undefined && item.speaking !== null) ? item.speaking : ((item.speaking_score !== undefined && item.speaking_score !== null) ? item.speaking_score : ((item.speakingScore !== undefined && item.speakingScore !== null) ? item.speakingScore : 0)),
+          reading: (item.reading !== undefined && item.reading !== null) ? item.reading : ((item.reading_score !== undefined && item.reading_score !== null) ? item.reading_score : ((item.readingScore !== undefined && item.readingScore !== null) ? item.readingScore : 0)),
+          writing: (item.writing !== undefined && item.writing !== null) ? item.writing : ((item.writing_score !== undefined && item.writing_score !== null) ? item.writing_score : ((item.writingScore !== undefined && item.writingScore !== null) ? item.writingScore : 0)),
+          listening: (item.listening !== undefined && item.listening !== null) ? item.listening : ((item.listening_score !== undefined && item.listening_score !== null) ? item.listening_score : ((item.listeningScore !== undefined && item.listeningScore !== null) ? item.listeningScore : 0)),
+        }
+      }
+      
+      // Handle the structure: { classes: [{ class_name: "9-A", students: [...] }] }
+      if (dashboardData.classes && Array.isArray(dashboardData.classes)) {
+        dashboardData.classes.forEach((classItem: any) => {
+          const className = classItem.class_name || classItem.class || classItem.className
+          if (className && classItem.students && Array.isArray(classItem.students)) {
+            const classKey = String(className).trim()
+            
+            // Store students for this class
+            classStudents[classKey] = classItem.students.map((student: any) => {
+              // Extract scores from the nested scores object
+              const extractedScores = extractScores(student)
+              const fullName = student.name || `${student.first_name || ""} ${student.last_name || ""}`.trim()
+              // Generate email if not provided (for display purposes)
+              const email = student.email || `${fullName.toLowerCase().replace(/\s+/g, ".")}@xeleratelearning.com`
+              
+              console.log(`Student ${fullName} - Original student:`, student)
+              console.log(`Student ${fullName} - Extracted scores:`, extractedScores)
+              
+              // Create student object with scores at top level
+              // IMPORTANT: Set scores AFTER spread to ensure they override any existing values
+              const studentObj: any = {
+                ...student,
+                id: student.id,
+                first_name: student.first_name,
+                last_name: student.last_name,
+                name: fullName,
+                email: email,
+                role: student.role || "student",
+                // Store the original scores object
+                scores: student.scores || extractedScores,
+                // CRITICAL: Set scores at top level - these must come AFTER spread to override
+                // Use extracted scores directly (they handle undefined/null properly)
+                speaking: extractedScores.speaking,
+                reading: extractedScores.reading,
+                writing: extractedScores.writing,
+                listening: extractedScores.listening,
+              }
+              
+              // Verify scores are set correctly
+              if (extractedScores.speaking > 0 || extractedScores.reading > 0 || extractedScores.writing > 0 || extractedScores.listening > 0) {
+                console.log(`✓ Scores set correctly for ${fullName}:`, {
+                  speaking: studentObj.speaking,
+                  reading: studentObj.reading,
+                  writing: studentObj.writing,
+                  listening: studentObj.listening
+                })
+              } else {
+                console.warn(`⚠ No scores found for ${fullName}. Extracted scores:`, extractedScores, "Original student:", student)
+              }
+              
+              console.log(`Student object for ${fullName}:`, {
+                name: studentObj.name,
+                speaking: studentObj.speaking,
+                reading: studentObj.reading,
+                writing: studentObj.writing,
+                listening: studentObj.listening,
+                scores: studentObj.scores
+              })
+              return studentObj
+            })
+            
+            // Store class-level data
+            if (!classScores[classKey]) {
+              classScores[classKey] = {
+                class_name: className,
+                student_count: classItem.students.length,
+                ...classItem
+              }
+            }
+            
+            // Store user scores by ID
+            classItem.students.forEach((student: any) => {
+              const userId = student.id
+              if (userId) {
+                const scores = extractScores(student)
+                userScores[String(userId)] = {
+                  speaking: scores.speaking,
+                  reading: scores.reading,
+                  writing: scores.writing,
+                  listening: scores.listening,
+                  ...student
+                }
+              }
+            })
+          }
+        })
+      } else if (Array.isArray(dashboardData)) {
+        dashboardData.forEach((item: any) => {
+          const className = item.class || item.class_name || item.className
+          const userEmail = item.email || item.user_email
+          const userId = item.id || item.user_id || item.userId
+          
+          // Store by class
+          if (className) {
+            const classKey = String(className).trim()
+            if (!classScores[classKey]) {
+              const scores = extractScores(item)
+              classScores[classKey] = {
+                overall_score: item.overall_score || item.overallScore || 0,
+                speaking_score: scores.speaking,
+                reading_score: scores.reading,
+                writing_score: scores.writing,
+                listening_score: scores.listening,
+                student_count: item.student_count || item.studentCount || 0,
+                ...item
+              }
+            }
+          }
+          
+          // Store by user (email or ID)
+          if (userEmail || userId) {
+            const userKey = userEmail ? String(userEmail).toLowerCase() : String(userId)
+            const scores = extractScores(item)
+            userScores[userKey] = {
+              speaking: scores.speaking,
+              reading: scores.reading,
+              writing: scores.writing,
+              listening: scores.listening,
+              overall_score: item.overall_score || item.overallScore || 0,
+              ...item
+            }
+          }
+        })
+      } else if (dashboardData && typeof dashboardData === "object") {
+        // Handle object format - might have classes array or direct class data
+        if (dashboardData.classes && Array.isArray(dashboardData.classes)) {
+          dashboardData.classes.forEach((item: any) => {
+            const className = item.class || item.class_name || item.className
+            const userEmail = item.email || item.user_email
+            const userId = item.id || item.user_id || item.userId
+            
+            if (className) {
+              const classKey = String(className).trim()
+              const scores = extractScores(item)
+              classScores[classKey] = {
+                overall_score: item.overall_score || item.overallScore || 0,
+                speaking_score: scores.speaking,
+                reading_score: scores.reading,
+                writing_score: scores.writing,
+                listening_score: scores.listening,
+                student_count: item.student_count || item.studentCount || 0,
+                ...item
+              }
+            }
+            
+            // Store by user
+            if (userEmail || userId) {
+              const userKey = userEmail ? String(userEmail).toLowerCase() : String(userId)
+              const scores = extractScores(item)
+              userScores[userKey] = {
+                speaking: scores.speaking,
+                reading: scores.reading,
+                writing: scores.writing,
+                listening: scores.listening,
+                overall_score: item.overall_score || item.overallScore || 0,
+                ...item
+              }
+            }
+          })
+        } else if (dashboardData.students && Array.isArray(dashboardData.students)) {
+          // Handle students array format
+          dashboardData.students.forEach((item: any) => {
+            const userEmail = item.email || item.user_email
+            const userId = item.id || item.user_id || item.userId
+            const className = item.class || item.class_name || item.className
+            
+            // Store by class
+            if (className) {
+              const classKey = String(className).trim()
+              if (!classScores[classKey]) {
+                const scores = extractScores(item)
+                classScores[classKey] = {
+                  overall_score: item.overall_score || item.overallScore || 0,
+                  speaking_score: scores.speaking,
+                  reading_score: scores.reading,
+                  writing_score: scores.writing,
+                  listening_score: scores.listening,
+                  student_count: dashboardData.students.length || 0,
+                }
+              }
+            }
+            
+            // Store by user
+            if (userEmail || userId) {
+              const userKey = userEmail ? String(userEmail).toLowerCase() : String(userId)
+              const scores = extractScores(item)
+              userScores[userKey] = {
+                speaking: scores.speaking,
+                reading: scores.reading,
+                writing: scores.writing,
+                listening: scores.listening,
+                overall_score: item.overall_score || item.overallScore || 0,
+                ...item
+              }
+            }
+          })
+        } else {
+          // Direct class data in object format
+          Object.keys(dashboardData).forEach((key) => {
+            const item = dashboardData[key]
+            if (item && typeof item === "object") {
+              const className = item.class || item.class_name || item.className || key
+              const classKey = String(className).trim()
+              const scores = extractScores(item)
+              classScores[classKey] = {
+                overall_score: item.overall_score || item.overallScore || 0,
+                speaking_score: scores.speaking,
+                reading_score: scores.reading,
+                writing_score: scores.writing,
+                listening_score: scores.listening,
+                student_count: item.student_count || item.studentCount || 0,
+                ...item
+              }
+            }
+          })
+        }
+      }
+
+      setTeacherDashboardData(classScores)
+      setTeacherDashboardUserScores(userScores)
+      
+      // Store students by class for direct table display
+      if (Object.keys(classStudents).length > 0) {
+        // Update classesData with students from teacher dashboard
+        const updatedClassesData: Record<string, { students: ApiUser[], teacher: string, allUsers: ApiUser[] }> = {}
+        Object.keys(classStudents).forEach((classKey) => {
+          const students = classStudents[classKey]
+          console.log(`Setting students for class ${classKey}:`, students.map(s => ({
+            name: s.name,
+            speaking: s.speaking,
+            reading: s.reading,
+            writing: s.writing,
+            listening: s.listening,
+            scores: s.scores
+          })))
+          updatedClassesData[classKey] = {
+            students: students,
+            teacher: "Teacher", // Will be updated from users list if available
+            allUsers: students // For now, all users are students from dashboard
+          }
+        })
+        // Merge with existing classesData (preserve teacher info from users list)
+        Object.keys(updatedClassesData).forEach((classKey) => {
+          if (classesData[classKey]) {
+            updatedClassesData[classKey].teacher = classesData[classKey].teacher || "Teacher"
+          }
+        })
+        console.log("Updating classesData with teacher dashboard students:", updatedClassesData)
+        setClassesData(prev => {
+          // Merge properly: preserve existing allUsers and students, but update with teacher dashboard data
+          const merged: Record<string, any> = { ...prev }
+          
+          Object.keys(updatedClassesData).forEach(classKey => {
+            const newClassData = updatedClassesData[classKey]
+            const existingClassData = prev[classKey]
+            
+            if (existingClassData) {
+              // Merge: combine existing allUsers with new students from teacher dashboard
+              const existingAllUsers = existingClassData.allUsers || []
+              const newStudents = newClassData.allUsers || []
+              
+              // Create a map to avoid duplicates (by ID or email)
+              const userMap = new Map()
+              
+              // Add existing users first
+              existingAllUsers.forEach((user: any) => {
+                const key = user.id || user.user_id || user.email
+                if (key) userMap.set(String(key), user)
+              })
+              
+              // Add/update with teacher dashboard users (they have scores)
+              newStudents.forEach((user: any) => {
+                const key = user.id || user.user_id || user.email
+                if (key) {
+                  // If user exists, merge scores; otherwise add new user
+                  const existing = userMap.get(String(key))
+                  if (existing) {
+                    // Merge: keep existing data but update scores
+                    userMap.set(String(key), {
+                      ...existing,
+                      ...user, // Teacher dashboard data (with scores) takes precedence
+                      speaking: user.speaking !== undefined ? user.speaking : existing.speaking,
+                      reading: user.reading !== undefined ? user.reading : existing.reading,
+                      writing: user.writing !== undefined ? user.writing : existing.writing,
+                      listening: user.listening !== undefined ? user.listening : existing.listening,
+                      scores: user.scores || existing.scores,
+                    })
+                  } else {
+                    userMap.set(String(key), user)
+                  }
+                }
+              })
+              
+              merged[classKey] = {
+                ...existingClassData,
+                ...newClassData,
+                allUsers: Array.from(userMap.values()),
+                students: Array.from(userMap.values()).filter((u: any) => {
+                  const role = (u.role || "").toLowerCase()
+                  return role !== "teacher" && role !== "principal" && role !== "administrator" && !role.includes("admin")
+                }),
+                teacher: newClassData.teacher || existingClassData.teacher,
+              }
+            } else {
+              // New class, just add it
+              merged[classKey] = newClassData
+            }
+          })
+          
+          console.log("Merged classesData:", merged)
+          console.log("Sample merged class data:", merged[Object.keys(merged)[0]])
+          return merged
+        })
+      }
+      
+      console.log("Teacher dashboard data organized by class:", classScores)
+      console.log("Teacher dashboard data organized by user:", userScores)
+      console.log("Teacher dashboard students by class:", classStudents)
+
+      return classScores
+    } catch (error: any) {
+      console.error("Error fetching teacher dashboard:", error)
+      setTeacherDashboardError(error.message || "Failed to load teacher dashboard data")
+      setTeacherDashboardData({})
+      setTeacherDashboardUserScores({})
+      throw error
+    } finally {
+      setIsLoadingTeacherDashboard(false)
+    }
+  }
+
   // API function to fetch Reading results
   const fetchReadingResults = async () => {
     const API_URL = `${apiBase}/reading/list-results.php`
@@ -1635,23 +2403,16 @@ export function EduDashboard() {
         },
       })
 
-      // If GET returns 405, the endpoint might require POST but with specific format
-      // Or the endpoint URL might be different
+      // If GET returns 405, try POST with empty body (similar to listening/get-result.php pattern)
       if (response.status === 405) {
-        console.warn("GET method returned 405. This endpoint may require a different method or URL.")
-        console.warn("Please verify with the backend team:")
-        console.warn("1. Correct endpoint URL")
-        console.warn("2. Required HTTP method (GET/POST/PUT)")
-        console.warn("3. Required query parameters or body parameters")
-        
-        // Still try POST as fallback, but it will likely also fail
+        console.log("GET method returned 405, trying POST with empty body...")
         response = await fetch(API_URL, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${API_TOKEN}`,
           },
-          body: JSON.stringify({}),
+          body: "",
         })
       }
 
@@ -1800,7 +2561,103 @@ export function EduDashboard() {
     }
   }
 
-  // Load skill results when skill is selected
+  // Combined API function to fetch all skill results in parallel
+  const fetchAllSkillResults = async () => {
+    setIsLoadingAllSkills(true)
+    
+    try {
+      console.log("Fetching all skill results in parallel...")
+      
+      // Fetch all skills in parallel using Promise.allSettled to handle partial failures
+      const [readingResult, writingResult, listeningResult, speakingResult] = await Promise.allSettled([
+        fetchReadingResults().catch(err => {
+          console.warn("Reading API failed:", err)
+          return { success: false, data: [], error: err.message }
+        }),
+        fetchWritingResults().catch(err => {
+          console.warn("Writing API failed:", err)
+          return { success: false, data: [], error: err.message }
+        }),
+        fetchListeningResults().catch(err => {
+          console.warn("Listening API failed:", err)
+          return { success: false, data: [], error: err.message }
+        }),
+        fetchSpeakingResults().catch(err => {
+          console.warn("Speaking API failed:", err)
+          return { success: false, data: [], error: err.message }
+        })
+      ])
+
+      // Helper function to extract results from response
+      const extractResults = (result: PromiseSettledResult<any>): any[] => {
+        if (result.status === 'rejected') {
+          console.error("Promise rejected:", result.reason)
+          return []
+        }
+        
+        const response = result.value
+        if (!response || typeof response !== "object") {
+          return []
+        }
+
+      // Handle different response formats
+        if (response.success === true && Array.isArray(response.data)) {
+          return response.data
+        } else if (response.success === true && Array.isArray(response.items)) {
+          return response.items
+        } else if (Array.isArray(response.data)) {
+          return response.data
+        } else if (Array.isArray(response.items)) {
+          return response.items
+        } else if (Array.isArray(response.results)) {
+          return response.results
+        } else if (Array.isArray(response)) {
+          return response
+        }
+        
+        return []
+      }
+
+      // Extract results from each skill
+      const readingResults = extractResults(readingResult)
+      const writingResults = extractResults(writingResult)
+      const listeningResults = extractResults(listeningResult)
+      const speakingResults = extractResults(speakingResult)
+
+      // Store all results
+      const combinedResults = {
+        reading: readingResults,
+        writing: writingResults,
+        listening: listeningResults,
+        speaking: speakingResults
+      }
+
+      setAllSkillResults(combinedResults)
+      
+      console.log("All skill results fetched successfully:", {
+        reading: readingResults.length,
+        writing: writingResults.length,
+        listening: listeningResults.length,
+        speaking: speakingResults.length
+      })
+
+      return combinedResults
+    } catch (error: any) {
+      console.error("Error fetching all skill results:", error)
+      // Set empty results on error
+      setAllSkillResults({
+        reading: [],
+        writing: [],
+        listening: [],
+        speaking: []
+      })
+      throw error
+    } finally {
+      setIsLoadingAllSkills(false)
+    }
+  }
+
+  // Load skill results when skill is selected (uses cached results from fetchAllSkillResults)
   const loadSkillResults = async (skill: "speaking" | "reading" | "writing" | "listening") => {
     setIsLoadingResults(true)
     setResultsError(null)
@@ -1809,67 +2666,18 @@ export function EduDashboard() {
       // Check if we have organization/class selected and might need to filter
       console.log("Loading skill results for:", skill, { selectedOrganization, selectedClass })
       
-      let response
-      switch (skill) {
-        case "reading":
-          response = await fetchReadingResults()
-          break
-        case "writing":
-          response = await fetchWritingResults()
-          break
-        case "listening":
-          response = await fetchListeningResults()
-          break
-        case "speaking":
-          response = await fetchSpeakingResults()
-          break
-        default:
-          response = { success: true, data: [] }
-      }
-
-      console.log(`${skill} API response structure:`, response)
-
-      // Handle different response formats
+      // Check if we have cached results, if not fetch all skills first
       let allResults: any[] = []
-      if (response && typeof response === "object") {
-        // Format 1: { success: true, data: [...] }
-        if (response.success === true && Array.isArray(response.data)) {
-          allResults = response.data
-        }
-        // Format 2: { success: true, items: [...] } (Writing API format)
-        else if (response.success === true && Array.isArray(response.items)) {
-          allResults = response.items
-        }
-        // Format 3: { data: [...] }
-        else if (Array.isArray(response.data)) {
-          allResults = response.data
-        }
-        // Format 4: { items: [...] }
-        else if (Array.isArray(response.items)) {
-          allResults = response.items
-        }
-        // Format 5: { results: [...] }
-        else if (Array.isArray(response.results)) {
-          allResults = response.results
-        }
-        // Format 6: Direct array response
-        else if (Array.isArray(response)) {
-          allResults = response
-        }
-        // Format 5: { success: true, results: [...] }
-        else if (response.success === true && Array.isArray(response.results)) {
-          allResults = response.results
-        }
-        // Format 6: Empty or unexpected format
-        else {
-          console.warn(`Unexpected response format for ${skill}:`, response)
-          allResults = []
-        }
-      } else if (Array.isArray(response)) {
-        allResults = response
+      
+      if (allSkillResults[skill] && allSkillResults[skill].length >= 0) {
+        // Use cached results
+        allResults = allSkillResults[skill]
+        console.log(`Using cached results for ${skill}: ${allResults.length} results`)
       } else {
-        console.warn(`Invalid response for ${skill}:`, response)
-        allResults = []
+        // Fetch all skills if not cached
+        console.log(`No cached results for ${skill}, fetching all skills...`)
+        await fetchAllSkillResults()
+        allResults = allSkillResults[skill] || []
       }
 
       // Filter results based on activeFilter
@@ -2139,6 +2947,94 @@ export function EduDashboard() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [organizationsList])
+
+  // Effect to auto-select organization for teachers/principals
+  useEffect(() => {
+    if (isTeacherOrPrincipal() && !selectedOrganization && organizationsList.length > 0) {
+      const userOrgId = getUserOrganizationId()
+      if (userOrgId) {
+        // Verify organization exists in the list
+        const orgExists = organizationsList.some((org) => {
+          const oId1 = org.id ? String(org.id) : null
+          const oId2 = org.organisation_id ? String(org.organisation_id) : null
+          const oId3 = org.organization_id ? String(org.organization_id) : null
+          return oId1 === userOrgId || oId2 === userOrgId || oId3 === userOrgId
+        })
+        
+        if (orgExists) {
+          console.log("Auto-selecting organization for teacher/principal:", userOrgId)
+          setSelectedOrganization(userOrgId)
+        } else {
+          console.warn("User's organization not found in organizations list:", userOrgId)
+        }
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authData?.user, organizationsList])
+
+  // Effect to automatically fetch users when organization is selected
+  useEffect(() => {
+    if (selectedOrganization && organizationsList.length > 0) {
+      // Verify organization exists before fetching
+      const orgExists = organizationsList.some((org) => {
+        const oId1 = org.id ? String(org.id) : null
+        const oId2 = org.organisation_id ? String(org.organisation_id) : null
+        const oId3 = org.organization_id ? String(org.organization_id) : null
+        const searchId = String(selectedOrganization)
+        return oId1 === searchId || oId2 === searchId || oId3 === searchId
+      })
+      
+      if (orgExists) {
+        fetchUsersList(selectedOrganization).catch((error) => {
+          console.error("Failed to fetch users list:", error)
+        })
+        
+        // Pre-fetch all skill results when organization is selected
+        fetchAllSkillResults().catch((error) => {
+          console.error("Failed to fetch all skill results:", error)
+        })
+        
+        // Fetch teacher dashboard data if user is teacher or principal
+        if (isTeacherOrPrincipal()) {
+          fetchTeacherDashboard(selectedOrganization).catch((error) => {
+            console.error("Failed to fetch teacher dashboard:", error)
+          })
+        }
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedOrganization, organizationsList])
+
+  // Effect to refresh skill results when class is selected
+  useEffect(() => {
+    if (selectedClass && selectedOrganization) {
+      console.log(`[useEffect] Class selected: ${selectedClass}, Organization: ${selectedOrganization}`)
+      console.log(`[useEffect] Current classesData keys:`, Object.keys(classesData))
+      console.log(`[useEffect] Class data for ${selectedClass}:`, classesData[selectedClass])
+      
+      // If no data for this class, fetch users list again
+      if (!classesData[selectedClass] || !classesData[selectedClass].allUsers || classesData[selectedClass].allUsers.length === 0) {
+        console.log(`[useEffect] No data found for class ${selectedClass}, fetching users list...`)
+        fetchUsersList(selectedOrganization).catch((error) => {
+          console.error("Failed to fetch users list for class:", error)
+        })
+      }
+      
+      // If teacher/principal, also fetch teacher dashboard
+      if (isTeacherOrPrincipal()) {
+        console.log(`[useEffect] User is teacher/principal, fetching teacher dashboard...`)
+        fetchTeacherDashboard(selectedOrganization).catch((error) => {
+          console.error("Failed to fetch teacher dashboard for class:", error)
+        })
+      }
+      
+      // Refresh all skill results when a class is selected
+      fetchAllSkillResults().catch((error) => {
+        console.error("Failed to refresh skill results for class:", error)
+      })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedClass, selectedOrganization])
 
   // Effect to load results when skill is selected
   useEffect(() => {
@@ -2552,9 +3448,26 @@ export function EduDashboard() {
                 >
                   Organization:
                 </label>
+                 {isTeacherOrPrincipal() ? (
+                   // For teachers/principals, show their organization (read-only)
+                   <div
+                     style={{
+                       padding: "10px 12px",
+                       borderRadius: "8px",
+                       border: "1px solid rgba(30, 58, 138, 0.2)",
+                       fontSize: "14px",
+                       color: "#1E3A8A",
+                       backgroundColor: "#F3F4F6",
+                       fontWeight: "500",
+                     }}
+                   >
+                     {selectedOrganization ? getOrganizationName(selectedOrganization) : "Loading organization..."}
+                   </div>
+                 ) : (
+                   // For administrators, show dropdown to select organization
                  <select
                    value={selectedOrganization}
-                   onChange={(e) => {
+                     onChange={async (e) => {
                      const selectedValue = e.target.value
                      console.log("Organization selected:", selectedValue, "Available orgs:", organizationsList.map(o => ({
                        id: o.id,
@@ -2562,12 +3475,19 @@ export function EduDashboard() {
                        name: o.name || o.organisation_name
                      })))
                      setSelectedOrganization(selectedValue)
-                     setShowClasses(false)
                      setSelectedClass(null)
                      setSelectedStudent(null)
                      // Clear classes data when organization changes
                      setClassesData({})
                      setUsersList([])
+                       // Automatically fetch users list when organization is selected
+                       if (selectedValue) {
+                         try {
+                           await fetchUsersList(selectedValue)
+                         } catch (error) {
+                           console.error("Failed to fetch users list:", error)
+                         }
+                       }
                    }}
                    disabled={isLoadingOrganizations}
                    style={{
@@ -2587,22 +3507,44 @@ export function EduDashboard() {
                      {isLoadingOrganizations ? "Loading organizations..." : "Select Organization"}
                    </option>
                    {organizationsList.map((org) => {
-                     // Check organisation field first (primary field name from API)
-                     const orgName = org.organisation || org.name || org.organisation_name || org.organization_name || `Organization ${org.id}` || "Unknown"
                      // Always use ID for value, never fallback to name
                      const orgId = org.id || org.organisation_id || org.organization_id
                      if (!orgId) {
                        console.warn("Organization missing ID:", org)
                        return null // Skip organizations without ID
                      }
+                     
+                     // Check organisation field first (primary field name from API)
+                     // Try multiple possible field names to get the organization name
+                     const orgName = org.organisation || 
+                                     org.name || 
+                                     org.organisation_name || 
+                                     org.organization_name || 
+                                     org.org_name ||
+                                     org.title ||
+                                     null
+                     
+                     // Ensure we have a valid name (not just ID or empty string)
+                     // If no name found, create a fallback name
+                     let displayName = orgName
+                     if (!displayName || displayName.trim() === "" || displayName === String(orgId)) {
+                       displayName = `Organization ${orgId}`
+                     }
+                     
+                     // Log if we're using fallback name for debugging
+                     if (displayName === `Organization ${orgId}`) {
+                       console.warn(`Organization ${orgId} has no name field. Available fields:`, Object.keys(org))
+                     }
+                     
                      const orgIdString = String(orgId)
                      return (
                        <option key={orgIdString} value={orgIdString}>
-                         {orgName}
+                         {displayName}
                        </option>
                      )
                    }).filter(Boolean)}
                  </select>
+                 )}
                  {organizationsError && (
                    <p style={{ fontSize: "12px", color: "#EF4444", marginTop: "8px" }}>
                      Error loading organizations: {organizationsError}
@@ -2611,50 +3553,8 @@ export function EduDashboard() {
               </div>
             )}
 
-              {/* All Classes Button - shown after organization is selected */}
+              {/* Classes - shown directly when organization is selected */}
               {selectedOrganization && (
-                <div
-                  style={{
-                    paddingTop: "16px",
-                    borderTop: "1px solid rgba(30, 58, 138, 0.1)",
-                  }}
-                >
-                   <Button
-                     onClick={async () => {
-                       if (!showClasses) {
-                         // Fetch users list when opening classes for the first time
-                         // Pass selectedOrganization to filter users by organization
-                         try {
-                           await fetchUsersList(selectedOrganization)
-                         } catch (error) {
-                           console.error("Failed to fetch users list:", error)
-                         }
-                       }
-                       setShowClasses(!showClasses)
-                       setSelectedStudent(null)
-                     }}
-                    variant={showClasses ? "default" : "outline"}
-                    disabled={isLoadingUsers}
-                    style={{
-                      backgroundColor: showClasses ? "#3B82F6" : "#F3F4F6",
-                      color: showClasses ? "#FFFFFF" : "#1E3A8A",
-                      borderColor: showClasses ? "#3B82F6" : "#E5E7EB",
-                      opacity: isLoadingUsers ? 0.6 : 1,
-                    }}
-                  >
-                    <GraduationCap style={{ width: "16px", height: "16px", marginRight: "6px" }} />
-                    {isLoadingUsers ? "Loading Classes..." : "All Classes"}
-                  </Button>
-                  {usersError && (
-                    <p style={{ fontSize: "12px", color: "#EF4444", marginTop: "8px" }}>
-                      Error: {usersError}
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {/* Classes with Teachers - shown when All Classes is clicked */}
-              {showClasses && (
                 <div
                   style={{
                     paddingTop: "16px",
@@ -2695,10 +3595,18 @@ export function EduDashboard() {
                          const classData = classesData[className]
                          const teacherName = classData?.teacher || getTeacherForClass(className)
                          const studentCount = classData?.students?.length || 0
+                         const teacherDashboardScores = teacherDashboardData[className] || {}
+                         const overallScore = isTeacherOrPrincipal() && teacherDashboardScores.overall_score !== undefined 
+                           ? teacherDashboardScores.overall_score 
+                           : null
                          
                          // Debug logging
-                         if (!classData || !classData.teacher) {
-                           console.warn(`Class "${className}" missing teacher in UI render. Class data:`, classData)
+                         if (!classData) {
+                           console.warn(`Class "${className}" has no classData in UI render. Available classes:`, Object.keys(classesData))
+                         } else if (!Array.isArray(classData.students)) {
+                           console.warn(`Class "${className}" has invalid students array. Class data:`, classData)
+                         } else {
+                           console.log(`Class "${className}" rendering with ${studentCount} students. Students:`, classData.students.map(s => s.first_name || s.email || s.id))
                          }
                          
                          return (
@@ -2749,6 +3657,11 @@ export function EduDashboard() {
                              <p style={{ fontSize: "12px", color: "rgba(30, 58, 138, 0.6)" }}>
                                {studentCount} {studentCount === 1 ? "student" : "students"}
                              </p>
+                             {isTeacherOrPrincipal() && overallScore !== null && (
+                               <p style={{ fontSize: "14px", color: "#3B82F6", fontWeight: "600", marginTop: "8px" }}>
+                                 Overall Score: {typeof overallScore === "number" ? `${overallScore.toFixed(1)}%` : overallScore}
+                               </p>
+                             )}
                            </div>
                          )
                        })}
@@ -2758,26 +3671,27 @@ export function EduDashboard() {
               )}
           </div>
 
-          {/* Skill Buttons Section */}
-          <div
-            style={{
-              backgroundColor: "#FFFFFF",
-              borderRadius: "16px",
-              padding: "24px",
-              marginBottom: "24px",
-              boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-            }}
-          >
-            <h3
+          {/* Skill Buttons Section - Temporarily disabled */}
+          {SHOW_SKILLS_TAB && (
+            <div
               style={{
-                fontSize: "20px",
-                fontWeight: "bold",
-                color: "#1E3A8A",
-                marginBottom: "16px",
+                backgroundColor: "#FFFFFF",
+                borderRadius: "16px",
+                padding: "24px",
+                marginBottom: "24px",
+                boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
               }}
             >
-              Skills
-            </h3>
+              <h3
+                style={{
+                  fontSize: "20px",
+                  fontWeight: "bold",
+                  color: "#1E3A8A",
+                  marginBottom: "16px",
+                }}
+              >
+                Skills
+              </h3>
                 <div
                   style={{
                     display: "flex",
@@ -2827,6 +3741,7 @@ export function EduDashboard() {
               })}
                 </div>
               </div>
+          )}
 
           {/* Detailed Analysis Section - Show after skill is selected or class is selected */}
           {(activeSkill || selectedClass) && (
@@ -2862,6 +3777,152 @@ export function EduDashboard() {
                 {selectedStudent && ` - ${selectedStudent}`}
               </h3>
             </div>
+
+            {/* Overall Scores Tiles */}
+            {(() => {
+              // Calculate overall scores for each skill
+              const overallScores: { skill: string; label: string; score: number; color: string }[] = []
+              
+              if (selectedClass) {
+                // When a class is selected, calculate average scores from all users in the class
+                const classData = classesData[selectedClass]
+                if (classData && classData.allUsers && classData.allUsers.length > 0) {
+                  const skillTotals: { [key: string]: { sum: number; count: number } } = {
+                    reading: { sum: 0, count: 0 },
+                    writing: { sum: 0, count: 0 },
+                    listening: { sum: 0, count: 0 },
+                    speaking: { sum: 0, count: 0 }
+                  }
+                  
+                  classData.allUsers.forEach((user: any) => {
+                    const scoresObj = user.scores || {}
+                    const skills = [
+                      { key: "reading", score: user.reading ?? scoresObj.reading ?? 0 },
+                      { key: "writing", score: user.writing ?? scoresObj.writing ?? 0 },
+                      { key: "listening", score: user.listening ?? scoresObj.listening ?? 0 },
+                      { key: "speaking", score: user.speaking ?? scoresObj.speaking ?? 0 }
+                    ]
+                    
+                    skills.forEach(({ key, score }) => {
+                      if (score > 0) {
+                        skillTotals[key].sum += score
+                        skillTotals[key].count += 1
+                      }
+                    })
+                  })
+                  
+                  const skillColors: { [key: string]: string } = {
+                    reading: "#246BCF",
+                    writing: "#00B9FC",
+                    listening: "#1E3A8A",
+                    speaking: "#3B82F6"
+                  }
+                  
+                  const skillLabels: { [key: string]: string } = {
+                    reading: "Reading",
+                    writing: "Writing",
+                    listening: "Listening",
+                    speaking: "Speaking"
+                  }
+                  
+                  Object.keys(skillTotals).forEach((skill) => {
+                    const total = skillTotals[skill]
+                    if (total.count > 0) {
+                      const avgScore = total.sum / total.count
+                      overallScores.push({
+                        skill,
+                        label: skillLabels[skill],
+                        score: avgScore,
+                        color: skillColors[skill]
+                      })
+                    }
+                  })
+                }
+              } else if (Object.keys(allSkillResults).length > 0) {
+                // When skills are loaded, calculate average from allSkillResults
+                const skillColors: { [key: string]: string } = {
+                  reading: "#246BCF",
+                  writing: "#00B9FC",
+                  listening: "#1E3A8A",
+                  speaking: "#3B82F6"
+                }
+                
+                const skillLabels: { [key: string]: string } = {
+                  reading: "Reading",
+                  writing: "Writing",
+                  listening: "Listening",
+                  speaking: "Speaking"
+                }
+                
+                Object.keys(allSkillResults).forEach((skill) => {
+                  const results = allSkillResults[skill]
+                  if (results && results.length > 0) {
+                    const scores = results
+                      .map((r: any) => r.overall_score || r.overallScore || r.score || 0)
+                      .filter((s: number) => s > 0)
+                    
+                    if (scores.length > 0) {
+                      const avgScore = scores.reduce((sum: number, score: number) => sum + score, 0) / scores.length
+                      overallScores.push({
+                        skill,
+                        label: skillLabels[skill],
+                        score: avgScore,
+                        color: skillColors[skill]
+                      })
+                    }
+                  }
+                })
+              }
+              
+              if (overallScores.length === 0) {
+                return null
+              }
+              
+              return (
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+                    gap: "16px",
+                    marginBottom: "24px",
+                  }}
+                >
+                  {overallScores.map(({ skill, label, score, color }) => (
+                    <div
+                      key={skill}
+                      style={{
+                        backgroundColor: "#EFF6FF",
+                        borderRadius: "12px",
+                        padding: "20px",
+                        border: `2px solid ${color}`,
+                        boxShadow: `0 2px 8px ${color}33`,
+                      }}
+                    >
+                      <p
+                        style={{
+                          fontSize: "14px",
+                          color: "rgba(30, 58, 138, 0.7)",
+                          margin: "0 0 8px 0",
+                          fontWeight: "500",
+                        }}
+                      >
+                        {label} Overall Score
+                      </p>
+                      <p
+                        style={{
+                          fontSize: "24px",
+                          fontWeight: "bold",
+                          color: color,
+                          margin: 0,
+                        }}
+                      >
+                        {typeof score === "number" ? `${score.toFixed(1)}%` : score}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )
+            })()}
 
             {/* Combined Table with Stats and Analysis */}
             <div style={{ overflowX: "auto" }}>
@@ -2901,6 +3962,28 @@ export function EduDashboard() {
                             color: "#1E3A8A",
                           }}
                         >
+                          ROLE
+                        </th>
+                        <th
+                          style={{
+                            padding: "12px",
+                            textAlign: "left",
+                            fontSize: "14px",
+                            fontWeight: "600",
+                            color: "#1E3A8A",
+                          }}
+                        >
+                          LISTENING
+                        </th>
+                        <th
+                          style={{
+                            padding: "12px",
+                            textAlign: "left",
+                            fontSize: "14px",
+                            fontWeight: "600",
+                            color: "#1E3A8A",
+                          }}
+                        >
                           SPEAKING
                         </th>
                         <th
@@ -2924,17 +4007,6 @@ export function EduDashboard() {
                           }}
                         >
                           WRITING
-                        </th>
-                        <th
-                          style={{
-                            padding: "12px",
-                            textAlign: "left",
-                            fontSize: "14px",
-                            fontWeight: "600",
-                            color: "#1E3A8A",
-                          }}
-                        >
-                          LISTENING
                         </th>
                         <th
                           style={{
@@ -3071,26 +4143,256 @@ export function EduDashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {(isLoadingResults || (selectedClass && isLoadingUsers)) ? (
+                  {(isLoadingResults || (selectedClass && isLoadingUsers) || (selectedClass && isLoadingAllSkills)) ? (
                     <tr>
-                      <td colSpan={selectedClass && !selectedStudent && !activeSkill ? 6 : activeSkill ? getTableColumns().length + 1 : 8} style={{ padding: "24px", textAlign: "center", color: "rgba(30, 58, 138, 0.6)" }}>
-                        {selectedClass && isLoadingUsers ? "Loading students..." : "Loading..."}
+                      <td colSpan={(() => {
+                        if (selectedClass && !selectedStudent && !activeSkill) {
+                          const tableData = getTableData()
+                          const hasSkillResults = tableData.length > 0 && tableData[0]?.type === "skill-result"
+                          return hasSkillResults ? 6 : (isTeacherOrPrincipal() ? 8 : 7)
+                        }
+                        return activeSkill ? getTableColumns().length + 1 : 7
+                      })()} style={{ padding: "24px", textAlign: "center", color: "rgba(30, 58, 138, 0.6)" }}>
+                        {selectedClass && (isLoadingUsers || isLoadingAllSkills) ? "Loading data..." : "Loading..."}
                       </td>
                     </tr>
                   ) : (resultsError || (selectedClass && usersError)) ? (
                     <tr>
-                      <td colSpan={selectedClass && !selectedStudent && !activeSkill ? 6 : activeSkill ? getTableColumns().length + 1 : 8} style={{ padding: "24px", textAlign: "center", color: "#EF4444" }}>
+                      <td colSpan={(() => {
+                        if (selectedClass && !selectedStudent && !activeSkill) {
+                          const tableData = getTableData()
+                          const hasSkillResults = tableData.length > 0 && tableData[0]?.type === "skill-result"
+                          return hasSkillResults ? 6 : (isTeacherOrPrincipal() ? 8 : 7)
+                        }
+                        return activeSkill ? getTableColumns().length + 1 : 7
+                      })()} style={{ padding: "24px", textAlign: "center", color: "#EF4444" }}>
                         Error: {resultsError || usersError}
                       </td>
                     </tr>
                   ) : getTableData().length === 0 ? (
                     <tr>
-                      <td colSpan={selectedClass && !selectedStudent && !activeSkill ? 6 : activeSkill ? getTableColumns().length + 1 : 8} style={{ padding: "24px", textAlign: "center", color: "rgba(30, 58, 138, 0.6)" }}>
-                        {selectedClass ? (isLoadingUsers ? "Loading students..." : "No students found in this class") : activeSkill ? `No ${activeSkill} results available` : "Select a skill or class to view data"}
+                      <td colSpan={(() => {
+                        if (selectedClass && !selectedStudent && !activeSkill) {
+                          return isTeacherOrPrincipal() ? 8 : 7
+                        }
+                        return activeSkill ? getTableColumns().length + 1 : 7
+                      })()} style={{ padding: "24px", textAlign: "center", color: "rgba(30, 58, 138, 0.6)" }}>
+                        {selectedClass ? (isLoadingUsers || isLoadingAllSkills ? "Loading data..." : "No data found for this class") : activeSkill ? `No ${activeSkill} results available` : "Select a skill or class to view data"}
                       </td>
                     </tr>
                   ) : getTableData().map((row: any, index) => {
-                    // If showing students list with scores
+                    // If showing skill results for a selected class
+                    if (selectedClass && !selectedStudent && !activeSkill && row.type === "skill-result") {
+                      const skillLabel = skillButtons.find(s => s.id === row.skill)?.label || row.skill?.toUpperCase() || "Unknown"
+                      const skillColor = skillButtons.find(s => s.id === row.skill)?.color || "#1E3A8A"
+                      const studentName = row.user_name || row.name || (row.first_name && row.last_name) 
+                        ? `${row.first_name} ${row.last_name}`.trim()
+                        : row.first_name || row.email || "Unknown"
+                      const dateTime = row.date_time || row.created_at || row.date || "-"
+                      const score = row.overall_score || row.score || row.total_score || "-"
+                      const moduleTitle = row.module_title || row.title || row.module || row.module_type || "-"
+                      
+                      return (
+                        <tr
+                          key={`skill-result-${row.skill}-${row.id}-${index}`}
+                          style={{
+                            borderBottom: "1px solid rgba(30, 58, 138, 0.1)",
+                            backgroundColor: "#FFFFFF",
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = "#F3F4F6"
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = "#FFFFFF"
+                          }}
+                        >
+                          <td style={{ padding: "12px", fontSize: "14px", color: skillColor, fontWeight: "600" }}>
+                            {skillLabel}
+                          </td>
+                          <td style={{ padding: "12px", fontSize: "14px", color: "#1E3A8A", fontWeight: "500" }}>
+                            {studentName}
+                          </td>
+                          <td style={{ padding: "12px", fontSize: "14px", color: "#1E3A8A" }}>
+                            {dateTime}
+                          </td>
+                          <td style={{ padding: "12px", fontSize: "14px", color: "#1E3A8A", fontWeight: "500" }}>
+                            {typeof score === "number" ? `${score.toFixed(2)}%` : score}
+                          </td>
+                          <td style={{ padding: "12px", fontSize: "14px", color: "#1E3A8A" }}>
+                            {moduleTitle}
+                          </td>
+                          <td style={{ padding: "12px", textAlign: "center" }}>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleShowDetails(row, row.skill)
+                              }}
+                              style={{
+                                color: skillColor,
+                                padding: "4px 8px",
+                              }}
+                            >
+                              <Eye style={{ width: "16px", height: "16px" }} />
+                            </Button>
+                          </td>
+                        </tr>
+                      )
+                    }
+                    
+                    // If showing all users for a selected class
+                    if (selectedClass && !selectedStudent && !activeSkill && row.type === "user") {
+                      const userEmail = row.email || `${row.name.toLowerCase().replace(/\s+/g, ".")}@xeleratelearning.com`
+                      const roleColor = row.isStudent ? "#3B82F6" : row.role?.toLowerCase() === "teacher" ? "#10B981" : "#6B7280"
+                      
+                      return (
+                        <tr
+                          key={`user-${row.id}-${index}`}
+                          style={{
+                            borderBottom: "1px solid rgba(30, 58, 138, 0.1)",
+                            backgroundColor: "#FFFFFF",
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = "#F3F4F6"
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = "#FFFFFF"
+                          }}
+                        >
+                          <td style={{ padding: "12px", fontSize: "14px", color: "#1E3A8A", fontWeight: "500" }}>
+                            {row.name}
+                          </td>
+                          <td style={{ padding: "12px", fontSize: "14px", color: roleColor, fontWeight: "500" }}>
+                            {row.role}
+                          </td>
+                          <td style={{ padding: "12px", fontSize: "14px", color: "#1E3A8A", fontWeight: "500" }}>
+                            {row.listening !== undefined && row.listening !== null ? (typeof row.listening === "number" ? row.listening.toFixed(2) : row.listening) : "0"}
+                          </td>
+                          <td style={{ padding: "12px", fontSize: "14px", color: "#1E3A8A", fontWeight: "500" }}>
+                            {row.speaking !== undefined && row.speaking !== null ? (typeof row.speaking === "number" ? row.speaking.toFixed(2) : row.speaking) : "0"}
+                          </td>
+                          <td style={{ padding: "12px", fontSize: "14px", color: "#1E3A8A", fontWeight: "500" }}>
+                            {row.reading !== undefined && row.reading !== null ? (typeof row.reading === "number" ? row.reading.toFixed(2) : row.reading) : "0"}
+                          </td>
+                          <td style={{ padding: "12px", fontSize: "14px", color: "#1E3A8A", fontWeight: "500" }}>
+                            {row.writing !== undefined && row.writing !== null ? (typeof row.writing === "number" ? row.writing.toFixed(2) : row.writing) : "0"}
+                          </td>
+                          <td style={{ padding: "12px", textAlign: "center" }}>
+                            {row.isStudent && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  // Get the actual user object from classesData to ensure we have complete user data
+                                  const classData = classesData[selectedClass || ""]
+                                  const actualUser = classData?.allUsers?.find((u: any) => {
+                                    const userId = u.id || u.user_id
+                                    const rowUserId = row.id
+                                    // Match by ID to get the correct user
+                                    return userId === rowUserId || String(userId) === String(rowUserId)
+                                  })
+                                  
+                                  // Use the actual user data if found, otherwise use row data
+                                  const userData = actualUser || {}
+                                  
+                                  // Prepare the student data object
+                                  const studentDataToPass = {
+                                    // CRITICAL: Set row data FIRST to ensure correct student info
+                                    // Pass ID from row (this is the correct student's ID)
+                                    id: row.id,
+                                    user_id: row.id,
+                                    userId: row.id,
+                                    // Use row data for name and email (these are already correct)
+                                    name: row.name,
+                                    studentName: row.name, // Use row.name which is already correct
+                                    user_name: row.name,
+                                    user: row.name,
+                                    email: row.email || userEmail,
+                                    class: selectedClass ? `Class ${selectedClass}` : "",
+                                    date: new Date().toLocaleString(),
+                                    // Include scores from row (these are already correct)
+                                    listening: row.listening,
+                                    speaking: row.speaking,
+                                    reading: row.reading,
+                                    writing: row.writing,
+                                    overall_score: row.overall_score,
+                                    // Then add additional fields from userData (but row data takes precedence)
+                                    first_name: userData.first_name || row.name.split(" ")[0] || row.name,
+                                    last_name: userData.last_name || row.name.split(" ").slice(1).join(" ") || "",
+                                    // Spread other user data fields (but name/ID fields above will not be overridden)
+                                    ...Object.fromEntries(
+                                      Object.entries(userData).filter(([key]) => 
+                                        !['id', 'user_id', 'userId', 'name', 'studentName', 'user_name', 'user', 'email'].includes(key)
+                                      )
+                                    ),
+                                  }
+                                  
+                                  // Comprehensive logging
+                                  console.log("=".repeat(80))
+                                  console.log("📋 SELECTED USER (from table row):", {
+                                    name: row.name,
+                                    id: row.id,
+                                    email: row.email || userEmail,
+                                    class: selectedClass,
+                                    scores: {
+                                      listening: row.listening,
+                                      speaking: row.speaking,
+                                      reading: row.reading,
+                                      writing: row.writing,
+                                      overall: row.overall_score
+                                    }
+                                  })
+                                  console.log("🔍 ACTUAL USER (from classesData lookup):", {
+                                    found: !!actualUser,
+                                    name: userData.name || userData.first_name || "Not found",
+                                    id: userData.id || userData.user_id || "Not found",
+                                    email: userData.email || "Not found",
+                                    fullData: actualUser || "User not found in classesData"
+                                  })
+                                  console.log("📤 ACTION USER (data being passed to StudentDetailsPage):", {
+                                    id: studentDataToPass.id,
+                                    user_id: studentDataToPass.user_id,
+                                    userId: studentDataToPass.userId,
+                                    name: studentDataToPass.name,
+                                    studentName: studentDataToPass.studentName,
+                                    user_name: studentDataToPass.user_name,
+                                    email: studentDataToPass.email,
+                                    class: studentDataToPass.class,
+                                    first_name: studentDataToPass.first_name,
+                                    last_name: studentDataToPass.last_name,
+                                    scores: {
+                                      listening: studentDataToPass.listening,
+                                      speaking: studentDataToPass.speaking,
+                                      reading: studentDataToPass.reading,
+                                      writing: studentDataToPass.writing,
+                                      overall: studentDataToPass.overall_score
+                                    },
+                                    fullData: studentDataToPass
+                                  })
+                                  console.log("=".repeat(80))
+                                  
+                                  navigate("/progress-dashboard/students", {
+                                    state: {
+                                      studentData: studentDataToPass,
+                                    },
+                                  })
+                                }}
+                                style={{
+                                  color: "#3B82F6",
+                                  padding: "4px 8px",
+                                }}
+                              >
+                                <Eye style={{ width: "16px", height: "16px" }} />
+                              </Button>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    }
+                    
+                    // If showing students list with scores (legacy support)
                     if (row.type === "student") {
                       // Use email from API data, or generate from name if not available
                       const studentEmail = row.email || `${row.name.toLowerCase().replace(/\s+/g, ".")}@xeleratelearning.com`
