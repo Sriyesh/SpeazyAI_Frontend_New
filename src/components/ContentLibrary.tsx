@@ -1283,7 +1283,7 @@ export function ContentLibrary({ onBack }: ContentLibraryProps) {
                                                                 View PDF
                                                             </Button>
                                                         </DialogTrigger>
-                                                        <DialogContent className="bg-white p-0 overflow-hidden" style={{ maxWidth: '80vw', width: '80vw', maxHeight: '85vh', height: '85vh', display: 'flex', flexDirection: 'column' }}>
+                                                        <DialogContent className="bg-white p-0 overflow-hidden" style={{ width: "min(95vw, 1024px)", maxWidth: "95vw", maxHeight: "85vh", height: "85vh", display: "flex", flexDirection: "column" }}>
                                                             <DialogHeader className="p-4 pb-3 border-b border-[#E5E7EB] flex-shrink-0 relative">
                                                                 <DialogClose asChild>
                                                                     <Button

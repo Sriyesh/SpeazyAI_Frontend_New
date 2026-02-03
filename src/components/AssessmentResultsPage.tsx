@@ -5,12 +5,14 @@ import { Button } from "./ui/button"
 import { ArrowLeft, Mic, BookOpen, Award, Brain, Home, Menu, Maximize2, X, Volume2 } from "lucide-react"
 import type { CSSProperties } from "react"
 import { useState } from "react"
+import { useIsMobile } from "./ui/use-mobile"
 
 type NavigationItem = "pronunciation" | "practice-words" | "grammar" | "disfluency" | "fluency"
 
 export function AssessmentResultsPage() {
   const navigate = useNavigate()
   const location = useLocation()
+  const isMobile = useIsMobile()
   
   // Get data from navigation state
   const { apiResponse, chapter, classData, backRoute } = (location.state as any) || {}
@@ -111,10 +113,10 @@ export function AssessmentResultsPage() {
   const progress = (overallScore / 100) * circumference
 
   return (
-    <div className="h-screen flex flex-col bg-gray-900 overflow-hidden">
-      <div className="flex flex-1 overflow-hidden">
-        {/* Left Sidebar Navigation */}
-        <div className="w-64 bg-gray-800 flex flex-col items-center py-8 space-y-4 flex-shrink-0">
+    <div style={{ height: "100vh", display: "flex", flexDirection: "column", backgroundColor: "#111827", overflow: "hidden" }}>
+      <div style={{ display: "flex", flex: 1, flexDirection: isMobile ? "column" : "row", overflow: "hidden", minHeight: 0 }}>
+        {/* Left Sidebar Navigation - vertical on desktop, horizontal scroll on mobile */}
+        <div style={{ width: isMobile ? "100%" : 256, flexShrink: 0, backgroundColor: "#1F2937", display: "flex", flexDirection: isMobile ? "row" : "column", alignItems: "center", padding: isMobile ? 8 : 32, gap: isMobile ? 8 : 16, overflowX: isMobile ? "auto" : "visible", overflowY: isMobile ? "visible" : "auto" }}>
           {navigationItems.map((item) => {
             const Icon = item.icon
             const isActive = activeSection === item.id
@@ -122,27 +124,52 @@ export function AssessmentResultsPage() {
               <button
                 key={item.id}
                 onClick={() => setActiveSection(item.id)}
-                className={`w-48 px-4 py-3 rounded-lg flex items-center justify-center space-x-2 transition-colors ${
-                  isActive
-                    ? "bg-pink-600 text-white"
-                    : "bg-pink-500 text-white hover:bg-pink-600"
-                }`}
+                style={{
+                  flexShrink: 0,
+                  width: isMobile ? "auto" : 192,
+                  padding: isMobile ? "8px 12px" : "12px 16px",
+                  borderRadius: 8,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  backgroundColor: isActive ? "#DB2777" : "#EC4899",
+                  color: "white",
+                  border: "none",
+                  cursor: "pointer",
+                  fontSize: isMobile ? 14 : 16,
+                }}
               >
-                <Icon className="w-5 h-5" />
-                <span className="font-medium">{item.label}</span>
+                <Icon style={{ width: 20, height: 20, flexShrink: 0 }} />
+                <span style={{ fontWeight: 500, whiteSpace: "nowrap" }}>{item.label}</span>
               </button>
             )
           })}
           
           <button
             onClick={handleBack}
-            className="w-48 px-4 py-3 rounded-lg flex items-center justify-center space-x-2 bg-gray-700 text-white hover:bg-gray-600 transition-colors mt-auto"
+            style={{
+              flexShrink: 0,
+              width: isMobile ? "auto" : 192,
+              padding: isMobile ? "8px 12px" : "12px 16px",
+              borderRadius: 8,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              backgroundColor: "#374151",
+              color: "white",
+              border: "none",
+              cursor: "pointer",
+              marginTop: isMobile ? 0 : "auto",
+              fontSize: isMobile ? 14 : 16,
+            }}
           >
-            <X className="w-5 h-5" />
-            <span className="font-medium">Close</span>
+            <X style={{ width: 20, height: 20 }} />
+            <span style={{ fontWeight: 500, whiteSpace: "nowrap" }}>Close</span>
           </button>
           
-          <div className="mt-auto space-y-4">
+          <div style={{ display: isMobile ? "none" : "flex", marginTop: "auto", flexDirection: "column", gap: 16 }}>
             <div className="w-10 h-10 bg-gray-700 rounded-full flex items-center justify-center text-white text-xs font-semibold">
               SS
             </div>
@@ -153,10 +180,10 @@ export function AssessmentResultsPage() {
         </div>
 
         {/* Main Content Area */}
-        <div className="flex-1 flex flex-col overflow-hidden bg-gray-900">
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", backgroundColor: "#111827", minWidth: 0 }}>
           {/* Top Bar */}
-          <div className="bg-gray-900 border-b border-gray-700 px-8 py-4 flex items-center justify-between">
-            <h1 className="text-2xl font-bold text-white">Pronunciation Analysis</h1>
+          <div style={{ backgroundColor: "#111827", borderBottom: "1px solid #374151", padding: isMobile ? "12px 16px" : "16px 32px", display: "flex", flexDirection: isMobile ? "column" : "row", alignItems: isMobile ? "stretch" : "center", justifyContent: "space-between", gap: 8 }}>
+            <h1 style={{ fontSize: isMobile ? 20 : 24, fontWeight: "bold", color: "white", margin: 0 }}>Pronunciation Analysis</h1>
             <div className="flex items-center space-x-4">
               <select className="bg-gray-800 text-white px-4 py-2 rounded-lg border border-gray-700 text-sm">
                 <option>British English</option>
@@ -174,8 +201,8 @@ export function AssessmentResultsPage() {
           </div>
 
           {/* Scrollable Content */}
-          <div className="flex-1 overflow-y-auto">
-            <div className="max-w-7xl mx-auto px-8 py-8">
+          <div style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
+            <div style={{ maxWidth: 1280, margin: "0 auto", padding: isMobile ? "16px" : "32px" }}>
               {/* Description */}
               <div className="bg-gray-800 rounded-xl p-6 mb-6">
                 <p className="text-gray-300 leading-relaxed">

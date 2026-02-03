@@ -5,14 +5,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "./ui/card"
 import { Button } from "./ui/button"
 import { Input } from "./ui/input"
 import { Label } from "./ui/label"
-import { Switch } from "./ui/switch"
-import { Separator } from "./ui/separator"
-import { ArrowLeft, User, Settings, Mail, Bell, Volume2, VolumeX, Moon, Sun, Save, Camera } from "lucide-react"
+import { ArrowLeft, User, Mail, Camera } from "lucide-react"
 import { motion } from "motion/react"
 import { MelloAssistant } from "./MelloAssistant"
 import { useNavigate } from "react-router-dom"
 import { useAuth } from "../contexts/AuthContext"
-import { toast } from "sonner@2.0.3"
+import { fetchStreakData } from "../utils/streakApi"
+import { fetchUsageTime, formatUsageTime } from "../utils/usageTimeApi"
+import { fetchImprovementData } from "../utils/improvementApi"
 
 interface ProfileProps {
   onBack: () => void
@@ -20,7 +20,7 @@ interface ProfileProps {
 
 export function Profile() {
   const navigate = useNavigate()
-  const { authData } = useAuth()
+  const { authData, token } = useAuth()
   
   // Get user data from auth context, fallback to empty strings if not available
   const userFullName = authData?.user ? `${authData.user.first_name} ${authData.user.last_name}`.trim() : ""
@@ -31,11 +31,13 @@ export function Profile() {
   
   const [name, setName] = useState(userFullName)
   const [email, setEmail] = useState(userEmail)
-  const [soundEnabled, setSoundEnabled] = useState(true)
-  const [animationsEnabled, setAnimationsEnabled] = useState(true)
-  const [darkMode, setDarkMode] = useState(true)
-  const [notifications, setNotifications] = useState(true)
   const [showMelloMessage, setShowMelloMessage] = useState(true)
+  const [streakDays, setStreakDays] = useState<number>(0)
+  const [usageTimeSeconds, setUsageTimeSeconds] = useState<number | null>(null)
+  const [improvementDisplay, setImprovementDisplay] = useState<string>("0")
+  const [loadingStreak, setLoadingStreak] = useState(true)
+  const [loadingUsageTime, setLoadingUsageTime] = useState(true)
+  const [loadingImprovement, setLoadingImprovement] = useState(true)
   
   // Update state when authData changes
   useEffect(() => {
@@ -46,16 +48,64 @@ export function Profile() {
     }
   }, [authData])
 
-  const handleSave = () => {
-    // TODO: Implement API call to save profile settings
-    toast.success("Settings saved successfully!", {
-      style: {
-        background: "#10B981",
-        color: "#FFFFFF",
-        border: "none",
-      },
-    })
-  }
+  useEffect(() => {
+    const loadStreakData = async () => {
+      if (!token) {
+        setLoadingStreak(false)
+        return
+      }
+      try {
+        setLoadingStreak(true)
+        const streakData = await fetchStreakData(token)
+        if (streakData) {
+          setStreakDays(streakData.current_streak ?? streakData.streak_days ?? 0)
+        }
+      } catch {
+        setLoadingStreak(false)
+      } finally {
+        setLoadingStreak(false)
+      }
+    }
+    loadStreakData()
+  }, [token])
+
+  useEffect(() => {
+    const loadUsageTime = async () => {
+      if (!token) {
+        setLoadingUsageTime(false)
+        return
+      }
+      try {
+        setLoadingUsageTime(true)
+        const totalSeconds = await fetchUsageTime(token)
+        if (totalSeconds !== null) setUsageTimeSeconds(totalSeconds)
+      } catch {
+        setLoadingUsageTime(false)
+      } finally {
+        setLoadingUsageTime(false)
+      }
+    }
+    loadUsageTime()
+  }, [token])
+
+  useEffect(() => {
+    const loadImprovementData = async () => {
+      if (!token) {
+        setLoadingImprovement(false)
+        return
+      }
+      try {
+        setLoadingImprovement(true)
+        const display = await fetchImprovementData(token)
+        setImprovementDisplay(display)
+      } catch {
+        setLoadingImprovement(false)
+      } finally {
+        setLoadingImprovement(false)
+      }
+    }
+    loadImprovementData()
+  }, [token])
 
   return (
     <div className="min-h-screen" style={{ background: "#1E3A8A" }}>
@@ -141,40 +191,26 @@ export function Profile() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3 text-sm">
-                  <div className="flex justify-between">
-                    <span
-                      style={{
-                        color: "rgba(30, 58, 138, 0.7)",
-                      }}
-                    >
-                      Lessons Completed
-                    </span>
+                  <div className="flex justify-between items-center">
+                    <span style={{ color: "rgba(30, 58, 138, 0.7)" }}>Speaking Time</span>
+                    <span className="font-medium" style={{ color: "#1E3A8A" }}>2h 45m</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span style={{ color: "rgba(30, 58, 138, 0.7)" }}>App Usage Time</span>
                     <span className="font-medium" style={{ color: "#1E3A8A" }}>
-                      24
+                      {loadingUsageTime ? "..." : usageTimeSeconds !== null ? formatUsageTime(usageTimeSeconds) : "0m"}
                     </span>
                   </div>
-                  <div className="flex justify-between">
-                    <span
-                      style={{
-                        color: "rgba(30, 58, 138, 0.7)",
-                      }}
-                    >
-                      Speaking Accuracy
-                    </span>
+                  <div className="flex justify-between items-center">
+                    <span style={{ color: "rgba(30, 58, 138, 0.7)" }}>Streak Days</span>
                     <span className="font-medium" style={{ color: "#FFD600" }}>
-                      87%
+                      {loadingStreak ? "..." : streakDays}
                     </span>
                   </div>
-                  <div className="flex justify-between">
-                    <span
-                      style={{
-                        color: "rgba(30, 58, 138, 0.7)",
-                      }}
-                    >
-                      Current Streak
-                    </span>
-                    <span className="font-medium" style={{ color: "#FFD600" }}>
-                      7 days
+                  <div className="flex justify-between items-center">
+                    <span style={{ color: "rgba(30, 58, 138, 0.7)" }}>Improvement</span>
+                    <span className="font-medium" style={{ color: "#1E3A8A" }}>
+                      {loadingImprovement ? "..." : improvementDisplay}
                     </span>
                   </div>
                 </div>
@@ -231,134 +267,6 @@ export function Profile() {
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: 0.2 }}
-            >
-              <Card
-                className="bg-[#FFFFFF] border-0"
-                style={{
-                  borderRadius: "16px",
-                  boxShadow: "0 8px 32px rgba(59, 130, 246, 0.15)",
-                }}
-              >
-                <CardHeader>
-                  <CardTitle className="flex items-center" style={{ color: "#1E3A8A" }}>
-                    <Settings className="w-5 h-5 mr-2" style={{ color: "#FFD600" }} />
-                    App Settings
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      {soundEnabled ? (
-                        <Volume2 className="w-5 h-5" style={{ color: "#1E3A8A" }} />
-                      ) : (
-                        <VolumeX className="w-5 h-5" style={{ color: "#1E3A8A" }} />
-                      )}
-                      <div>
-                        <p className="font-medium" style={{ color: "#1E3A8A" }}>
-                          Sound Effects
-                        </p>
-                        <p
-                          className="text-sm"
-                          style={{
-                            color: "rgba(30, 58, 138, 0.7)",
-                          }}
-                        >
-                          Enable audio feedback and sounds
-                        </p>
-                      </div>
-                    </div>
-                    <Switch checked={soundEnabled} onCheckedChange={setSoundEnabled} />
-                  </div>
-
-                  <Separator
-                    style={{
-                      background: "rgba(59, 130, 246, 0.2)",
-                    }}
-                  />
-
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-5 h-5 bg-gradient-to-r from-[#3B82F6] to-[#00B9FC] rounded" />
-                      <div>
-                        <p className="font-medium" style={{ color: "#1E3A8A" }}>
-                          Animations
-                        </p>
-                        <p
-                          className="text-sm"
-                          style={{
-                            color: "rgba(30, 58, 138, 0.7)",
-                          }}
-                        >
-                          Enable visual animations in modules
-                        </p>
-                      </div>
-                    </div>
-                    <Switch checked={animationsEnabled} onCheckedChange={setAnimationsEnabled} />
-                  </div>
-
-                  <Separator
-                    style={{
-                      background: "rgba(59, 130, 246, 0.2)",
-                    }}
-                  />
-
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      {darkMode ? (
-                        <Moon className="w-5 h-5" style={{ color: "#1E3A8A" }} />
-                      ) : (
-                        <Sun className="w-5 h-5" style={{ color: "#1E3A8A" }} />
-                      )}
-                      <div>
-                        <p className="font-medium" style={{ color: "#1E3A8A" }}>
-                          Theme
-                        </p>
-                        <p
-                          className="text-sm"
-                          style={{
-                            color: "rgba(30, 58, 138, 0.7)",
-                          }}
-                        >
-                          Dark mode interface
-                        </p>
-                      </div>
-                    </div>
-                    <Switch checked={darkMode} onCheckedChange={setDarkMode} />
-                  </div>
-
-                  <Separator
-                    style={{
-                      background: "rgba(59, 130, 246, 0.2)",
-                    }}
-                  />
-
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <Bell className="w-5 h-5" style={{ color: "#1E3A8A" }} />
-                      <div>
-                        <p className="font-medium" style={{ color: "#1E3A8A" }}>
-                          Notifications
-                        </p>
-                        <p
-                          className="text-sm"
-                          style={{
-                            color: "rgba(30, 58, 138, 0.7)",
-                          }}
-                        >
-                          Daily practice reminders
-                        </p>
-                      </div>
-                    </div>
-                    <Switch checked={notifications} onCheckedChange={setNotifications} />
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: 0.3 }}
             >
               <Card
@@ -392,14 +300,6 @@ export function Profile() {
                 </CardContent>
               </Card>
             </motion.div>
-
-            <Button
-              onClick={handleSave}
-              className="w-full bg-gradient-to-r from-[#3B82F6] to-[#00B9FC] hover:opacity-90 text-white font-medium"
-            >
-              <Save className="w-4 h-4 mr-2" />
-              Save Changes
-            </Button>
           </div>
         </div>
 

@@ -15,17 +15,35 @@ app.post("/speechProxy", async (req, res) => {
   try {
     // Get endpoint from query parameter, default to unscripted
     const targetEndpoint = req.query.endpoint || "https://apis.languageconfidence.ai/speech-assessment/unscripted/uk";
-    
-    // Forward only the fields the API expects (remove endpoint if it was in body)
-    const { endpoint: _, ...apiBody } = req.body;
-    
+    const isScripted = typeof targetEndpoint === "string" && targetEndpoint.includes("speech-assessment/scripted");
+
+    // Build API body: strip endpoint and expected_text; map expected_text → reference_text for scripted
+    const { endpoint: _e, expected_text: expectedText, ...rest } = req.body;
+    let apiBody = { ...rest };
+
+    // Language Confidence scripted API does not accept "expected_text" — use "reference_text"
+    const refField = process.env.LC_SCRIPT_FIELD || "reference_text";
+    if (isScripted && expectedText != null && String(expectedText).trim() !== "") {
+      apiBody[refField] = typeof expectedText === "string" ? expectedText : String(expectedText);
+    }
+    delete apiBody.expected_text;
+    delete apiBody.script;
+
+    // For scripted, send only whitelisted fields to avoid upstream 422 "Extra inputs are not permitted"
+    if (isScripted) {
+      apiBody = {
+        audio_base64: apiBody.audio_base64,
+        audio_format: apiBody.audio_format,
+        ...(apiBody[refField] && { [refField]: apiBody[refField] }),
+      };
+    }
+
     const response = await fetch(targetEndpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "api-key": process.env.LC_API_KEY,
-        "lc-beta-features": "false", // Force false since client sends it now
-        ...(req.headers["lc-beta-features"] && { "lc-beta-features": req.headers["lc-beta-features"] }),
+        "lc-beta-features": req.headers["lc-beta-features"] || "false",
       },
       body: JSON.stringify(apiBody),
     });

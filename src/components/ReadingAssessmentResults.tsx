@@ -26,6 +26,16 @@ export function ReadingAssessmentResults({ data, audioUrl: propAudioUrl }) {
   const [duration, setDuration] = useState(0)
   const [updatedWordScores, setUpdatedWordScores] = useState<Map<string, number>>(new Map())
   const [verifiedDisplayWords, setVerifiedDisplayWords] = useState<string[] | null>(null)
+  const [grammarToneOption, setGrammarToneOption] = useState<string>("")
+  const [improvedText, setImprovedText] = useState<string>("")
+  const [improvingTone, setImprovingTone] = useState(false)
+  const [grammarTip, setGrammarTip] = useState<string>("")
+  const [loadingGrammarTip, setLoadingGrammarTip] = useState(false)
+  const grammarTipFetchedRef = useRef(false)
+  const grammarTipAutoFetchedRef = useRef(false)
+  const [vocabularySynonyms, setVocabularySynonyms] = useState<string>("")
+  const [loadingVocabularySynonyms, setLoadingVocabularySynonyms] = useState(false)
+  const vocabularySynonymsFetchedRef = useRef(false)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
   const recordingTimerRef = useRef<NodeJS.Timeout | null>(null)
@@ -112,6 +122,169 @@ export function ReadingAssessmentResults({ data, audioUrl: propAudioUrl }) {
       controller.abort()
     }
   }, [metadata.predicted_text, pronunciation.expected_text])
+
+  useEffect(() => {
+    if (activeSection !== "grammar") return
+    const originalText = (metadata?.predicted_text || "").trim()
+    if (!originalText || grammarTipAutoFetchedRef.current) return
+    if (grammar.feedback?.grammar_feedback) return
+    grammarTipAutoFetchedRef.current = true
+    fetchGrammarTip()
+  }, [activeSection, metadata?.predicted_text])
+
+  useEffect(() => {
+    if (activeSection !== "grammar") return
+    if (!grammarToneOption || !(metadata?.predicted_text || "").trim()) return
+    handleImproveTone()
+  }, [grammarToneOption])
+
+  useEffect(() => {
+    if (activeSection !== "vocabulary") return
+    const words = (pronunciation?.words || []).map((w: any) => (w?.word_text || "").trim()).filter(Boolean)
+    const fallbackWords = (metadata?.predicted_text || "").trim().split(/\s+/).filter((w: string) => w.trim().length > 0)
+    const predictedWords = words.length > 0 ? words : fallbackWords
+    if (predictedWords.length === 0 || vocabularySynonymsFetchedRef.current) return
+    vocabularySynonymsFetchedRef.current = true
+    fetchVocabularySynonyms(predictedWords)
+  }, [activeSection, pronunciation?.words, metadata?.predicted_text])
+
+  const fetchVocabularySynonyms = async (predictedWords: string[]) => {
+    if (predictedWords.length === 0) return
+    setLoadingVocabularySynonyms(true)
+    setVocabularySynonyms("")
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 45000)
+    try {
+      const wordList = [...new Set(predictedWords)].slice(0, 50).join(", ")
+      const proxyUrl = API_URLS.chatgptProxy
+      const resp = await fetch(proxyUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: "chat",
+          messages: [
+            {
+              role: "system",
+              content: "You are a vocabulary coach. You must ONLY choose words from the exact list the user provides—words the user actually spoke. Do not add or suggest any word that is not in that list. From the user's list, pick only words that are relatively difficult or advanced (skip fillers like Mhmm, uh, um, and very common words like the, a, is, to). If the list has no difficult words, reply with exactly: No difficult words in this transcript. For each chosen word from the list only, provide: (1) the word and 1–2 synonyms, (2) a short example sentence, (3) how it improves vocabulary. Be concise. Do not use markdown (no **, no *, no #). Return plain text only. Use clear line breaks between each word's section.",
+            },
+            {
+              role: "user",
+              content: `Words the user actually spoke (choose only from this list, and only if difficult): ${wordList}. Pick between 3 and 7 difficult words from this list only. For each give synonyms, usage example, and how it improves vocabulary. If nothing here is difficult, say: No difficult words in this transcript.`,
+            },
+          ],
+        }),
+        signal: controller.signal,
+      })
+      clearTimeout(timeoutId)
+      const json = await resp.json().catch(() => ({}))
+      if (!resp.ok) {
+        setVocabularySynonyms("Could not load synonyms. Please try again.")
+        return
+      }
+      let text = (json?.response ?? json?.content ?? json?.message ?? "").trim()
+      text = text.replace(/\*\*/g, "")
+      setVocabularySynonyms(text || "No synonyms available.")
+    } catch (e: any) {
+      clearTimeout(timeoutId)
+      setVocabularySynonyms(e?.name === "AbortError" ? "Request timed out. Try again." : "Could not load synonyms. Please try again.")
+    } finally {
+      setLoadingVocabularySynonyms(false)
+    }
+  }
+
+  const handleImproveTone = async () => {
+    const originalText = (metadata?.predicted_text || "").trim()
+    if (!originalText || !grammarToneOption) return
+    setImprovingTone(true)
+    setImprovedText("")
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 60000)
+    try {
+      const proxyUrl = API_URLS.chatgptProxy
+      const noMarkdown = "Do not use markdown (no **, no *, no #). Return plain text only."
+      const tonePrompt = grammarToneOption === "Custom"
+        ? `Rewrite the following text in the style or tone the user requested. Return ONLY the rewritten text, no explanation. ${noMarkdown}`
+        : `Rewrite the following text in a ${grammarToneOption.toLowerCase()} tone/style. Return ONLY the rewritten text, no explanation or preamble. ${noMarkdown}`
+      const resp = await fetch(proxyUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: "chat",
+          messages: [
+            { role: "system", content: tonePrompt },
+            { role: "user", content: originalText },
+          ],
+        }),
+        signal: controller.signal,
+      })
+      clearTimeout(timeoutId)
+      const json = await resp.json().catch(() => ({}))
+      if (!resp.ok) {
+        const errMsg = (json?.error && typeof json.error === "string") ? json.error : `API error: ${resp.status}`
+        setImprovedText(`${errMsg}. Please try again.`)
+        return
+      }
+      if (json?.error) {
+        setImprovedText(String(json.error))
+        return
+      }
+      let text = (json?.response ?? json?.content ?? json?.message ?? "").trim()
+      text = text.replace(/\*\*/g, "")
+      setImprovedText(text || "No response returned. Please try again.")
+    } catch (e: any) {
+      clearTimeout(timeoutId)
+      if (e?.name === "AbortError") {
+        setImprovedText("Request took too long. Please try again.")
+      } else {
+        setImprovedText("Failed to get improved text. Please check your connection and try again.")
+      }
+    } finally {
+      setImprovingTone(false)
+    }
+  }
+
+  const fetchGrammarTip = async () => {
+    const originalText = (metadata?.predicted_text || "").trim()
+    if (!originalText) return
+    setLoadingGrammarTip(true)
+    setGrammarTip("")
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 45000)
+    try {
+      const errors = [...(grammar?.metrics?.grammar_errors || []), ...(grammar?.feedback?.grammar_errors || [])]
+      const errorsStr = errors.length > 0
+        ? errors.map((e: any) => typeof e === "string" ? e : (e?.mistake ? `${e.mistake} → ${e?.correction || ""}` : "")).filter(Boolean).join("; ")
+        : "none specifically detected"
+      const proxyUrl = API_URLS.chatgptProxy
+      const resp = await fetch(proxyUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: "chat",
+          messages: [
+            { role: "system", content: "You are a friendly English grammar coach. Give 2–3 short, actionable tips to improve the user's grammar. Be concise and encouraging. No preamble. Do not use markdown (no **, no *, no #). Return plain text only." },
+            { role: "user", content: `Text the user said: "${originalText.slice(0, 1500)}". Grammar issues: ${errorsStr}. Give 2–3 brief tips to improve.` },
+          ],
+        }),
+        signal: controller.signal,
+      })
+      clearTimeout(timeoutId)
+      const json = await resp.json().catch(() => ({}))
+      if (!resp.ok) {
+        setGrammarTip("Could not load tips. Please try again.")
+        return
+      }
+      let text = (json?.response ?? json?.content ?? json?.message ?? "").trim()
+      text = text.replace(/\*\*/g, "")
+      setGrammarTip(text || "No tips available.")
+    } catch (e: any) {
+      clearTimeout(timeoutId)
+      setGrammarTip(e?.name === "AbortError" ? "Request timed out. Try again." : "Could not load tips. Please try again.")
+    } finally {
+      setLoadingGrammarTip(false)
+      grammarTipFetchedRef.current = true
+    }
+  }
 
   // Check if all word scores are 0 and generate believable scores if needed
   useEffect(() => {
@@ -1611,6 +1784,51 @@ export function ReadingAssessmentResults({ data, audioUrl: propAudioUrl }) {
                     </div>
                   )}
 
+                  <div className="mb-6">
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="h-8 w-1 rounded-full bg-purple-500" />
+                      <h3 className="text-base font-bold text-purple-800">Synonyms</h3>
+                    </div>
+                    {loadingVocabularySynonyms && (
+                      <div className="flex items-center gap-2 text-sm text-gray-500 py-4">
+                        <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-purple-500 border-t-transparent" />
+                        Loading…
+                      </div>
+                    )}
+                    {vocabularySynonyms && !loadingVocabularySynonyms && (
+                      <div className="space-y-4">
+                        {vocabularySynonyms
+                          .split(/\n\n+/)
+                          .map((block) => block.trim())
+                          .filter(Boolean)
+                          .map((block, i) => {
+                            const lines = block.split(/\n/).map((l) => l.trim()).filter(Boolean)
+                            const firstLine = lines[0] || ""
+                            const rest = lines.slice(1)
+                            return (
+                              <div
+                                key={i}
+                                className="rounded-xl border border-purple-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
+                                style={{ borderLeftWidth: "4px", borderLeftColor: "#a855f7" }}
+                              >
+                                <p className="text-base font-semibold text-purple-800 mb-3 leading-snug">{firstLine}</p>
+                                <div className="space-y-2 text-sm text-gray-700 leading-relaxed">
+                                  {rest.map((line, j) => (
+                                    <p key={j} className={line.toLowerCase().startsWith("example:") ? "italic text-gray-600 pl-2 border-l-2 border-purple-200" : ""}>
+                                      {line}
+                                    </p>
+                                  ))}
+                                </div>
+                              </div>
+                            )
+                          })}
+                      </div>
+                    )}
+                    {!vocabularySynonyms && !loadingVocabularySynonyms && (metadata?.predicted_text || pronunciation?.words?.length) && (
+                      <p className="text-sm text-gray-500 py-4">Synonyms will load when you open this tab.</p>
+                    )}
+                  </div>
+
                   {reading && Object.keys(reading).length > 0 && (
                     <div className={vocabulary && Object.keys(vocabulary).length > 0 ? "mt-6" : ""}>
                       <h4 className="text-lg font-semibold text-purple-700 mb-4">Reading Metrics</h4>
@@ -1693,49 +1911,107 @@ export function ReadingAssessmentResults({ data, audioUrl: propAudioUrl }) {
                   <p className="text-2xl font-semibold text-emerald-600">{grammar.english_proficiency_scores?.mock_ielts?.prediction ?? "-"}</p>
                 </div>
               </div>
-              {(grammar.feedback?.corrected_text || (grammar.metrics?.grammar_errors || []).length > 0 || (grammar.feedback?.grammar_errors || []).length > 0 || grammar.feedback?.grammar_feedback) && (
-                <div className="bg-white border border-emerald-200 p-6 rounded-lg">
-                  {grammar.feedback?.corrected_text && (
-                    <div className="mb-4">
-                      <p className="text-sm font-semibold text-gray-700 mb-2">Corrected Text:</p>
-                      <p className="text-sm text-gray-700 bg-emerald-50 p-4 rounded border border-emerald-100">{grammar.feedback.corrected_text}</p>
-                    </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <p className="text-sm font-semibold text-gray-700 mb-2">Original Recorded Text</p>
+                  <div className="text-sm text-gray-700 bg-gray-50 p-4 rounded-lg border border-gray-200 min-h-[120px]">
+                    {(metadata?.predicted_text || "").trim() || "—"}
+                  </div>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <p className="text-sm font-semibold text-gray-700">Select an option:</p>
+                  <select
+                    value={grammarToneOption}
+                    onChange={(e) => setGrammarToneOption(e.target.value)}
+                    className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus:border-emerald-500 focus:outline-none"
+                  >
+                    <option value="">Choose tone...</option>
+                    <option value="Casual">Casual</option>
+                    <option value="Grammar">Grammar</option>
+                    <option value="Passionate">Passionate</option>
+                    <option value="Formal">Formal</option>
+                    <option value="Business">Business</option>
+                    <option value="Funny">Funny</option>
+                    <option value="Custom">Custom</option>
+                  </select>
+                  <button
+                    type="button"
+                    onClick={handleImproveTone}
+                    disabled={!grammarToneOption || !(metadata?.predicted_text || "").trim() || improvingTone}
+                    className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {improvingTone ? "Improving…" : "Improve"}
+                  </button>
+                  {improvedText && (
+                    <button
+                      type="button"
+                      onClick={() => navigator.clipboard.writeText(improvedText)}
+                      className="rounded-lg border border-emerald-300 bg-white px-4 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-50"
+                    >
+                      Copy
+                    </button>
                   )}
-                  
-                  {grammar.feedback?.grammar_feedback && (
-                    <div className="mb-4">
-                      <p className="text-sm font-semibold text-gray-700 mb-2">Feedback:</p>
-                      <p className="text-sm text-gray-700">{grammar.feedback.grammar_feedback}</p>
-                    </div>
-                  )}
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-gray-700 mb-2">Improved Speech Text</p>
+                  <div className="text-sm text-gray-700 bg-emerald-50 p-4 rounded-lg border border-emerald-200 min-h-[120px]">
+                    {improvingTone ? "Loading…" : (improvedText || "—")}
+                  </div>
+                </div>
+              </div>
 
-                  {((grammar.metrics?.grammar_errors || []).length > 0 || (grammar.feedback?.grammar_errors || []).length > 0) && (
-                    <div>
-                      <p className="text-sm font-semibold text-gray-700 mb-2">Grammar Errors:</p>
-                      <ul className="list-disc pl-6 text-sm text-gray-700 space-y-2">
-                        {/* Merge and deduplicate errors if possible, or just show both lists */}
-                        {[...(grammar.metrics?.grammar_errors || []), ...(grammar.feedback?.grammar_errors || [])].map((err: any, i: number) => {
-                          if (typeof err === "string") {
-                            return <li key={i}>{err}</li>
-                          }
-                          const mistake = err?.mistake ?? "Unknown"
-                          const correction = err?.correction ?? "-"
-                          const start = err?.start_index
-                          const end = err?.end_index
-                          return (
-                            <li key={i}>
-                              <span className="font-semibold">{mistake}</span>
-                              {" → "}
-                              <span className="text-green-700">{correction}</span>
-                              {Number.isFinite(start) && Number.isFinite(end) && (
-                                <span className="text-gray-500"> {` (at ${start}-${end})`}</span>
-                              )}
-                            </li>
-                          )
-                        })}
-                      </ul>
-                    </div>
-                  )}
+              <div className="bg-white border border-emerald-200 p-4 rounded-lg">
+                <p className="text-sm font-semibold text-gray-700 mb-2">Grammar tip</p>
+                {grammar.feedback?.grammar_feedback && !grammarTip && !loadingGrammarTip && (
+                  <div className="text-sm text-gray-700 space-y-2">
+                    {(grammar.feedback.grammar_feedback as string).replace(/\*\*/g, "").split(/\n+/).filter(Boolean).map((p, i) => (
+                      <p key={i} className="mb-2">{p.trim()}</p>
+                    ))}
+                  </div>
+                )}
+                {grammarTip && (
+                  <div className="text-sm text-gray-700 space-y-2">
+                    {grammarTip.replace(/\*\*/g, "").split(/\n+/).filter(Boolean).map((p, i) => (
+                      <p key={i} className="mb-2">{p.trim()}</p>
+                    ))}
+                  </div>
+                )}
+                {loadingGrammarTip && <p className="text-sm text-gray-500">Loading tips…</p>}
+                {!grammar.feedback?.grammar_feedback && !grammarTip && !loadingGrammarTip && (metadata?.predicted_text || "").trim() && (
+                  <button
+                    type="button"
+                    onClick={fetchGrammarTip}
+                    className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
+                  >
+                    Get grammar tips
+                  </button>
+                )}
+              </div>
+
+              {((grammar.metrics?.grammar_errors || []).length > 0 || (grammar.feedback?.grammar_errors || []).length > 0) && (
+                <div className="bg-white border border-emerald-200 p-4 rounded-lg">
+                  <p className="text-sm font-semibold text-gray-700 mb-2">Grammar Errors:</p>
+                  <ul className="list-disc pl-6 text-sm text-gray-700 space-y-2">
+                    {[...(grammar.metrics?.grammar_errors || []), ...(grammar.feedback?.grammar_errors || [])].map((err: any, i: number) => {
+                      if (typeof err === "string") {
+                        return <li key={i}>{err}</li>
+                      }
+                      const mistake = err?.mistake ?? "Unknown"
+                      const correction = err?.correction ?? "-"
+                      const start = err?.start_index
+                      const end = err?.end_index
+                      return (
+                        <li key={i}>
+                          <span className="font-semibold">{mistake}</span>
+                          {" → "}
+                          <span className="text-green-700">{correction}</span>
+                          {Number.isFinite(start) && Number.isFinite(end) && (
+                            <span className="text-gray-500"> {` (at ${start}-${end})`}</span>
+                          )}
+                        </li>
+                      )
+                    })}
+                  </ul>
                 </div>
               )}
             </CardContent>
