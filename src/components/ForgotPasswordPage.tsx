@@ -45,7 +45,8 @@ export function ForgotPasswordPage() {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          email: email.trim()
+          email: email.trim(),
+          app_url: typeof window !== "undefined" ? window.location.origin : "https://exeleratetechnology.com"
         })
       })
 

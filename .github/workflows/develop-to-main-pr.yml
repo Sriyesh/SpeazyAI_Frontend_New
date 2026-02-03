@@ -5,6 +5,10 @@ on:
     branches:
       - develop
 
+permissions:
+  contents: write
+  pull-requests: write
+
 jobs:
   create-pr:
     runs-on: ubuntu-latest
@@ -21,4 +25,4 @@ jobs:
             Auto-generated PR.
             Source: develop
             Target: main
-            CI and approval required. 
+            CI and approval required.

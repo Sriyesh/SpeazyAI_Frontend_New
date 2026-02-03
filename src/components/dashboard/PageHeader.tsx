@@ -42,11 +42,7 @@ export function PageHeader() {
         }}
       >
       <div
-        style={{
-          maxWidth: "1280px",
-          margin: "0 auto",
-          padding: "0 16px",
-        }}
+        style={{ maxWidth: "1280px", margin: "0 auto", padding: "0 16px" }}
       >
         <div
           style={{

@@ -1,86 +1,88 @@
 /**
- * Utility functions for fetching weekly improvement data from the analytics API
+ * Utility functions for fetching weekly improvement data from the Exelerate API
+ * API: GET https://api.exeleratetechnology.com/api/users/improvement-weekly.php
+ * Headers: Content-Type: application/json, Authorization: Bearer <token>
+ * UI should show overall_improvement_text from response, or "0" if not present.
  */
+
+import { getExelerateApiBase } from "../config/apiConfig"
 
 export interface ImprovementData {
   improvement_percentage?: number;
   improvement?: number;
   percentage?: number;
   weekly_improvement?: number;
+  overall_improvement_text?: string;
 }
 
 /**
- * Formats improvement percentage into a display string (e.g., "+23%", "-5%", "0%")
- * @param percentage - Improvement percentage value
- * @returns Formatted improvement string
+ * Extracts overall_improvement_text from API response (nested or top-level).
+ * Returns the string to show in UI, or "0" if missing.
  */
-export function formatImprovement(percentage: number | null | undefined): string {
-  if (percentage === null || percentage === undefined) {
-    return "0%";
+function extractOverallImprovementText(data: unknown): string {
+  if (data == null || typeof data !== "object") return "0"
+  const obj = data as Record<string, unknown>
+
+  // Nested: { success: true, data: { overall_improvement_text: "...", ... } }
+  if (obj.success && obj.data != null && typeof obj.data === "object") {
+    const inner = obj.data as Record<string, unknown>
+    const text = inner.overall_improvement_text
+    if (typeof text === "string" && text.trim()) return text.trim()
   }
 
-  // Round to nearest integer
-  const rounded = Math.round(percentage);
-  
-  // Add + sign for positive values
-  if (rounded > 0) {
-    return `+${rounded}%`;
-  } else if (rounded < 0) {
-    return `${rounded}%`; // Negative sign is already included
-  } else {
-    return "0%";
-  }
+  // Top-level overall_improvement_text
+  const top = obj.overall_improvement_text
+  if (typeof top === "string" && top.trim()) return top.trim()
+
+  return "0"
 }
 
 /**
- * Fetches the user's weekly improvement data from the analytics API
+ * Fetches the user's weekly improvement from the Exelerate API.
+ * Returns the string to display: overall_improvement_text from the response, or "0" if not present.
  * @param token - The authentication token
- * @returns Promise with improvement percentage or null if request fails
+ * @returns Promise with display string (overall_improvement_text or "0")
  */
-export async function fetchImprovementData(token: string): Promise<number | null> {
+export async function fetchImprovementData(token: string): Promise<string> {
+  const url = `${getExelerateApiBase()}/api/users/improvement-weekly.php`
   try {
-    const response = await fetch('https://api.exeleratetechnology.com/api/users/improvement-weekly.php', {
-      method: 'GET',
+    const response = await fetch(url, {
+      method: "GET",
       headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`,
       },
-    });
+    })
 
     if (!response.ok) {
-      console.error('Failed to fetch improvement data:', response.status, response.statusText);
-      return null;
+      console.error("Failed to fetch improvement data:", response.status, response.statusText)
+      return "0"
     }
 
-    const data = await response.json();
-    
-    // Handle different response formats
-    if (data.success && data.data) {
-      // Check for various possible field names
-      if (data.data.improvement_percentage !== undefined) {
-        return data.data.improvement_percentage;
-      } else if (data.data.improvement !== undefined) {
-        return data.data.improvement;
-      } else if (data.data.percentage !== undefined) {
-        return data.data.percentage;
-      } else if (data.data.weekly_improvement !== undefined) {
-        return data.data.weekly_improvement;
-      }
-    } else if (data.improvement_percentage !== undefined) {
-      // Direct response format
-      return data.improvement_percentage;
-    } else if (data.improvement !== undefined) {
-      return data.improvement;
-    } else if (data.percentage !== undefined) {
-      return data.percentage;
-    } else if (data.weekly_improvement !== undefined) {
-      return data.weekly_improvement;
+    const text = await response.text()
+    if (!text.trim()) return "0"
+
+    let data: unknown
+    try {
+      data = JSON.parse(text)
+    } catch {
+      console.error("Improvement API returned non-JSON:", text.slice(0, 200))
+      return "0"
     }
 
-    return null;
+    return extractOverallImprovementText(data)
   } catch (error) {
-    console.error('Error fetching improvement data:', error);
-    return null;
+    console.error("Error fetching improvement data:", error)
+    return "0"
   }
+}
+
+/** @deprecated Use fetchImprovementData result directly; it now returns display string. */
+export function formatImprovement(percentage: number | null | undefined): string {
+  if (percentage === null || percentage === undefined) return "0"
+  const rounded = Math.round(percentage)
+  if (rounded > 0) return `+${rounded}%`
+  if (rounded < 0) return `${rounded}%`
+  return "0%"
 }
 
