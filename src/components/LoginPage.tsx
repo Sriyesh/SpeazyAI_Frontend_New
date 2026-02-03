@@ -173,7 +173,7 @@ export function LoginPage() {
               </div>
             </CardHeader>
 
-            <CardContent className="space-y-6 px-8 pb-8 pt-8">
+            <CardContent className="space-y-6" style={{ padding: "24px 16px", paddingBottom: 32, paddingTop: 24 }}>
               <form onSubmit={handleSubmit} className="space-y-5">
                 {error && (
                   <div

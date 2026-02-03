@@ -15,13 +15,26 @@ import {
   Sparkles,
   Play,
   BookOpen,
+  Menu,
 } from "lucide-react"
+import { Sheet, SheetContent, SheetTrigger } from "./ui/sheet"
+import { useIsMobile } from "./ui/use-mobile"
+
+const NAV_ITEMS = [
+  { label: "Home" },
+  { label: "About", onClick: "/about" },
+  { label: "Courses" },
+  { label: "Features" },
+  { label: "Contact", onClick: "/contact" },
+]
 
 export function HomePage() {
   const navigate = useNavigate()
+  const isMobile = useIsMobile()
   const [showMelloMessage, setShowMelloMessage] = useState(true)
   const [isBlinking, setIsBlinking] = useState(false)
   const [eyeScale, setEyeScale] = useState(1)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   useEffect(() => {
     const blinkInterval = setInterval(
@@ -64,48 +77,91 @@ export function HomePage() {
   }
 
   return (
-    <div className="h-screen relative overflow-hidden flex flex-col">
-      <div className="absolute inset-0 -z-10" style={BLURRY_BLUE_BG} />
+    <div style={{ height: "100vh", position: "relative", overflow: "hidden", display: "flex", flexDirection: "column" }}>
+      <div style={{ position: "absolute", inset: 0, zIndex: -10, ...BLURRY_BLUE_BG }} />
 
-      <nav className="sticky top-0 z-50 backdrop-blur-sm/0 border-b border-white/10 flex-shrink-0">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-14">
-            <div className="flex items-center space-x-8">
-              {[
-                { label: "Home" },
-                {
-                  label: "About",
-                  onClick: () => navigate("/about"),
-                },
-                { label: "Courses" },
-                { label: "Features" },
-                {
-                  label: "Contact",
-                  onClick: () => navigate("/contact"),
-                },
-              ].map((item, i) => (
+      <nav style={{ position: "sticky", top: 0, zIndex: 50, borderBottom: "1px solid rgba(255,255,255,0.1)", flexShrink: 0 }}>
+        <div style={{ maxWidth: 1280, margin: "0 auto", padding: isMobile ? "0 16px" : "0 24px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", height: 56 }}>
+            {/* Desktop nav links - hidden on mobile */}
+            <div style={{ display: isMobile ? "none" : "flex", alignItems: "center", gap: 24 }}>
+              {NAV_ITEMS.map((item, i) => (
                 <button
                   key={i}
-                  onClick={item.onClick}
-                  className="hover:opacity-90 transition"
-                  style={{ color: "#3B82F6" }}
+                  onClick={() => item.onClick && (navigate(item.onClick), setMobileMenuOpen(false))}
+                  style={{ color: "#3B82F6", background: "none", border: "none", cursor: "pointer", fontSize: 14 }}
                 >
                   {item.label}
                 </button>
               ))}
             </div>
 
-            <div className="flex items-center space-x-4">
+            {/* Mobile menu trigger - only show on mobile; hide entirely on desktop */}
+            <div style={{ display: isMobile ? "block" : "none" }}>
+            <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+              <SheetTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  style={{ color: "white", width: 40, height: 40 }}
+                  aria-label="Open menu"
+                >
+                  <Menu style={{ width: 24, height: 24 }} />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" style={{ width: 280, backgroundColor: "#1E3A8A", borderColor: "rgba(255,255,255,0.1)", padding: 0 }}>
+                <div style={{ display: "flex", flexDirection: "column", paddingTop: 24 }}>
+                  {NAV_ITEMS.map((item, i) => (
+                    <button
+                      key={i}
+                      onClick={() => {
+                        if (item.onClick) navigate(item.onClick)
+                        setMobileMenuOpen(false)
+                      }}
+                      style={{ textAlign: "left", padding: "12px 24px", color: "white", background: "none", border: "none", cursor: "pointer" }}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                  <div style={{ borderTop: "1px solid rgba(255,255,255,0.1)", margin: "8px 0" }} />
+                  <button
+                    onClick={() => { navigate("/contact"); setMobileMenuOpen(false) }}
+                    style={{ textAlign: "left", padding: "12px 24px", color: "rgba(255,255,255,0.9)", background: "none", border: "none", cursor: "pointer" }}
+                  >
+                    Contact Us
+                  </button>
+                  <button
+                    onClick={() => { navigate("/login"); setMobileMenuOpen(false) }}
+                    style={{ margin: "8px 24px", padding: "12px", borderRadius: 12, background: "linear-gradient(to right, #3B82F6, #00B9FC)", color: "white", fontWeight: 600, border: "none", cursor: "pointer" }}
+                  >
+                    Sign In
+                  </button>
+                </div>
+              </SheetContent>
+            </Sheet>
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 12 : 16 }}>
               <button
                 onClick={() => navigate("/contact")}
-                className="hidden sm:block hover:opacity-90 transition"
-                style={{ color: TEXT_LIGHT }}
+                style={{ display: isMobile ? "none" : "block", color: TEXT_LIGHT, background: "none", border: "none", cursor: "pointer", fontSize: 14 }}
               >
                 Contact Us
               </button>
               <Button
                 onClick={() => navigate("/login")}
-                className="h-12 px-8 bg-gradient-to-r from-[#3B82F6] to-[#00B9FC] text-white rounded-xl shadow-lg hover:shadow-xl transition-all hover:scale-105 font-semibold text-base"
+                style={{
+                  height: isMobile ? 40 : 48,
+                  paddingLeft: isMobile ? 16 : 32,
+                  paddingRight: isMobile ? 16 : 32,
+                  background: "linear-gradient(to right, #3B82F6, #00B9FC)",
+                  color: "white",
+                  borderRadius: 12,
+                  fontWeight: 600,
+                  fontSize: isMobile ? 14 : 16,
+                  border: "none",
+                  cursor: "pointer",
+                }}
               >
                 Sign In
               </Button>
@@ -114,40 +170,27 @@ export function HomePage() {
         </div>
       </nav>
 
-      <section className="relative flex-1 flex items-center overflow-hidden">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-40 md:pt-48 lg:pt-56 w-full">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center w-full">
-            <div className="space-y-4 flex flex-col justify-center h-full">
+      <section style={{ position: "relative", flex: 1, display: "flex", alignItems: "center", overflow: "hidden" }}>
+        <div style={{ maxWidth: 1280, margin: "0 auto", padding: isMobile ? "16px 16px 32px" : "32px 24px 32px", paddingTop: isMobile ? 120 : 160, width: "100%" }}>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 32, alignItems: "center", width: "100%" }}>
+            <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", gap: 16 }}>
               {/* Mello Logo and English Skill AI */}
-              <div className="flex items-center space-x-4 mb-4">
+              <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 16 }}>
                 <motion.div
-                  animate={{
-                    y: [0, -12, 0],
-                  }}
-                  transition={{
-                    duration: 3,
-                    repeat: Infinity,
-                    ease: "easeInOut",
-                  }}
-                  className="relative"
+                  animate={{ y: [0, -12, 0] }}
+                  transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                  style={{ position: "relative" }}
                 >
                   <motion.div
-                    animate={{
-                      scale: [1, 1.2, 1],
-                      opacity: [0.4, 0.6, 0.4],
-                    }}
-                    transition={{
-                      duration: 2,
-                      repeat: Infinity,
-                      ease: "easeInOut",
-                    }}
-                    className="absolute inset-0 bg-gradient-to-br from-[#3B82F6] to-[#00B9FC] rounded-full blur-3xl scale-150"
+                    animate={{ scale: [1, 1.2, 1], opacity: [0.4, 0.6, 0.4] }}
+                    transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                    style={{ position: "absolute", inset: 0, background: "linear-gradient(135deg, #3B82F6, #00B9FC)", borderRadius: "50%", filter: "blur(24px)", transform: "scale(1.5)" }}
                   />
                   <svg
-                    width="120"
-                    height="120"
+                    width={isMobile ? 64 : 120}
+                    height={isMobile ? 64 : 120}
                     viewBox="0 0 120 120"
-                    className="relative z-10"
+                    style={{ position: "relative", zIndex: 10 }}
                   >
                     <defs>
                       <radialGradient id="logoBodyGradient" cx="50%" cy="40%">
@@ -244,39 +287,33 @@ export function HomePage() {
                     </ellipse>
                   </svg>
                 </motion.div>
-                <span
-                  className="font-normal text-4xl md:text-5xl lg:text-6xl"
-                  style={{ 
-                    color: TEXT_LIGHT,
-                    fontFamily: "'DM Sans', sans-serif"
-                  }}
-                >
+                <span style={{ color: TEXT_LIGHT, fontFamily: "'DM Sans', sans-serif", fontSize: isMobile ? 28 : 48, fontWeight: 400 }}>
                   English Skill AI
                 </span>
               </div>
 
               <div id="heading-section">
-                <h1 className="text-4xl md:text-5xl lg:text-6xl leading-tight font-normal" style={{ color: TEXT_LIGHT, fontFamily: "'DM Sans', sans-serif" }}>
+                <h1 style={{ color: TEXT_LIGHT, fontFamily: "'DM Sans', sans-serif", fontSize: isMobile ? 24 : 42, lineHeight: 1.2, fontWeight: 400, margin: 0 }}>
                   Empowering Confident Communication with AI
                 </h1>
 
-                <p className="text-lg leading-relaxed mt-4 font-normal" style={{ color: TEXT_MUTED, fontFamily: "'DM Sans', sans-serif" }}>
+                <p style={{ color: TEXT_MUTED, fontFamily: "'DM Sans', sans-serif", fontSize: isMobile ? 16 : 18, lineHeight: 1.6, marginTop: isMobile ? 12 : 16, margin: 0 }}>
                   Transform your speaking skills with our AI-powered platform. Get instant feedback, personalized
                   coaching, and interactive lessons designed by experts.
                 </p>
               </div>
 
-              <div className="flex flex-col sm:flex-row gap-3 mt-6">
+              <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: 12, marginTop: 24 }}>
                 <Button
                   variant="outline"
-                  className="h-12 px-6 border-2 border-white/60 text-white hover:bg-white/10 rounded-2xl transition hover:scale-105 text-base bg-transparent"
+                  style={{ height: 48, paddingLeft: 24, paddingRight: 24, border: "2px solid rgba(255,255,255,0.6)", color: "white", borderRadius: 16, background: "transparent", fontSize: 16 }}
                 >
-                  <Play className="w-4 h-4 mr-2" /> Watch Demo
+                  <Play style={{ width: 16, height: 16, marginRight: 8 }} /> Watch Demo
                 </Button>
               </div>
             </div>
 
-            <div className="relative flex items-center justify-center h-full">
+            <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
               <div className="relative w-full flex items-center justify-center">
                 <Card className="relative z-10 w-full max-w-sm bg-white border-0 shadow-2xl" style={{ boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)" }}>
                   <CardContent className="p-6">

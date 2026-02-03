@@ -85,7 +85,7 @@ export function SignUpPage() {
             </div>
           </CardHeader>
 
-          <CardContent className="space-y-5 px-8 pb-8 pt-8 max-h-[70vh] overflow-y-auto">
+          <CardContent className="space-y-5" style={{ padding: "24px 16px", paddingBottom: 32, paddingTop: 24, maxHeight: "70vh", overflowY: "auto" }}>
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Full Name */}
               <div className="space-y-2">

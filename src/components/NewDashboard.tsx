@@ -10,7 +10,7 @@ import { PageHeader } from "./PageHeader"
 import { useAuth } from "../contexts/AuthContext"
 import { fetchStreakData } from "../utils/streakApi"
 import { fetchUsageTime, formatUsageTime, shouldRefreshUsageTime } from "../utils/usageTimeApi"
-import { fetchImprovementData, formatImprovement } from "../utils/improvementApi"
+import { fetchImprovementData } from "../utils/improvementApi"
 import {
   BookOpen,
   PenTool,
@@ -32,7 +32,7 @@ export function NewDashboard() {
   const [loadingStreak, setLoadingStreak] = useState(true)
   const [usageTimeSeconds, setUsageTimeSeconds] = useState<number | null>(null)
   const [loadingUsageTime, setLoadingUsageTime] = useState(true)
-  const [improvementPercentage, setImprovementPercentage] = useState<number | null>(null)
+  const [improvementDisplay, setImprovementDisplay] = useState<string>("0")
   const [loadingImprovement, setLoadingImprovement] = useState(true)
 
   useEffect(() => {
@@ -110,10 +110,8 @@ export function NewDashboard() {
 
       try {
         setLoadingImprovement(true)
-        const improvement = await fetchImprovementData(token)
-        if (improvement !== null) {
-          setImprovementPercentage(improvement)
-        }
+        const display = await fetchImprovementData(token)
+        setImprovementDisplay(display)
       } catch (error) {
         console.error('Error loading improvement data:', error)
       } finally {
@@ -224,7 +222,7 @@ export function NewDashboard() {
       label: "Improvement",
       value: loadingImprovement 
         ? "..." 
-        : formatImprovement(improvementPercentage),
+        : improvementDisplay,
       icon: TrendingUp,
       color: "#246BCF",
     },

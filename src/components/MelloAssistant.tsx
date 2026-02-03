@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, type CSSProperties } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { X, Sparkles, Phone } from "lucide-react";
 import { Button } from "./ui/button";
@@ -53,13 +53,6 @@ export function MelloAssistant({
     return () => clearInterval(sparkleInterval);
   }, []);
 
-  const positionClasses = {
-    "bottom-right": "bottom-8 right-8",
-    "bottom-left": "bottom-8 left-8",
-    center:
-      "top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2",
-  };
-  
   // Adjust chatbox position to avoid overlapping with content
   const chatboxPositionClasses = {
     "bottom-right": "bottom-full mb-4 right-0 translate-x-0",
@@ -74,8 +67,15 @@ export function MelloAssistant({
   
   const floatingDuration = state === "waving" ? 2 : 3;
 
+  const positionStyles: CSSProperties =
+    position === "bottom-right"
+      ? { bottom: 24, right: 24 }
+      : position === "bottom-left"
+        ? { bottom: 24, left: 24 }
+        : { top: "50%", left: "50%", transform: "translate(-50%, -50%)" };
+
   return (
-    <div className={`fixed ${positionClasses[position]} z-50`}>
+    <div style={{ position: "fixed", zIndex: 50, ...positionStyles }}>
       <AnimatePresence>
         {showMessage && message && (
           <motion.div
@@ -182,12 +182,12 @@ export function MelloAssistant({
           </>
         )}
 
-        {/* Mello Character - SVG Based */}
+        {/* Mello Character - SVG Based (smaller size via inline style) */}
         <svg
-          width="120"
-          height="120"
+          width="80"
+          height="80"
           viewBox="0 0 120 120"
-          className="relative z-10"
+          style={{ position: "relative", zIndex: 10 }}
         >
           <defs>
             <radialGradient id="bodyGradient" cx="50%" cy="40%">
