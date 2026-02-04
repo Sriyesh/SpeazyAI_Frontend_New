@@ -4,6 +4,9 @@ import { X, Sparkles, Phone } from "lucide-react";
 import { Button } from "./ui/button";
 import { useNavigate } from "react-router-dom";
 
+// Temporary flag to hide Mello Assistant - set to true to re-enable
+const MELLO_ASSISTANT_ENABLED = false;
+
 interface MelloAssistantProps {
   state?:
     | "idle"
@@ -28,6 +31,11 @@ export function MelloAssistant({
   onClick,
   showConnectTeacher = false,
 }: MelloAssistantProps) {
+  // Temporarily hide Mello Assistant
+  if (!MELLO_ASSISTANT_ENABLED) {
+    return null;
+  }
+
   const navigate = useNavigate();
   const [isBlinking, setIsBlinking] = useState(false);
   const [eyeScale, setEyeScale] = useState(1);

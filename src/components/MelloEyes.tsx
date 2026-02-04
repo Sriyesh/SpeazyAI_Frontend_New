@@ -1,6 +1,14 @@
 import { useState, useEffect } from "react";
 
+// Temporary flag to hide Mello Eyes - set to true to re-enable
+const MELLO_EYES_ENABLED = false;
+
 export function MelloEyes() {
+  // Temporarily hide Mello Eyes
+  if (!MELLO_EYES_ENABLED) {
+    return null;
+  }
+
   const [isBlinking, setIsBlinking] = useState(false);
 
   useEffect(() => {
