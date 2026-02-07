@@ -5,6 +5,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import { handleSupportTicketJson } from './supportRoute.js';
 
 dotenv.config();
 
@@ -37,6 +38,14 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// Support ticket endpoint - JSON body (same format as DO function) for local/dev
+app.post('/api/support-ticket', express.json({ limit: '30mb' }), async (req, res) => {
+  if (req.body?.payload) {
+    return handleSupportTicketJson(req, res);
+  }
+  res.status(400).json({ success: false, error: 'Expected JSON body with payload' });
 });
 
 // Speech Proxy Route

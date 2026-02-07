@@ -4,12 +4,14 @@
 const isLocal = import.meta.env.DEV || window.location.hostname === 'localhost';
 
 // DigitalOcean Function URLs
+const DO_BASE = 'https://faas-blr1-8177d592.doserverless.co/api/v1/web/fn-a38d3580-f602-4111-8967-d449fc5ef00e/default';
 const DIGITALOCEAN_FUNCTIONS = {
-  speechProxy: import.meta.env.VITE_SPEECH_PROXY_URL || 'https://faas-blr1-8177d592.doserverless.co/api/v1/web/fn-a38d3580-f602-4111-8967-d449fc5ef00e/default/speechProxy',
-  chatgptProxy: import.meta.env.VITE_CHATGPT_PROXY_URL || 'https://faas-blr1-8177d592.doserverless.co/api/v1/web/fn-a38d3580-f602-4111-8967-d449fc5ef00e/default/chatgptProxy',
-  authProxy: import.meta.env.VITE_AUTH_PROXY_URL || 'https://faas-blr1-8177d592.doserverless.co/api/v1/web/fn-a38d3580-f602-4111-8967-d449fc5ef00e/default/authProxy',
-  pdfProxy: import.meta.env.VITE_PDF_PROXY_URL || 'https://faas-blr1-8177d592.doserverless.co/api/v1/web/fn-a38d3580-f602-4111-8967-d449fc5ef00e/default/pdfProxy',
-  pdfExtractProxy: import.meta.env.VITE_PDF_EXTRACT_PROXY_URL || 'https://faas-blr1-8177d592.doserverless.co/api/v1/web/fn-a38d3580-f602-4111-8967-d449fc5ef00e/default/pdfExtractProxy',
+  speechProxy: import.meta.env.VITE_SPEECH_PROXY_URL || `${DO_BASE}/speechProxy`,
+  chatgptProxy: import.meta.env.VITE_CHATGPT_PROXY_URL || `${DO_BASE}/chatgptProxy`,
+  authProxy: import.meta.env.VITE_AUTH_PROXY_URL || `${DO_BASE}/authProxy`,
+  pdfProxy: import.meta.env.VITE_PDF_PROXY_URL || `${DO_BASE}/pdfProxy`,
+  pdfExtractProxy: import.meta.env.VITE_PDF_EXTRACT_PROXY_URL || `${DO_BASE}/pdfExtractProxy`,
+  supportProxy: import.meta.env.VITE_SUPPORT_PROXY_URL || `${DO_BASE}/supportProxyServer`,
 };
 
 // Local development proxy URLs (if running proxy servers locally)
@@ -19,6 +21,7 @@ const LOCAL_PROXIES = {
   authProxy: 'http://localhost:4001/authProxy',
   pdfProxy: 'http://localhost:4001/pdfProxy',
   pdfExtractProxy: 'http://localhost:4001/pdfExtractProxy',
+  supportProxy: 'http://localhost:4002/supportProxy',
 };
 
 // Netlify function URLs (legacy - remove after migration)
@@ -28,6 +31,7 @@ const NETLIFY_FUNCTIONS = {
   authProxy: '/.netlify/functions/authProxy',
   pdfProxy: '/.netlify/functions/pdfProxy',
   pdfExtractProxy: '/.netlify/functions/pdfExtractProxy',
+  supportProxy: '/.netlify/functions/supportProxy',
 };
 
 // Choose which API provider to use
@@ -60,6 +64,7 @@ export const API_URLS = {
   authProxy: getApiUrl('authProxy'),
   pdfProxy: getApiUrl('pdfProxy'),
   pdfExtractProxy: getApiUrl('pdfExtractProxy'),
+  supportProxy: getApiUrl('supportProxy'),
 };
 
 // Helper function to build speech proxy URL with endpoint query param

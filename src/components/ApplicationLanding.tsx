@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
 import { ThemeToggle } from "./ThemeToggle";
-import { MelloAssistant } from "./MelloAssistant";
 import {
   ArrowLeft,
   MessageCircle,
@@ -25,8 +24,6 @@ export function ApplicationLanding({
   onModuleSelect,
   onLogout,
 }: ApplicationLandingProps) {
-  const [showMelloMessage, setShowMelloMessage] =
-    useState(true);
   const modules = [
     {
       id: "chat",
@@ -59,6 +56,7 @@ export function ApplicationLanding({
 
   return (
     <div
+      data-mello-scroll
       className="min-h-screen relative overflow-hidden"
       style={{ background: "#1E3A8A" }}
     >
@@ -259,45 +257,6 @@ export function ApplicationLanding({
         </Card>
       </div>
 
-      {/* Mello Assistant */}
-      <motion.div
-        animate={
-          showMelloMessage
-            ? { y: [0, -15, 0], scale: [1, 1.1, 1] }
-            : { x: [0, 10, -10, 0] }
-        }
-        transition={{
-          duration: 2,
-          repeat: Infinity,
-          ease: "easeInOut",
-          times: showMelloMessage
-            ? [0, 0.5, 1]
-            : [0, 0.33, 0.66, 1],
-        }}
-        style={{
-          position: "fixed",
-          bottom: "20px",
-          right: "20px",
-          zIndex: 100,
-        }}
-      >
-        <MelloAssistant
-          state={showMelloMessage ? "celebrating" : "idle"}
-          message="Choose any module you like! Each one is designed to help you grow your speaking skills! 🚀😄"
-          showMessage={showMelloMessage}
-          onMessageDismiss={() => setShowMelloMessage(false)}
-          position="bottom-right"
-          style={{
-            background:
-              "linear-gradient(135deg, #3B82F6 0%, #00B9FC 100%)",
-            borderRadius: "24px",
-            boxShadow: "0 8px 32px rgba(59, 130, 246, 0.3)",
-            padding: "12px",
-            maxWidth: "300px",
-          }}
-          messageClassName="typewriter"
-        />
-      </motion.div>
     </div>
   );
 }

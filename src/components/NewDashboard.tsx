@@ -6,6 +6,7 @@ import { useNavigate } from "react-router-dom"
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card"
 import { Button } from "./ui/button"
 import { MelloAssistant } from "./MelloAssistant"
+import { SupportChatbot } from "./SupportChatbot"
 import { PageHeader } from "./PageHeader"
 import { useAuth } from "../contexts/AuthContext"
 import { fetchStreakData } from "../utils/streakApi"
@@ -26,7 +27,8 @@ import {
 export function NewDashboard() {
   const navigate = useNavigate()
   const [isLoaded, setIsLoaded] = useState(false)
-  const [showMelloMessage, setShowMelloMessage] = useState(true)
+  const [showMelloMessage, setShowMelloMessage] = useState(false)
+  const [supportChatbotOpen, setSupportChatbotOpen] = useState(false)
   const { authData, token } = useAuth()
   const [streakDays, setStreakDays] = useState<number>(0)
   const [loadingStreak, setLoadingStreak] = useState(true)
@@ -476,6 +478,7 @@ export function NewDashboard() {
         }}
       >
         <div
+          data-mello-scroll
           style={{
             maxWidth: "1280px",
             margin: "0 auto",
@@ -492,8 +495,22 @@ export function NewDashboard() {
         message={`Hi! Welcome back, ${authData?.user?.first_name || "User"}! ${streakDays > 0 ? `You're on a ${streakDays}-day streak! Keep it up! 👋🎉` : "Ready to start your learning journey? 👋"}`}
         showMessage={showMelloMessage}
         onMessageDismiss={() => setShowMelloMessage(false)}
+        onClick={() => setShowMelloMessage((prev) => !prev)}
         position="bottom-right"
         showConnectTeacher={true}
+        supportEmail="support@exeleratetechnology.com"
+        onSupportClick={() => {
+          setShowMelloMessage(false);
+          // Open support panel next tick so portal mounts after popup closes
+          requestAnimationFrame(() => {
+            setSupportChatbotOpen(true);
+          });
+        }}
+      />
+      <SupportChatbot
+        open={supportChatbotOpen}
+        onOpenChange={setSupportChatbotOpen}
+        userEmail={authData?.user?.email}
       />
     </div>
   )

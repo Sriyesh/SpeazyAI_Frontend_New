@@ -6,7 +6,6 @@ import { Input } from "./ui/input"
 import { Label } from "./ui/label"
 import { Card, CardContent, CardHeader } from "./ui/card"
 import { Alert, AlertDescription } from "./ui/alert"
-import { MelloAssistant } from "./MelloAssistant"
 import { Eye, EyeOff, AlertCircle, Loader2 } from "lucide-react"
 import { motion } from "motion/react"
 import { useNavigate, useLocation } from "react-router-dom"
@@ -17,7 +16,6 @@ export function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const [showMelloMessage, setShowMelloMessage] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
 
@@ -104,6 +102,7 @@ export function LoginPage() {
 
   return (
     <div
+      data-mello-scroll
       className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden"
       style={{ background: "#1E3A8A" }}
     >
@@ -291,22 +290,6 @@ export function LoginPage() {
         <p className="text-center text-[#F2F6FF]/60 text-sm mt-6">Secure Login • Professional Platform</p>
       </div>
 
-      <div
-        style={{
-          position: "fixed",
-          bottom: "20px",
-          right: "20px",
-          zIndex: 100,
-        }}
-      >
-        <MelloAssistant
-          state={showMelloMessage ? "celebrating" : "idle"}
-          message="Welcome back! Ready to continue improving your english skills? 🎯😄"
-          showMessage={showMelloMessage}
-          onMessageDismiss={() => setShowMelloMessage(false)}
-          position="bottom-right"
-        />
-      </div>
     </div>
   )
 }
