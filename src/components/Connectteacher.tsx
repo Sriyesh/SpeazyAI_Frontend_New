@@ -6,7 +6,6 @@ import { Card, CardHeader, CardTitle } from "./ui/card"
 import { Button } from "./ui/button"
 import { ArrowLeft, Phone, Globe } from "lucide-react"
 import { PageHeader } from "./PageHeader"
-import { MelloAssistant } from "./MelloAssistant"
 import type { CSSProperties } from "react"
 
 const teacherTypes = [
@@ -28,9 +27,6 @@ const teacherTypes = [
 
 export function Connectteacher() {
   const navigate = useNavigate()
-  const [showMelloMessage, setShowMelloMessage] = useState(true)
-  const [melloState, setMelloState] = useState<"idle" | "talking" | "waving" | "celebrating" | "thinking">("waving")
-
   const BLUE_BG: CSSProperties = {
     backgroundColor: "#1E3A8A",
     backgroundAttachment: "fixed",
@@ -39,10 +35,6 @@ export function Connectteacher() {
   }
 
   const handleTeacherTypeClick = (teacherTypeId: string) => {
-    // Change Mello state to celebrating when user clicks
-    setMelloState("celebrating")
-    setShowMelloMessage(true)
-    
     // Handle navigation based on teacher type
     // You can add specific routes or actions here
     if (teacherTypeId === "connect-your-teacher") {
@@ -69,7 +61,7 @@ export function Connectteacher() {
 
       {/* Main Content */}
       <div className="flex-1 overflow-y-auto">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div data-mello-scroll className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="mb-8">
             <Button
               variant="ghost"
@@ -131,14 +123,6 @@ export function Connectteacher() {
         </div>
       </div>
 
-      {/* MelloAssistant */}
-      <MelloAssistant
-        state={melloState}
-        message="Ready to connect with a teacher? Choose an option below and let's start learning together! 🎓✨"
-        showMessage={showMelloMessage}
-        onMessageDismiss={() => setShowMelloMessage(false)}
-        position="bottom-right"
-      />
     </div>
   )
 }

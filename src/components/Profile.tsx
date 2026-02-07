@@ -7,7 +7,6 @@ import { Input } from "./ui/input"
 import { Label } from "./ui/label"
 import { ArrowLeft, User, Mail, Camera } from "lucide-react"
 import { motion } from "motion/react"
-import { MelloAssistant } from "./MelloAssistant"
 import { useNavigate } from "react-router-dom"
 import { useAuth } from "../contexts/AuthContext"
 import { fetchStreakData } from "../utils/streakApi"
@@ -31,7 +30,6 @@ export function Profile() {
   
   const [name, setName] = useState(userFullName)
   const [email, setEmail] = useState(userEmail)
-  const [showMelloMessage, setShowMelloMessage] = useState(true)
   const [streakDays, setStreakDays] = useState<number>(0)
   const [usageTimeSeconds, setUsageTimeSeconds] = useState<number | null>(null)
   const [improvementDisplay, setImprovementDisplay] = useState<string>("0")
@@ -156,7 +154,7 @@ export function Profile() {
         </div>
       </header>
 
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div data-mello-scroll className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
             <Card
@@ -303,37 +301,6 @@ export function Profile() {
           </div>
         </div>
 
-        <motion.div
-          animate={showMelloMessage ? { y: [0, -15, 0], scale: [1, 1.1, 1] } : { x: [0, 10, -10, 0] }}
-          transition={{
-            duration: 2,
-            repeat: Number.POSITIVE_INFINITY,
-            ease: "easeInOut",
-            times: showMelloMessage ? [0, 0.5, 1] : [0, 0.33, 0.66, 1],
-          }}
-          style={{
-            position: "fixed",
-            bottom: "20px",
-            right: "20px",
-            zIndex: 100,
-          }}
-        >
-          <MelloAssistant
-            state={showMelloMessage ? "celebrating" : "idle"}
-            message="Update your profile and settings to make it your own! 😄✨"
-            showMessage={showMelloMessage}
-            onMessageDismiss={() => setShowMelloMessage(false)}
-            position="bottom-right"
-            style={{
-              background: "linear-gradient(135deg, #3B82F6 0%, #00B9FC 100%)",
-              borderRadius: "24px",
-              boxShadow: "0 8px 32px rgba(59, 130, 246, 0.3)",
-              padding: "12px",
-              maxWidth: "300px",
-            }}
-            messageClassName="typewriter"
-          />
-        </motion.div>
       </div>
     </div>
   )

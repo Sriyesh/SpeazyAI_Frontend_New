@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "./ui/card"
 import { Button } from "./ui/button"
 import { ScrollArea } from "./ui/scroll-area"
 import { Dialog, DialogContent } from "./ui/dialog"
-import { MelloAssistant } from "./MelloAssistant"
 import {
   ArrowLeft,
   Pause,
@@ -122,10 +121,6 @@ export function MyLessons() {
   const [showRecordingModal, setShowRecordingModal] = useState(false)
   const [readingProgress, setReadingProgress] = useState(0)
   const [isListening, setIsListening] = useState(false)
-  const [melloMessage, setMelloMessage] = useState(true)
-  const [melloState, setMelloState] = useState<
-    "idle" | "talking" | "thinking" | "celebrating" | "waving"
-  >("talking")
   const [showFloatingMic, setShowFloatingMic] = useState(false)
   const [isExtractingPdf, setIsExtractingPdf] = useState(false)
 
@@ -274,8 +269,6 @@ export function MyLessons() {
   const startRecording = () => {
     setShowRecordingModal(true)
     setIsRecording(true)
-    setMelloState("talking")
-    setMelloMessage(false)
     audioDataRef.current = []
     startWaveformAnimation() // Waveform starts
   }
@@ -286,7 +279,6 @@ export function MyLessons() {
     if (animationIdRef.current) cancelAnimationFrame(animationIdRef.current)
     setTimeout(() => {
       setReadingProgress(100)
-      setMelloState("celebrating")
       scrollToResult()
     }, 800)
   }
@@ -886,25 +878,12 @@ export function MyLessons() {
     )
   }
 
-  const getMelloMessage = () => {
-    if (readingProgress === 100) return "Great job reading! That was impressive!"
-    if (showRecordingModal) return "Speak clearly and have fun!"
-    if (currentView === "lesson-detail") return "Ready to read aloud? Let's go!"
-    return "Pick a story and start practicing!"
-  }
-
   return (
     <>
       {isExtractingPdf && (
         <PdfLoadingScreen lessonTitle={selectedLesson?.title} />
       )}
       {currentView === "lesson-list" ? renderLessonList() : renderLessonDetail()}
-      <MelloAssistant
-        state={melloState}
-        message={getMelloMessage()}
-        showMessage={melloMessage || readingProgress === 100 || showRecordingModal}
-        onMessageDismiss={() => setMelloMessage(false)}
-      />
     </>
   )
 }

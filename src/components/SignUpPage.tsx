@@ -8,7 +8,6 @@ import { Input } from "./ui/input"
 import { Label } from "./ui/label"
 import { Card, CardContent, CardHeader } from "./ui/card"
 import { ThemeToggle } from "./ThemeToggle"
-import { MelloAssistant } from "./MelloAssistant"
 import { Eye, EyeOff, Check, ArrowLeft } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 
@@ -21,8 +20,6 @@ export function SignUpPage() {
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [agreeTerms, setAgreeTerms] = useState(false)
-  const [showMelloMessage, setShowMelloMessage] = useState(true)
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (password !== confirmPassword) {
@@ -46,7 +43,7 @@ export function SignUpPage() {
   const passwordStrength = getPasswordStrength()
 
   return (
-    <div className="min-h-screen bg-white radial-gradient-hero flex items-center justify-center p-4 relative overflow-hidden">
+    <div data-mello-scroll className="min-h-screen bg-white radial-gradient-hero flex items-center justify-center p-4 relative overflow-hidden">
       {/* Theme Toggle */}
       <div className="absolute top-4 right-4 z-50">
         <ThemeToggle />
@@ -243,14 +240,6 @@ export function SignUpPage() {
         <p className="text-center text-[#1E3A8A]/60 text-sm mt-6">Secure Registration • Professional Platform</p>
       </div>
 
-      {/* Mello Assistant */}
-      <MelloAssistant
-        state="celebrating"
-        message="Awesome! You're about to join thousands of successful learners! Let's get started! 🎉"
-        showMessage={showMelloMessage}
-        onMessageDismiss={() => setShowMelloMessage(false)}
-        position="bottom-right"
-      />
     </div>
   )
 }

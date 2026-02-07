@@ -17,7 +17,6 @@ import {
   Sparkles,
 } from "lucide-react";
 import { motion } from "motion/react";
-import { MelloAssistant } from "./MelloAssistant";
 import { useNavigate, useLocation } from "react-router-dom";
 import { AudioRecorder } from "./audioRecorder";
 
@@ -195,8 +194,6 @@ export function FamousSpeeches({
   const [draggedWord, setDraggedWord] = useState<string | null>(
     null,
   );
-  const [showMelloMessage, setShowMelloMessage] =
-    useState(true);
   const [wrongAnswers, setWrongAnswers] = useState<Set<number>>(
     new Set(),
   );
@@ -205,7 +202,6 @@ export function FamousSpeeches({
   const handleSpeechSelect = (speech: (typeof speeches)[0]) => {
     setSelectedSpeech(speech);
     setCurrentView("speech-detail");
-    setShowMelloMessage(true);
   };
 
   // Handle API response - navigate to results page
@@ -236,7 +232,6 @@ export function FamousSpeeches({
     setQuizProgress([]);
     setWrongAnswers(new Set());
     setShowWrongMessage(false);
-    setShowMelloMessage(true);
   };
 
   const handleWordDrop = (word: string, position: number) => {
@@ -333,7 +328,7 @@ export function FamousSpeeches({
         </div>
       </header>
 
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div data-mello-scroll className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="text-center mb-12">
           <h2
             className="text-3xl font-bold"
@@ -472,45 +467,6 @@ export function FamousSpeeches({
           ))}
         </div>
       </div>
-
-      <motion.div
-        animate={
-          showMelloMessage
-            ? { y: [0, -15, 0], scale: [1, 1.1, 1] }
-            : { x: [0, 10, -10, 0] }
-        }
-        transition={{
-          duration: 2,
-          repeat: Infinity,
-          ease: "easeInOut",
-          times: showMelloMessage
-            ? [0, 0.5, 1]
-            : [0, 0.33, 0.66, 1],
-        }}
-        style={{
-          position: "fixed",
-          bottom: "20px",
-          right: "20px",
-          zIndex: 100,
-        }}
-      >
-        <MelloAssistant
-          state={showMelloMessage ? "celebrating" : "idle"}
-          message="Pick a speech to learn from! Each one has a special message! 🌟😄"
-          showMessage={showMelloMessage}
-          onMessageDismiss={() => setShowMelloMessage(false)}
-          position="bottom-right"
-          style={{
-            background:
-              "linear-gradient(135deg, #3B82F6 0%, #00B9FC 100%)",
-            borderRadius: "24px",
-            boxShadow: "0 8px 32px rgba(59, 130, 246, 0.3)",
-            padding: "12px",
-            maxWidth: "300px",
-          }}
-          messageClassName="typewriter"
-        />
-      </motion.div>
     </div>
   );
 
@@ -566,7 +522,7 @@ export function FamousSpeeches({
           </div>
         </header>
 
-        <div className="max-w-[1600px] mx-auto px-4 sm:px-8 lg:px-12 py-8">
+        <div data-mello-scroll className="max-w-[1600px] mx-auto px-4 sm:px-8 lg:px-12 py-8">
           <div className="flex gap-12 items-start min-h-[calc(100vh-64px)] speech-content-wrapper">
             {/* Content - Left side */}
             <motion.div
@@ -686,46 +642,6 @@ export function FamousSpeeches({
             </motion.div>
           </div>
 
-          <motion.div
-            animate={
-              showMelloMessage
-                ? { y: [0, -15, 0], scale: [1, 1.1, 1] }
-                : { x: [0, 10, -10, 0] }
-            }
-            transition={{
-              duration: 2,
-              repeat: Infinity,
-              ease: "easeInOut",
-              times: showMelloMessage
-                ? [0, 0.5, 1]
-                : [0, 0.33, 0.66, 1],
-            }}
-            style={{
-              position: "fixed",
-              bottom: "20px",
-              right: "20px",
-              zIndex: 100,
-            }}
-          >
-            <MelloAssistant
-              state={showMelloMessage ? "celebrating" : "idle"}
-              message="Listen and practice reading! Try to speak clearly! 😄✨"
-              showMessage={showMelloMessage}
-              onMessageDismiss={() =>
-                setShowMelloMessage(false)
-              }
-              position="bottom-right"
-              style={{
-                background:
-                  "linear-gradient(135deg, #3B82F6 0%, #00B9FC 100%)",
-                borderRadius: "24px",
-                boxShadow: "0 8px 32px rgba(59, 130, 246, 0.3)",
-                padding: "12px",
-                maxWidth: "300px",
-              }}
-              messageClassName="typewriter"
-            />
-          </motion.div>
         </div>
       </div>
     );
@@ -778,7 +694,7 @@ export function FamousSpeeches({
           </div>
         </header>
 
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div data-mello-scroll className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <Card
             className="bg-[#FFFFFF] border-0 shadow-xl"
             style={{
@@ -940,46 +856,7 @@ export function FamousSpeeches({
             </CardContent>
           </Card>
 
-          <motion.div
-            animate={
-              showMelloMessage
-                ? { y: [0, -15, 0], scale: [1, 1.1, 1] }
-                : { x: [0, 10, -10, 0] }
-            }
-            transition={{
-              duration: 2,
-              repeat: Infinity,
-              ease: "easeInOut",
-              times: showMelloMessage
-                ? [0, 0.5, 1]
-                : [0, 0.33, 0.66, 1],
-            }}
-            style={{
-              position: "fixed",
-              bottom: "20px",
-              right: "20px",
-              zIndex: 100,
-            }}
-          >
-            <MelloAssistant
-              state={showMelloMessage ? "celebrating" : "idle"}
-              message="Drag the words to complete the sentence! You’re doing awesome! 😄✨"
-              showMessage={showMelloMessage}
-              onMessageDismiss={() =>
-                setShowMelloMessage(false)
-              }
-              position="bottom-right"
-              style={{
-                background:
-                  "linear-gradient(135deg, #3B82F6 0%, #00B9FC 100%)",
-                borderRadius: "24px",
-                boxShadow: "0 8px 32px rgba(59, 130, 246, 0.3)",
-                padding: "12px",
-                maxWidth: "300px",
-              }}
-              messageClassName="typewriter"
-            />
-          </motion.div>
+
         </div>
       </div>
     );

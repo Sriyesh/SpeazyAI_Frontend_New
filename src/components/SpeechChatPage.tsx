@@ -2,12 +2,27 @@
 
 import { useState, useRef, useEffect } from "react"
 import { useNavigate, useLocation } from "react-router-dom"
+import ReactMarkdown from "react-markdown"
 import { Card, CardContent, CardHeader } from "./ui/card"
 import { Button } from "./ui/button"
 import { ScrollArea } from "./ui/scroll-area"
-import { ArrowLeft, Mic, Square, Bot, User, Volume2, VolumeX } from "lucide-react"
+import { ArrowLeft, Mic, Square, User, VolumeX } from "lucide-react"
 import { motion } from "motion/react"
 import { API_URLS } from '@/config/apiConfig';
+import { MelloIcon } from "./MelloIcon"
+
+/** Strip markdown syntax for plain-text speech (avoids speaking "asterisk asterisk") */
+function stripMarkdown(text: string): string {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, "$1")
+    .replace(/\*(.+?)\*/g, "$1")
+    .replace(/__(.+?)__/g, "$1")
+    .replace(/_(.+?)_/g, "$1")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/^#+\s+/gm, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim()
+}
 
 type Message = {
   id: number
@@ -267,110 +282,72 @@ export function SpeechChatPage() {
       highlightIntervalRef.current = null
     }
 
-    // Get only actual words (no spaces) for timing calculation
-    const actualWords = text.split(/\s+/).filter(w => w.length > 0)
+    const plainText = stripMarkdown(text)
+    const words = plainText.split(/\s+/).filter(w => w.length > 0)
+    const speechRate = 0.75
 
-    const utterance = new SpeechSynthesisUtterance(text)
-    utterance.rate = 0.9
+    const getWordIndexFromCharIndex = (charIndex: number): number => {
+      let pos = 0
+      for (let i = 0; i < words.length; i++) {
+        const wordLen = words[i].length
+        const space = i < words.length - 1 ? 1 : 0
+        if (charIndex < pos + wordLen + space) return i
+        pos += wordLen + space
+      }
+      return words.length - 1
+    }
+
+    // Fallback: estimate timing when boundary events don't fire (e.g. Chrome)
+    const baseMsPerWord = 320 / speechRate
+    const msPerChar = 35
+    let fallbackStartTime = 0
+    const wordBoundaries: { wordIndex: number; startTime: number; endTime: number }[] = []
+    let t = 120
+    words.forEach((w, i) => {
+      const dur = baseMsPerWord + w.length * msPerChar
+      wordBoundaries.push({ wordIndex: i, startTime: t, endTime: t + dur })
+      t += dur + 25
+    })
+
+    const utterance = new SpeechSynthesisUtterance(plainText)
+    utterance.rate = speechRate
     utterance.pitch = 1
     utterance.volume = 1
 
-    // Simplified approach: Use consistent timing per word with character-based adjustment
-    // At rate 0.9, speech synthesis typically speaks faster than estimated
-    // Making it much faster to match actual speech
-    const speechRate = 0.9
-    // Much reduced base time per word to match faster speech
-    const baseMsPerWord = 250 / speechRate // ~278ms per word at 0.9 rate (much faster)
-    const msPerChar = 15 // Much reduced ms per character to speed up highlighting
-    
-    const wordBoundaries: { wordIndex: number; startTime: number; endTime: number }[] = []
-    let currentTime = 0
-
-    actualWords.forEach((word, index) => {
-      // Base duration + character-based adjustment
-      const wordDuration = baseMsPerWord + (word.length * msPerChar)
-      
-      wordBoundaries.push({
-        wordIndex: index,
-        startTime: currentTime,
-        endTime: currentTime + wordDuration,
-      })
-      
-      currentTime += wordDuration
-      
-      // Minimal pause between words to speed up highlighting
-      if (index < actualWords.length - 1) {
-        currentTime += 20 // 20ms pause (minimal)
+    let boundaryReceived = false
+    utterance.onboundary = (event: SpeechSynthesisEvent) => {
+      if (event.name === "word" && typeof event.charIndex === "number") {
+        boundaryReceived = true
+        const idx = getWordIndexFromCharIndex(event.charIndex)
+        setHighlightedWordIndex(Math.min(idx, words.length - 1))
       }
-    })
-    
-    const estimatedTotalMs = currentTime
-
-    let speechStartTime = 0
-    let actualSpeechDuration = 0
-    let scaleFactor = 1
+    }
 
     utterance.onstart = () => {
       isSpeakingRef.current = true
       setIsSpeaking(true)
       setHighlightedWordIndex(0)
-      speechStartTime = Date.now()
-      
-      // Start highlighting interval
+      fallbackStartTime = Date.now()
+      // Fallback interval for browsers without reliable boundary events
       highlightIntervalRef.current = setInterval(() => {
-        if (!isSpeakingRef.current) {
-          if (highlightIntervalRef.current) {
-            clearInterval(highlightIntervalRef.current)
-            highlightIntervalRef.current = null
-          }
-          return
-        }
-
-        const elapsed = Date.now() - speechStartTime
-        
-        // Scale elapsed time if we have actual duration
-        const adjustedElapsed = scaleFactor > 1 ? elapsed * scaleFactor : elapsed
-        
-        // Find the current word being spoken
-        let currentWordIndex = null
+        if (!isSpeakingRef.current) return
+        if (boundaryReceived) return // Boundary works, no fallback
+        const elapsed = Date.now() - fallbackStartTime
+        let idx: number | null = null
         for (let i = 0; i < wordBoundaries.length; i++) {
-          const boundary = wordBoundaries[i]
-          if (adjustedElapsed >= boundary.startTime && adjustedElapsed < boundary.endTime) {
-            currentWordIndex = boundary.wordIndex
+          if (elapsed >= wordBoundaries[i].startTime && elapsed < wordBoundaries[i].endTime) {
+            idx = i
             break
           }
         }
-
-        // If we've passed all words, highlight the last word and then stop
-        if (currentWordIndex === null) {
-          // Check if we should highlight the last word
-          if (adjustedElapsed >= wordBoundaries[wordBoundaries.length - 1]?.startTime) {
-            setHighlightedWordIndex(wordBoundaries.length - 1)
-          }
-          
-          // Only stop if we're well past the estimated end
-          const maxTime = scaleFactor > 1 ? estimatedTotalMs * scaleFactor * 1.2 : estimatedTotalMs * 1.2
-          if (adjustedElapsed >= maxTime) {
-            if (highlightIntervalRef.current) {
-              clearInterval(highlightIntervalRef.current)
-              highlightIntervalRef.current = null
-            }
-            setHighlightedWordIndex(null)
-            return
-          }
-        } else {
-          // Update highlighted word
-          setHighlightedWordIndex(currentWordIndex)
+        if (idx !== null) setHighlightedWordIndex(idx)
+        else if (elapsed >= wordBoundaries[wordBoundaries.length - 1]?.startTime) {
+          setHighlightedWordIndex(words.length - 1)
         }
-      }, 30) // Check every 30ms for faster, more responsive updates
+      }, 50)
     }
 
     utterance.onend = () => {
-      actualSpeechDuration = Date.now() - speechStartTime
-      // Calculate scale factor for future adjustments
-      if (estimatedTotalMs > 0 && actualSpeechDuration > 0) {
-        scaleFactor = actualSpeechDuration / estimatedTotalMs
-      }
       isSpeakingRef.current = false
       setIsSpeaking(false)
       setHighlightedWordIndex(null)
@@ -522,7 +499,8 @@ export function SpeechChatPage() {
                 gap: "1.5rem",
               }}>
                 {messages.map((message) => {
-                  const words = message.text.split(/(\s+)/)
+                  const plainText = message.sender === "ai" ? stripMarkdown(message.text) : message.text
+                  const words = plainText.split(/(\s+)/)
                   return (
                     <motion.div
                       key={message.id}
@@ -559,7 +537,7 @@ export function SpeechChatPage() {
                           }}
                         >
                           {message.sender === "ai" ? (
-                            <Bot style={{ width: "20px", height: "20px", color: "#FFFFFF" }} />
+                            <MelloIcon size={36} />
                           ) : (
                             <User style={{ width: "20px", height: "20px", color: "#FFFFFF" }} />
                           )}
@@ -583,26 +561,14 @@ export function SpeechChatPage() {
                               lineHeight: "1.625",
                             }}>
                               {words.map((word, index) => {
-                                // Calculate word index (only counting actual words, not spaces)
                                 const isWord = word.trim().length > 0
-                                
-                                if (!isWord) {
-                                  // It's a space, don't highlight
-                                  return <span key={index}>{word}</span>
-                                }
-                                
-                                // Count how many actual words we've seen before this index
+                                if (!isWord) return <span key={index}>{word}</span>
                                 let wordCount = 0
                                 for (let i = 0; i < index; i++) {
-                                  if (words[i].trim().length > 0) {
-                                    wordCount++
-                                  }
+                                  if (words[i].trim().length > 0) wordCount++
                                 }
-                                
-                                // Current word's index
                                 const wordIndex = wordCount
                                 const isHighlighted = highlightedWordIndex !== null && highlightedWordIndex === wordIndex
-                                
                                 return (
                                   <span
                                     key={index}
@@ -619,6 +585,10 @@ export function SpeechChatPage() {
                                 )
                               })}
                             </p>
+                          ) : message.sender === "ai" ? (
+                            <div className="prose prose-sm max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1" style={{ fontSize: "0.875rem", fontWeight: 500, lineHeight: "1.625", color: "inherit" }}>
+                              <ReactMarkdown>{message.text}</ReactMarkdown>
+                            </div>
                           ) : (
                             <p style={{
                               fontSize: "0.875rem",
@@ -657,7 +627,7 @@ export function SpeechChatPage() {
                           background: "linear-gradient(135deg, #3B82F6 0%, #00B9FC 100%)",
                         }}
                       >
-                        <Bot style={{ width: "20px", height: "20px", color: "#FFFFFF" }} />
+                        <MelloIcon size={32} />
                       </div>
                       <div
                         style={{

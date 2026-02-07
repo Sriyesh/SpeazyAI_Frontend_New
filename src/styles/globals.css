@@ -443,6 +443,16 @@ html {
   }
 }
 
+/* Reserve space when Mello assistant is visible - prevents overlap */
+body.mello-visible [data-mello-scroll] {
+  padding-bottom: 140px;
+}
+@media (min-width: 768px) {
+  body.mello-visible [data-mello-scroll] {
+    padding-bottom: 128px;
+  }
+}
+
 /* Minimum touch target size for accessibility on mobile */
 @media (max-width: 768px) {
   button:not([class*="p-"]):not([class*="px-"]):not([class*="py-"]),
