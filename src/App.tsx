@@ -1,3 +1,4 @@
+import { useEffect } from "react"
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
 import { HomePage } from "./components/HomePage"
 import { AboutPage } from "./components/AboutPage"
@@ -56,9 +57,14 @@ import { LicenseManagement } from "./components/dashboard/LicenseManagement"
 import { AuthProvider } from "./contexts/AuthContext"
 import { Toaster } from "./components/ui/sonner"
 import { ProtectedRoute } from "./components/ProtectedRoute"
-
+import { installErrorCapture } from "./utils/errorCapture"
 
 export default function App() {
+  useEffect(() => {
+    const cleanup = installErrorCapture()
+    return cleanup
+  }, [])
+
   return (
     <ThemeProvider>
       <AuthProvider>

@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { MelloAssistant } from "./MelloAssistant";
 import {
   Card,
   CardContent,
@@ -108,18 +107,9 @@ export function MelloShowcase({ onBack }: MelloShowcaseProps) {
             </CardTitle>
           </CardHeader>
           <CardContent className="flex justify-center py-12">
-            <div className="relative w-40 h-40 flex items-center justify-center">
-              <MelloAssistant
-                state={currentState}
-                message={
-                  states.find((s) => s.state === currentState)
-                    ?.message
-                }
-                showMessage={showMessage}
-                onMessageDismiss={() => setShowMessage(false)}
-                position="center"
-              />
-            </div>
+            <p className="text-[#B9C2D0] text-sm text-center">
+              Mello is only available on the Skills Home page.
+            </p>
           </CardContent>
         </Card>
 

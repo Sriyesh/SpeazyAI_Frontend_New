@@ -56,6 +56,7 @@ export function StudentDetailsPage() {
   const [detailedResult, setDetailedResult] = useState<any>(rawStudentData.detailedResult?.item || rawStudentData.detailedResult?.data || rawStudentData.detailedResult || {})
   const [isLoadingSkillData, setIsLoadingSkillData] = useState(false)
   const [skillDataError, setSkillDataError] = useState<string | null>(null)
+  const [isNotAttempted, setIsNotAttempted] = useState(false)
   
   const skill = rawStudentData.skill || "speaking"
   const skillLabels: Record<string, string> = {
@@ -84,19 +85,17 @@ export function StudentDetailsPage() {
     
     setIsLoadingSkillData(true)
     setSkillDataError(null)
+    setIsNotAttempted(false)
     
     try {
-      // Determine API endpoint and method based on skill
-      // Reading uses POST with ID in body, others use GET with query param
-      const isPostMethod = skillType === "reading"
-      
+      // All skill APIs use GET with id as query parameter (including reading)
       let API_URL = ""
       switch (skillType) {
         case "speaking":
           API_URL = `${apiBase}/speaking/get-result.php?id=${id}`
           break
         case "reading":
-          API_URL = `${apiBase}/reading/get-result.php`
+          API_URL = `${apiBase}/reading/get-result.php?id=${id}`
           break
         case "writing":
           API_URL = `${apiBase}/writing/get-result.php?id=${id}`
@@ -110,25 +109,40 @@ export function StudentDetailsPage() {
           return
       }
       
-      console.log(`Fetching ${skillType} result for ID: ${id} using ${isPostMethod ? "POST" : "GET"}`)
+      console.log(`Fetching ${skillType} result for ID: ${id} using GET`)
       
       const response = await fetch(API_URL, {
-        method: isPostMethod ? "POST" : "GET",
+        method: "GET",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${API_TOKEN}`,
+          Authorization: `Bearer ${token || ""}`,
         },
-        ...(isPostMethod && { body: JSON.stringify({ id: id }) }),
       })
       
       if (!response.ok) {
         const errorText = await response.text()
         console.error(`${skillType} API Error (${response.status}):`, errorText)
+        if (response.status === 404) {
+          setDetailedResult({})
+          setSkillDataError("Student has not attempted this skill yet.")
+          setIsNotAttempted(true)
+          setIsLoadingSkillData(false)
+          return
+        }
         throw new Error(`API Error (${response.status}): ${errorText || response.statusText}`)
       }
       
       const data = await response.json()
       console.log(`${skillType} API Response:`, data)
+
+      // Handle 200 OK with "Result not found" in body
+      if (data?.success === false && /result not found|not found/i.test(data?.message || "")) {
+        setDetailedResult({})
+        setSkillDataError("Student has not attempted this skill yet.")
+        setIsNotAttempted(true)
+        setIsLoadingSkillData(false)
+        return
+      }
       
       // Handle different response formats
       const result = data.item || data.data || data || {}
@@ -455,12 +469,13 @@ export function StudentDetailsPage() {
               style={{
                 marginBottom: "32px",
                 padding: "24px",
-                backgroundColor: "#FEE2E2",
+                backgroundColor: isNotAttempted ? "#EFF6FF" : "#FEE2E2",
                 borderRadius: "8px",
-                color: "#DC2626",
+                color: isNotAttempted ? "#1E40AF" : "#DC2626",
+                border: `1px solid ${isNotAttempted ? "#93C5FD" : "#FECACA"}`,
               }}
             >
-              Error: {skillDataError}
+              {isNotAttempted ? skillDataError : `Error: ${skillDataError}`}
             </div>
           )}
           

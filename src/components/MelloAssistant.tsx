@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { X, Sparkles, Phone } from "lucide-react";
 import { Button } from "./ui/button";
 import { useNavigate } from "react-router-dom";
+import { useIsMobile } from "./ui/use-mobile";
 
 interface MelloAssistantProps {
   state?:
@@ -17,6 +18,14 @@ interface MelloAssistantProps {
   position?: "bottom-right" | "bottom-left" | "center";
   onClick?: () => void;
   showConnectTeacher?: boolean;
+  /** When set, shows "Need Support?" button and opens mailto; otherwise "Connect with Teacher" navigates to connect-teacher */
+  supportEmail?: string;
+  /** When set, clicking "Need Support?" calls this instead of mailto (opens support chatbot) */
+  onSupportClick?: () => void;
+  /** Hide on mobile to prevent overlap; defaults to false */
+  hideOnMobile?: boolean;
+  /** Auto-dismiss popup after seconds; 0 = never. Default 5. */
+  autoDismissSeconds?: number;
 }
 
 export function MelloAssistant({
@@ -27,10 +36,27 @@ export function MelloAssistant({
   position = "bottom-right",
   onClick,
   showConnectTeacher = false,
+  supportEmail,
+  onSupportClick,
+  hideOnMobile = false,
+  autoDismissSeconds = 5,
 }: MelloAssistantProps) {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [isBlinking, setIsBlinking] = useState(false);
   const [eyeScale, setEyeScale] = useState(1);
+
+  useEffect(() => {
+    if (showMessage && autoDismissSeconds > 0 && onMessageDismiss && !showConnectTeacher) {
+      const t = setTimeout(onMessageDismiss, autoDismissSeconds * 1000);
+      return () => clearTimeout(t);
+    }
+  }, [showMessage, autoDismissSeconds, onMessageDismiss, showConnectTeacher]);
+
+  useEffect(() => {
+    document.body.classList.add("mello-visible");
+    return () => document.body.classList.remove("mello-visible");
+  }, []);
 
   useEffect(() => {
     const blinkInterval = setInterval(
@@ -60,33 +86,52 @@ export function MelloAssistant({
     center: "bottom-full mb-4 left-1/2 -translate-x-1/2",
   };
   
-  // Enhanced floating animation for waving state
-  const floatingAnimation = state === "waving" 
-    ? { y: [0, -15, 0], rotate: [0, -3, 3, 0] }
-    : { y: [0, -10, 0] };
-  
-  const floatingDuration = state === "waving" ? 2 : 3;
+  // Subtle floating - reduced on mobile to avoid distraction
+  const floatingAnimation = isMobile ? { y: [0, -4, 0] } : state === "waving"
+    ? { y: [0, -10, 0], rotate: [0, -2, 2, 0] }
+    : { y: [0, -6, 0] };
+  const floatingDuration = isMobile ? 4 : state === "waving" ? 2.5 : 3;
+
+  // Use larger minimum on mobile so the icon is never clipped (e.g. by device frame or home indicator)
+  const safeBottom = "max(20px, env(safe-area-inset-bottom, 0px))";
+  const safeRight = "max(20px, env(safe-area-inset-right, 0px))";
+  const safeLeft = "max(20px, env(safe-area-inset-left, 0px))";
 
   const positionStyles: CSSProperties =
     position === "bottom-right"
-      ? { bottom: 24, right: 24 }
+      ? {
+          bottom: isMobile ? safeBottom : 24,
+          right: isMobile ? safeRight : 24,
+          ...(isMobile && { paddingBottom: 8, paddingRight: 8 }),
+        }
       : position === "bottom-left"
-        ? { bottom: 24, left: 24 }
+        ? {
+            bottom: isMobile ? safeBottom : 24,
+            left: isMobile ? safeLeft : 24,
+            ...(isMobile && { paddingBottom: 8, paddingLeft: 8 }),
+          }
         : { top: "50%", left: "50%", transform: "translate(-50%, -50%)" };
 
+  const iconSize = isMobile ? 52 : 80;
+
+  if (hideOnMobile && isMobile) return null;
+
   return (
-    <div style={{ position: "fixed", zIndex: 50, ...positionStyles }}>
+    <div
+      style={{ position: "fixed", zIndex: 9999, ...positionStyles }}
+      data-mello-assistant
+    >
       <AnimatePresence>
         {showMessage && message && (
           <motion.div
             initial={{ opacity: 0, y: 20, scale: 0.8 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 20, scale: 0.8 }}
+            exit={{ opacity: 0, y: 20, scale: 0.8, pointerEvents: "none" }}
             transition={{ duration: 0.3, type: "spring" }}
-            className={`absolute ${chatboxPositionClasses[position]} max-w-xs z-[60] pointer-events-auto`}
+            className={`absolute ${chatboxPositionClasses[position]} z-[60] pointer-events-auto`}
             style={{ 
-              maxWidth: '320px',
-              minWidth: '280px',
+              maxWidth: isMobile ? "min(320px, calc(100vw - 32px))" : "320px",
+              minWidth: isMobile ? "260px" : "280px",
             }}
           >
             <div className="relative bg-gradient-to-br from-white to-[#F2F3F4] border-2 border-[#3B82F6]/30 rounded-2xl p-4 shadow-2xl">
@@ -115,14 +160,26 @@ export function MelloAssistant({
                   <div className="flex flex-col gap-2 pt-2 border-t border-[#3B82F6]/20">
                     <p className="text-xs text-[#1E3A8A]/70 font-medium">Need help?</p>
                     <Button
+                      type="button"
                       onClick={(e) => {
+                        e.preventDefault();
                         e.stopPropagation();
-                        navigate("/connect-teacher");
+                        if (onSupportClick) {
+                          onSupportClick();
+                        } else if (supportEmail) {
+                          const subject = encodeURIComponent("Support Request - English Skill AI");
+                          const body = encodeURIComponent(
+                            "Please describe your issue below:\n\n\n(You can attach a screenshot to this email to help us understand the problem.)"
+                          );
+                          window.location.href = `mailto:${supportEmail}?subject=${subject}&body=${body}`;
+                        } else {
+                          navigate("/connect-teacher");
+                        }
                       }}
                       className="flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-[#3B82F6] to-[#00B9FC] text-white hover:from-[#2563EB] hover:to-[#0099CC] transition-all duration-200 rounded-lg shadow-lg hover:shadow-xl hover:scale-105 font-semibold text-sm"
                     >
                       <Phone className="w-5 h-5" />
-                      <span>Connect with Teacher</span>
+                      <span>{supportEmail ? "Need Support?" : "Connect with Teacher"}</span>
                     </Button>
                   </div>
                 )}
@@ -141,20 +198,30 @@ export function MelloAssistant({
         }}
         className="relative cursor-pointer"
         onClick={onClick}
-        style={{ cursor: onClick ? "pointer" : "default" }}
+        style={{
+          cursor: onClick ? "pointer" : "default",
+          position: "relative",
+          zIndex: 65,
+          minWidth: iconSize,
+          minHeight: iconSize,
+        }}
+        role={onClick ? "button" : undefined}
+        aria-label={onClick ? "Show message" : undefined}
       >
-        <motion.div
-          animate={{
-            scale: [1, 1.1, 1],
-            opacity: [0.3, 0.5, 0.3],
-          }}
-          transition={{
-            duration: 2,
-            repeat: Infinity,
-            ease: "easeInOut",
-          }}
-          className="absolute inset-0 bg-gradient-to-br from-[#3B82F6] to-[#00B9FC] rounded-full blur-3xl"
-        />
+        {!isMobile && (
+          <motion.div
+            animate={{
+              scale: [1, 1.05, 1],
+              opacity: [0.2, 0.35, 0.2],
+            }}
+            transition={{
+              duration: 3,
+              repeat: Infinity,
+              ease: "easeInOut",
+            }}
+            className="absolute inset-0 bg-gradient-to-br from-[#3B82F6] to-[#00B9FC] rounded-full blur-2xl pointer-events-none"
+          />
+        )}
 
         {state === "celebrating" && (
           <>
@@ -173,7 +240,7 @@ export function MelloAssistant({
                   repeat: Infinity,
                   delay: i * 0.3,
                 }}
-                className="absolute"
+                className="absolute pointer-events-none"
                 style={{ left: "50%", top: "50%" }}
               >
                 <Sparkles className="w-4 h-4 text-[#FFD600]" />
@@ -182,10 +249,10 @@ export function MelloAssistant({
           </>
         )}
 
-        {/* Mello Character - SVG Based (smaller size via inline style) */}
+        {/* Mello Character - SVG (smaller on mobile to avoid overlap) */}
         <svg
-          width="80"
-          height="80"
+          width={iconSize}
+          height={iconSize}
           viewBox="0 0 120 120"
           style={{ position: "relative", zIndex: 10 }}
         >
@@ -324,15 +391,17 @@ export function MelloAssistant({
           )}
         </svg>
 
-        <motion.div
-          animate={{ scale: [1, 1.3], opacity: [0.3, 0] }}
-          transition={{
-            duration: 2,
-            repeat: Infinity,
-            ease: "easeOut",
-          }}
-          className="absolute inset-0 border-2 border-[#3B82F6] rounded-full"
-        />
+        {!isMobile && (
+          <motion.div
+            animate={{ scale: [1, 1.15], opacity: [0.15, 0] }}
+            transition={{
+              duration: 2.5,
+              repeat: Infinity,
+              ease: "easeOut",
+            }}
+            className="absolute inset-0 border border-[#3B82F6]/50 rounded-full pointer-events-none"
+          />
+        )}
       </motion.div>
     </div>
   );

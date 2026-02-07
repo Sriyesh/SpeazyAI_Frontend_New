@@ -7,7 +7,6 @@ import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { Button } from "./ui/button"
 import { Card, CardContent } from "./ui/card"
-import { MelloAssistant } from "./MelloAssistant"
 import { motion } from "motion/react"
 import {
   Mic2,
@@ -31,7 +30,6 @@ const NAV_ITEMS = [
 export function HomePage() {
   const navigate = useNavigate()
   const isMobile = useIsMobile()
-  const [showMelloMessage, setShowMelloMessage] = useState(true)
   const [isBlinking, setIsBlinking] = useState(false)
   const [eyeScale, setEyeScale] = useState(1)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -171,7 +169,7 @@ export function HomePage() {
       </nav>
 
       <section style={{ position: "relative", flex: 1, display: "flex", alignItems: "center", overflow: "hidden" }}>
-        <div style={{ maxWidth: 1280, margin: "0 auto", padding: isMobile ? "16px 16px 32px" : "32px 24px 32px", paddingTop: isMobile ? 120 : 160, width: "100%" }}>
+        <div data-mello-scroll style={{ maxWidth: 1280, margin: "0 auto", padding: isMobile ? "16px 16px 32px" : "32px 24px 32px", paddingTop: isMobile ? 120 : 160, width: "100%" }}>
           <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 32, alignItems: "center", width: "100%" }}>
             <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", gap: 16 }}>
               {/* Mello Logo and English Skill AI */}
@@ -407,13 +405,6 @@ export function HomePage() {
         </div>
       </section>
 
-      <MelloAssistant
-        state={showMelloMessage ? "waving" : "idle"}
-        message="Hi! I'm Mello, your AI learning companion! Ready to start your speaking journey? 🌟"
-        showMessage={showMelloMessage}
-        onMessageDismiss={() => setShowMelloMessage(false)}
-        position="bottom-right"
-      />
     </div>
   )
 }
