@@ -859,7 +859,18 @@ export function LicenseManagement() {
             overflowY: "auto",
           }}
         >
-          {menuItems.map((item) => {
+          {menuItems.filter((item) => {
+            // Hide license management for teachers (but allow for principals and administrators)
+            if (item.id === "license-management") {
+              if (!authData?.user?.role) return true
+              const userRole = (authData.user.role || "").toLowerCase()
+              // Hide only for teachers, not for principals or administrators
+              if (userRole === "teacher" || (userRole.includes("teacher") && !userRole.includes("principal") && !userRole.includes("admin"))) {
+                return false
+              }
+            }
+            return true
+          }).map((item) => {
             const Icon = item.icon
             const isActive = item.active || window.location.pathname === item.route
             return (

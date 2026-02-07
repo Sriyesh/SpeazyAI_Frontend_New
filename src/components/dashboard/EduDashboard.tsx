@@ -1034,6 +1034,8 @@ export function EduDashboard() {
   
   const navigate = useNavigate()
   const [selectedOrganization, setSelectedOrganization] = useState("")
+  const [organizationSearchTerm, setOrganizationSearchTerm] = useState("")
+  const [isOrganizationDropdownOpen, setIsOrganizationDropdownOpen] = useState(false)
   const [activeFilter, setActiveFilter] = useState("My Analysis")
   const [selectedClass, setSelectedClass] = useState<string | null>(null)
   const [selectedStudent, setSelectedStudent] = useState<string | null>(null)
@@ -3046,6 +3048,24 @@ export function EduDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeSkill])
 
+  // Effect to close organization dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement
+      if (isOrganizationDropdownOpen && !target.closest('[data-org-dropdown]')) {
+        setIsOrganizationDropdownOpen(false)
+        setOrganizationSearchTerm("")
+      }
+    }
+
+    if (isOrganizationDropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside)
+      return () => {
+        document.removeEventListener("mousedown", handleClickOutside)
+      }
+    }
+  }, [isOrganizationDropdownOpen])
+
   // Reload skill results when activeFilter changes (to re-filter by user or organization)
   useEffect(() => {
     if (activeSkill) {
@@ -3143,7 +3163,18 @@ export function EduDashboard() {
             gap: "8px",
           }}
         >
-          {menuItems.map((item) => {
+          {menuItems.filter((item) => {
+            // Hide license management for teachers (but allow for principals and administrators)
+            if (item.id === "license-management") {
+              if (!authData?.user?.role) return true
+              const userRole = (authData.user.role || "").toLowerCase()
+              // Hide only for teachers, not for principals or administrators
+              if (userRole === "teacher" || (userRole.includes("teacher") && !userRole.includes("principal") && !userRole.includes("admin"))) {
+                return false
+              }
+            }
+            return true
+          }).map((item) => {
             const Icon = item.icon
             const isActive = item.active || window.location.pathname === item.route
             return (
@@ -3465,85 +3496,215 @@ export function EduDashboard() {
                    </div>
                  ) : (
                    // For administrators, show dropdown to select organization
-                 <select
-                   value={selectedOrganization}
-                     onChange={async (e) => {
-                     const selectedValue = e.target.value
-                     console.log("Organization selected:", selectedValue, "Available orgs:", organizationsList.map(o => ({
-                       id: o.id,
-                       organisation_id: o.organisation_id,
-                       name: o.name || o.organisation_name
-                     })))
-                     setSelectedOrganization(selectedValue)
-                     setSelectedClass(null)
-                     setSelectedStudent(null)
-                     // Clear classes data when organization changes
-                     setClassesData({})
-                     setUsersList([])
-                       // Automatically fetch users list when organization is selected
-                       if (selectedValue) {
-                         try {
-                           await fetchUsersList(selectedValue)
-                         } catch (error) {
-                           console.error("Failed to fetch users list:", error)
+                   <div data-org-dropdown style={{ position: "relative", width: "80%", maxWidth: "400px" }}>
+                     <div
+                       onClick={() => !isLoadingOrganizations && setIsOrganizationDropdownOpen(!isOrganizationDropdownOpen)}
+                       style={{
+                         width: "100%",
+                         padding: "10px 12px",
+                         borderRadius: "8px",
+                         border: "1px solid rgba(30, 58, 138, 0.2)",
+                         fontSize: "14px",
+                         color: "#1E3A8A",
+                         backgroundColor: "#FFFFFF",
+                         opacity: isLoadingOrganizations ? 0.6 : 1,
+                         cursor: isLoadingOrganizations ? "not-allowed" : "pointer",
+                         display: "flex",
+                         alignItems: "center",
+                         justifyContent: "space-between",
+                       }}
+                     >
+                       <span>
+                         {selectedOrganization 
+                           ? (() => {
+                               const selectedOrg = organizationsList.find((org) => {
+                                 const oId1 = org.id ? String(org.id) : null
+                                 const oId2 = org.organisation_id ? String(org.organisation_id) : null
+                                 const oId3 = org.organization_id ? String(org.organization_id) : null
+                                 const searchId = String(selectedOrganization)
+                                 return oId1 === searchId || oId2 === searchId || oId3 === searchId
+                               })
+                               if (selectedOrg) {
+                                 const orgName = selectedOrg.organisation || 
+                                                 selectedOrg.name || 
+                                                 selectedOrg.organisation_name || 
+                                                 selectedOrg.organization_name || 
+                                                 selectedOrg.org_name ||
+                                                 selectedOrg.title ||
+                                                 `Organization ${selectedOrganization}`
+                                 return orgName
+                               }
+                               return "Select Organization"
+                             })()
+                           : (isLoadingOrganizations ? "Loading organizations..." : "Select Organization")
                          }
-                       }
-                   }}
-                   disabled={isLoadingOrganizations}
-                   style={{
-                     width: "100%",
-                     maxWidth: "400px",
-                     padding: "10px 12px",
-                     borderRadius: "8px",
-                     border: "1px solid rgba(30, 58, 138, 0.2)",
-                     fontSize: "14px",
-                     color: "#1E3A8A",
-                     backgroundColor: "#FFFFFF",
-                     opacity: isLoadingOrganizations ? 0.6 : 1,
-                     cursor: isLoadingOrganizations ? "not-allowed" : "pointer",
-                   }}
-                 >
-                   <option value="">
-                     {isLoadingOrganizations ? "Loading organizations..." : "Select Organization"}
-                   </option>
-                   {organizationsList.map((org) => {
-                     // Always use ID for value, never fallback to name
-                     const orgId = org.id || org.organisation_id || org.organization_id
-                     if (!orgId) {
-                       console.warn("Organization missing ID:", org)
-                       return null // Skip organizations without ID
-                     }
-                     
-                     // Check organisation field first (primary field name from API)
-                     // Try multiple possible field names to get the organization name
-                     const orgName = org.organisation || 
-                                     org.name || 
-                                     org.organisation_name || 
-                                     org.organization_name || 
-                                     org.org_name ||
-                                     org.title ||
-                                     null
-                     
-                     // Ensure we have a valid name (not just ID or empty string)
-                     // If no name found, create a fallback name
-                     let displayName = orgName
-                     if (!displayName || displayName.trim() === "" || displayName === String(orgId)) {
-                       displayName = `Organization ${orgId}`
-                     }
-                     
-                     // Log if we're using fallback name for debugging
-                     if (displayName === `Organization ${orgId}`) {
-                       console.warn(`Organization ${orgId} has no name field. Available fields:`, Object.keys(org))
-                     }
-                     
-                     const orgIdString = String(orgId)
-                     return (
-                       <option key={orgIdString} value={orgIdString}>
-                         {displayName}
-                       </option>
-                     )
-                   }).filter(Boolean)}
-                 </select>
+                       </span>
+                       <ChevronDown 
+                         size={16} 
+                         style={{ 
+                           transform: isOrganizationDropdownOpen ? "rotate(180deg)" : "rotate(0deg)",
+                           transition: "transform 0.2s"
+                         }} 
+                       />
+                     </div>
+                     {isOrganizationDropdownOpen && !isLoadingOrganizations && (
+                       <div
+                         style={{
+                           position: "absolute",
+                           top: "100%",
+                           left: 0,
+                           right: 0,
+                           marginTop: "4px",
+                           borderRadius: "6px",
+                           border: "1px solid rgba(30, 58, 138, 0.2)",
+                           backgroundColor: "#FFFFFF",
+                           boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+                           zIndex: 1000,
+                           maxHeight: "200px",
+                           overflow: "hidden",
+                           display: "flex",
+                           flexDirection: "column",
+                         }}
+                       >
+                         <div style={{ padding: "6px", borderBottom: "1px solid rgba(30, 58, 138, 0.1)" }}>
+                           <input
+                             type="text"
+                             placeholder="Search organizations..."
+                             value={organizationSearchTerm}
+                             onChange={(e) => setOrganizationSearchTerm(e.target.value)}
+                             onClick={(e) => e.stopPropagation()}
+                             style={{
+                               width: "100%",
+                               padding: "6px 10px",
+                               borderRadius: "4px",
+                               border: "1px solid rgba(30, 58, 138, 0.2)",
+                               fontSize: "13px",
+                               color: "#1E3A8A",
+                               outline: "none",
+                             }}
+                             onKeyDown={(e) => {
+                               if (e.key === "Escape") {
+                                 setIsOrganizationDropdownOpen(false)
+                               }
+                             }}
+                           />
+                         </div>
+                         <div style={{ maxHeight: "150px", overflowY: "auto" }}>
+                           {organizationsList
+                             .filter((org) => {
+                               if (!organizationSearchTerm.trim()) return true
+                               const orgId = org.id || org.organisation_id || org.organization_id
+                               const orgName = org.organisation || 
+                                             org.name || 
+                                             org.organisation_name || 
+                                             org.organization_name || 
+                                             org.org_name ||
+                                             org.title ||
+                                             `Organization ${orgId}`
+                               const searchLower = organizationSearchTerm.toLowerCase()
+                               return orgName.toLowerCase().includes(searchLower) || 
+                                      String(orgId).toLowerCase().includes(searchLower)
+                             })
+                             .map((org) => {
+                               // Always use ID for value, never fallback to name
+                               const orgId = org.id || org.organisation_id || org.organization_id
+                               if (!orgId) {
+                                 return null // Skip organizations without ID
+                               }
+                               
+                               // Check organisation field first (primary field name from API)
+                               // Try multiple possible field names to get the organization name
+                               const orgName = org.organisation || 
+                                               org.name || 
+                                               org.organisation_name || 
+                                               org.organization_name || 
+                                               org.org_name ||
+                                               org.title ||
+                                               null
+                               
+                               // Ensure we have a valid name (not just ID or empty string)
+                               // If no name found, create a fallback name
+                               let displayName = orgName
+                               if (!displayName || displayName.trim() === "" || displayName === String(orgId)) {
+                                 displayName = `Organization ${orgId}`
+                               }
+                               
+                               const orgIdString = String(orgId)
+                               const isSelected = selectedOrganization === orgIdString
+                               
+                               return (
+                                 <div
+                                   key={orgIdString}
+                                   onClick={async (e) => {
+                                     e.stopPropagation()
+                                     console.log("Organization selected:", orgIdString, "Available orgs:", organizationsList.map(o => ({
+                                       id: o.id,
+                                       organisation_id: o.organisation_id,
+                                       name: o.name || o.organisation_name
+                                     })))
+                                     setSelectedOrganization(orgIdString)
+                                     setSelectedClass(null)
+                                     setSelectedStudent(null)
+                                     // Clear classes data when organization changes
+                                     setClassesData({})
+                                     setUsersList([])
+                                     setIsOrganizationDropdownOpen(false)
+                                     setOrganizationSearchTerm("")
+                                     // Automatically fetch users list when organization is selected
+                                     if (orgIdString) {
+                                       try {
+                                         await fetchUsersList(orgIdString)
+                                       } catch (error) {
+                                         console.error("Failed to fetch users list:", error)
+                                       }
+                                     }
+                                   }}
+                                   style={{
+                                     padding: "6px 10px",
+                                     fontSize: "13px",
+                                     color: "#1E3A8A",
+                                     backgroundColor: isSelected ? "rgba(30, 58, 138, 0.1)" : "#FFFFFF",
+                                     cursor: "pointer",
+                                     borderBottom: "1px solid rgba(30, 58, 138, 0.05)",
+                                   }}
+                                   onMouseEnter={(e) => {
+                                     if (!isSelected) {
+                                       e.currentTarget.style.backgroundColor = "rgba(30, 58, 138, 0.05)"
+                                     }
+                                   }}
+                                   onMouseLeave={(e) => {
+                                     if (!isSelected) {
+                                       e.currentTarget.style.backgroundColor = "#FFFFFF"
+                                     }
+                                   }}
+                                 >
+                                   {displayName}
+                                 </div>
+                               )
+                             })
+                             .filter(Boolean)}
+                           {organizationsList.filter((org) => {
+                             if (!organizationSearchTerm.trim()) return false
+                             const orgId = org.id || org.organisation_id || org.organization_id
+                             const orgName = org.organisation || 
+                                           org.name || 
+                                           org.organisation_name || 
+                                           org.organization_name || 
+                                           org.org_name ||
+                                           org.title ||
+                                           `Organization ${orgId}`
+                             const searchLower = organizationSearchTerm.toLowerCase()
+                             return orgName.toLowerCase().includes(searchLower) || 
+                                    String(orgId).toLowerCase().includes(searchLower)
+                           }).length === 0 && (   
+                             <div style={{ padding: "8px", textAlign: "center", color: "rgba(30, 58, 138, 0.5)", fontSize: "13px" }}>
+                               No organizations found
+                             </div>
+                           )}
+                         </div>
+                       </div>
+                     )}
+                   </div>
                  )}
                  {organizationsError && (
                    <p style={{ fontSize: "12px", color: "#EF4444", marginTop: "8px" }}>
