@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { Button } from "../ui/button"
 import { useAuth } from "../../contexts/AuthContext"
+import { toast } from "sonner"
 import {
   Mic2,
   Briefcase,
@@ -13,12 +14,16 @@ import {
   FileText,
   LogOut,
   ChevronLeft,
+  ChevronUp,
+  ChevronRight,
   Plus,
   Edit,
   Upload,
   UserPlus,
   X,
   Check,
+  ChevronDown,
+  Menu,
 } from "lucide-react"
 import {
   Dialog,
@@ -42,15 +47,18 @@ import { getExelerateApiBase } from "../../config/apiConfig"
 
 interface User {
   id: string
-  user_id?: number // API user_id for API calls
+  user_id?: number
   name: string
   email: string
-  role: "Company Learner" | "Company Trainer" | "Company Manager" | "Company Administrator"
+  role: "Student" | "Teacher" | "Principal" | "Administrator"
   classes: string | number
   organization: string
-  organisation_id?: number // API organisation_id
-  isActive?: boolean // Status: active or inactive
+  organisation_id?: number
+  isActive?: boolean
 }
+
+// Roles that can be assigned in Add/Edit User (Admin: all 3; Principal: Teacher, Student; Teacher: Student only)
+type AssignableRole = "Student" | "Teacher" | "Principal"
 
 interface Organisation {
   id: number
@@ -60,8 +68,16 @@ interface Organisation {
 export function ClassManagement() {
   const navigate = useNavigate()
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set())
   const [filterOrganization, setFilterOrganization] = useState<string>("all")
+  const [page, setPage] = useState(1)
+  const [perPage, setPerPage] = useState(20)
+  const [total, setTotal] = useState(0)
+  const [totalPages, setTotalPages] = useState(1)
+  const [sortBy, setSortBy] = useState<keyof User | "">("")
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc")
+  const [searchInput, setSearchInput] = useState("")
   const [showAddUserForm, setShowAddUserForm] = useState(false)
   const [showAddUserModal, setShowAddUserModal] = useState(false)
   const [showStatusDialog, setShowStatusDialog] = useState(false)
@@ -83,7 +99,7 @@ export function ClassManagement() {
     firstName: "",
     lastName: "",
     email: "",
-    role: "Company Learner" as User["role"],
+    role: "Student" as User["role"],
     classes: "",
     organization: "",
     organisation_id: "",
@@ -102,50 +118,22 @@ export function ClassManagement() {
   
   // Classes from API (extracted from users - classes are in array format)
   const [availableClasses, setAvailableClasses] = useState<string[]>([])
+  const [showClassDropdown, setShowClassDropdown] = useState(false)
+  const [classInputValue, setClassInputValue] = useState("")
+  
+  // Searchable dropdown states
+  const [isOrgDropdownOpen, setIsOrgDropdownOpen] = useState(false)
+  const [orgSearchTerm, setOrgSearchTerm] = useState("")
+  const [isRoleDropdownOpen, setIsRoleDropdownOpen] = useState(false)
+  const [roleSearchTerm, setRoleSearchTerm] = useState("")
+  const [isFilterOrgDropdownOpen, setIsFilterOrgDropdownOpen] = useState(false)
+  const [filterOrgSearchTerm, setFilterOrgSearchTerm] = useState("")
+  const [isAssignOrgDropdownOpen, setIsAssignOrgDropdownOpen] = useState(false)
+  const [assignOrgSearchTerm, setAssignOrgSearchTerm] = useState("")
+  const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false)
+  const [userSearchTerm, setUserSearchTerm] = useState("")
 
-  // Sample users data
-  const [users, setUsers] = useState<User[]>([
-    {
-      id: "1",
-      name: "Abhirami B R",
-      email: "abhiramibr2011@gmail.com",
-      role: "Company Learner",
-      classes: "9",
-      organization: "CSI WF CENTRAL SCHOOL  Karakonam",
-    },
-    {
-      id: "2",
-      name: "Sajith Pillai",
-      email: "xeleratelearningindia@outlook.com",
-      role: "Company Trainer",
-      classes: "1A",
-      organization: "ABC School",
-    },
-    {
-      id: "3",
-      name: "Reshma",
-      email: "reshma@example.com",
-      role: "Company Manager",
-      classes: "2B",
-      organization: "XYZ School",
-    },
-    {
-      id: "4",
-      name: "John Doe",
-      email: "john.doe@example.com",
-      role: "Company Learner",
-      classes: "None",
-      organization: "Green Valley School",
-    },
-    {
-      id: "5",
-      name: "Jane Smith",
-      email: "jane.smith@example.com",
-      role: "Company Administrator",
-      classes: "7",
-      organization: "Sunshine Academy",
-    },
-  ])
+  const [users, setUsers] = useState<User[]>([])
 
   const menuItems = [
     { id: "english-skill-ai", label: "English Skill AI", icon: Mic2, route: "/skills-home" },
@@ -153,6 +141,52 @@ export function ClassManagement() {
     { id: "class-management", label: "Class Management", icon: Users, route: "/progress-dashboard/classes", active: true },
     { id: "license-management", label: "License Management", icon: Shield, route: "/progress-dashboard/license" },
   ]
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768)
+      if (window.innerWidth < 768) {
+        setSidebarCollapsed(true)
+      }
+    }
+    window.addEventListener("resize", handleResize)
+    handleResize()
+    return () => window.removeEventListener("resize", handleResize)
+  }, [])
+
+  useEffect(() => {
+    if (!showAddUserModal) {
+      setIsOrgDropdownOpen(false)
+      setIsRoleDropdownOpen(false)
+      setOrgSearchTerm("")
+      setRoleSearchTerm("")
+    }
+  }, [showAddUserModal])
+
+  useEffect(() => {
+    if (!showAssignClassDialog) {
+      setIsAssignOrgDropdownOpen(false)
+      setIsUserDropdownOpen(false)
+      setAssignOrgSearchTerm("")
+      setUserSearchTerm("")
+    }
+  }, [showAssignClassDialog])
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement
+      if (!target.closest("[data-dropdown]")) {
+        setIsOrgDropdownOpen(false)
+        setIsRoleDropdownOpen(false)
+        setIsFilterOrgDropdownOpen(false)
+        setIsAssignOrgDropdownOpen(false)
+        setIsUserDropdownOpen(false)
+        setShowClassDropdown(false)
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [])
 
   const getInitials = (name: string) => {
     if (!name) return "U"
@@ -163,27 +197,91 @@ export function ClassManagement() {
     return name[0].toUpperCase()
   }
 
-  // Map API role to UI role
+  // Map API role to UI role (API uses student, teacher, principal, administrator)
   const mapApiRoleToUIRole = (apiRole: string): User["role"] => {
     const roleMap: Record<string, User["role"]> = {
-      student: "Company Learner",
-      teacher: "Company Trainer",
-      manager: "Company Manager",
-      administrator: "Company Administrator",
-      admin: "Company Administrator",
+      student: "Student",
+      teacher: "Teacher",
+      manager: "Principal",
+      administrator: "Administrator",
+      admin: "Administrator",
+      principal: "Principal",
     }
-    return roleMap[apiRole.toLowerCase()] || "Company Learner"
+    return roleMap[apiRole.toLowerCase()] || "Student"
   }
 
   // Map UI role to API role
   const mapUIRoleToApiRole = (uiRole: User["role"]): string => {
-    const roleMap: Record<User["role"], string> = {
-      "Company Learner": "student",
-      "Company Trainer": "teacher",
-      "Company Manager": "manager",
-      "Company Administrator": "administrator",
+    const roleMap: Record<string, string> = {
+      Student: "student",
+      Teacher: "teacher",
+      Principal: "principal",
+      Administrator: "administrator",
     }
     return roleMap[uiRole] || "student"
+  }
+
+  const parseErrorMessage = (error: any): string => {
+    const errorMessage = error?.message || "An unexpected error occurred"
+    try {
+      const jsonMatch = errorMessage.match(/\{.*\}/)
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0])
+        if (parsed.message) return parsed.message
+        if (parsed.error) return parsed.error
+      }
+      if (errorMessage.includes("API Error")) {
+        const jsonMatch2 = errorMessage.match(/\{.*\}/)
+        if (jsonMatch2) {
+          const parsed = JSON.parse(jsonMatch2[0])
+          if (parsed.message) return parsed.message
+          if (parsed.error) return parsed.error
+        }
+        const statusMatch = errorMessage.match(/\((\d+)\)/)
+        if (statusMatch) {
+          const status = parseInt(statusMatch[1])
+          if (status === 409) return "This email already exists. Please use a different email address."
+          if (status === 400) return "Invalid request. Please check your input and try again."
+          if (status === 401) return "You are not authorized to perform this action."
+          if (status === 404) return "The requested resource was not found."
+          if (status === 500) return "Server error. Please try again later."
+        }
+      }
+    } catch {
+      if (errorMessage.includes("API Error")) {
+        const cleaned = errorMessage.replace(/^API Error \(\d+\):\s*/, "")
+        if (cleaned && cleaned !== errorMessage) return cleaned
+      }
+    }
+    return errorMessage
+  }
+
+  const isAdministrator = () => {
+    if (!authData?.user?.role) return false
+    const userRole = (authData.user.role || "").toLowerCase()
+    return userRole === "administrator" || userRole.includes("admin")
+  }
+
+  // Admin: Student, Teacher, Principal. Principal: Teacher, Student. Teacher: Student only.
+  const getAllowedRoles = (): AssignableRole[] => {
+    if (!authData?.user?.role) return ["Student"]
+    const userRole = (authData.user.role || "").toLowerCase()
+    if (userRole === "administrator" || userRole.includes("admin")) {
+      return ["Student", "Teacher", "Principal"]
+    }
+    if (userRole === "principal" || userRole.includes("principal")) {
+      return ["Teacher", "Student"]
+    }
+    if (userRole === "teacher" || userRole.includes("teacher")) {
+      return ["Student"]
+    }
+    return ["Student"]
+  }
+
+  const isPrincipal = () => {
+    if (!authData?.user?.role) return false
+    const userRole = (authData.user.role || "").toLowerCase()
+    return userRole === "principal" || userRole.includes("principal")
   }
 
   // API function to fetch organizations list
@@ -234,7 +332,13 @@ export function ClassManagement() {
 
       if (!response.ok) {
         const errorText = await response.text()
-        throw new Error(`API Error (${response.status}): ${errorText}`)
+        try {
+          const errorJson = JSON.parse(errorText)
+          const errorMessage = errorJson.message || errorJson.error || errorJson.msg || "Failed to create user"
+          throw new Error(errorMessage)
+        } catch (parseError) {
+          throw new Error(errorText || `API Error (${response.status})`)
+        }
       }
 
       const data = await response.json()
@@ -245,9 +349,24 @@ export function ClassManagement() {
     }
   }
 
-  // API function to fetch users list
-  const fetchUsers = async () => {
-    const API_URL = `${apiBase}/users/list.php`
+  // API function to fetch users list with pagination (GET users/list.php?page=1&per_page=20&search=&role=&is_active=&organisation_id=)
+  const fetchUsers = async (params: {
+    page?: number
+    per_page?: number
+    search?: string
+    role?: string | null
+    is_active?: boolean | null
+    organisation_id?: number | null
+  } = {}) => {
+    const sp = new URLSearchParams()
+    if (params.page != null) sp.set("page", String(params.page))
+    if (params.per_page != null) sp.set("per_page", String(params.per_page))
+    if (params.search != null && params.search.trim()) sp.set("search", params.search.trim())
+    if (params.role != null && params.role.trim()) sp.set("role", params.role.trim())
+    if (params.is_active != null) sp.set("is_active", params.is_active ? "1" : "0")
+    if (params.organisation_id != null && params.organisation_id > 0) sp.set("organisation_id", String(params.organisation_id))
+    const query = sp.toString()
+    const API_URL = `${apiBase}/users/list.php${query ? `?${query}` : ""}`
 
     try {
       const response = await fetch(API_URL, {
@@ -268,6 +387,11 @@ export function ClassManagement() {
       console.error("Error fetching users:", error)
       throw error
     }
+  }
+
+  const isTeacherOrPrincipal = () => {
+    const role = (authData?.user?.role || "").toLowerCase()
+    return role === "teacher" || role === "principal" || role.includes("teacher") || role.includes("principal")
   }
 
   // API function to update user
@@ -446,31 +570,44 @@ export function ClassManagement() {
     }
   }
 
-  // Load users from API
-  const loadUsers = async () => {
+  // Load users from API (paginated)
+  const loadUsers = async (pageNum?: number) => {
+    const currentPage = pageNum ?? page
     try {
-      const response = await fetchUsers()
-      console.log("Fetched users from API:", response)
-
+      setIsLoading(true)
+      setError(null)
+      // For admin with org filter: resolve organisation_id from filter name
+      let organisationId: number | null = null
+      if (!isTeacherOrPrincipal() && filterOrganization !== "all") {
+        const org = organizations.find((o) => o.organisation === filterOrganization)
+        if (org?.id) organisationId = Number(org.id)
+      }
+      const response = await fetchUsers({
+        page: currentPage,
+        per_page: perPage,
+        search: searchInput.trim() || undefined,
+        role: null,
+        is_active: null,
+        organisation_id: organisationId,
+      })
       if (response && response.success === true && Array.isArray(response.data)) {
-        // Extract unique classes from all users (classes are in array format like ["10-A", "9-B"])
+        const pag = response.pagination
+        if (pag) {
+          setPage(pag.page ?? currentPage)
+          setTotal(pag.total ?? 0)
+          setTotalPages(Math.max(1, pag.total_pages ?? 1))
+          if (pag.per_page) setPerPage(pag.per_page)
+        }
         const allClasses = new Set<string>()
         response.data.forEach((user: any) => {
           const userClasses = user.class || []
           if (Array.isArray(userClasses)) {
             userClasses.forEach((className: any) => {
-              if (className && String(className).trim()) {
-                allClasses.add(String(className).trim())
-              }
+              if (className && String(className).trim()) allClasses.add(String(className).trim())
             })
-          } else if (userClasses && String(userClasses).trim()) {
-            allClasses.add(String(userClasses).trim())
-          }
+          } else if (userClasses && String(userClasses).trim()) allClasses.add(String(userClasses).trim())
         })
-        const uniqueClasses = Array.from(allClasses).sort()
-        setAvailableClasses(uniqueClasses)
-        console.log("Available classes from API:", uniqueClasses)
-        
+        setAvailableClasses(Array.from(allClasses).sort())
         const fetchedUsers: User[] = response.data.map((user: any) => {
           // Find organization name from organisations list
           // Handle ID matching - convert both to numbers for comparison
@@ -601,50 +738,91 @@ export function ClassManagement() {
           }
         })
 
-        if (fetchedUsers.length > 0) {
-          // Merge API response with existing deactivated users
-          // API might not return deactivated users, so we preserve them in state
-          setUsers(prevUsers => {
-            const apiUserIds = new Set(fetchedUsers.map(u => u.id))
-            const existingDeactivatedUsers = prevUsers.filter(u => !apiUserIds.has(u.id) && u.isActive === false)
-            const mergedUsers = [...fetchedUsers, ...existingDeactivatedUsers]
-            console.log(`Loaded ${fetchedUsers.length} users from API, preserved ${existingDeactivatedUsers.length} deactivated users`)
-            return mergedUsers
-          })
-        } else {
-          // If API returns empty, preserve existing deactivated users
-          setUsers(prevUsers => prevUsers.filter(u => u.isActive === false))
+        setUsers(fetchedUsers)
+      } else {
+        setUsers([])
+        if (response && response.pagination) {
+          const pag = response.pagination
+          setTotal(pag.total ?? 0)
+          setTotalPages(Math.max(1, pag.total_pages ?? 1))
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error loading users:", error)
-      // Keep using sample data if API fails
+      setError(error?.message || "Failed to load users")
+      setUsers([])
+    } finally {
+      setIsLoading(false)
     }
   }
 
-  // Load data on component mount
   useEffect(() => {
-    loadOrganizations().then(() => {
-      // Load users after organizations are loaded
-      loadUsers()
-    })
+    loadOrganizations()
   }, [])
 
-  // Reload users when organizations are loaded
   useEffect(() => {
-    if (organizations.length > 0) {
-      loadUsers()
-    }
+    setPage(1)
+    loadUsers(1)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [organizations.length])
+  }, [filterOrganization, searchInput])
 
-  // Filter users by organization only (NOT by isActive status)
-  // IMPORTANT: Deactivated users ARE shown - they are not filtered out
-  // The API uses soft delete (deactivate) via delete.php and restore.php, not hard delete
-  const filteredUsers = users.filter((user) => {
-    if (filterOrganization === "all") return true
-    return user.organization === filterOrganization
-  })
+  useEffect(() => {
+    loadUsers()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, perPage])
+
+  // Update default role based on allowed roles when modal opens (only for new users)
+  useEffect(() => {
+    if (showAddUserModal && !editingUser) {
+      const allowedRoles = getAllowedRoles()
+      if (allowedRoles.length > 0) {
+        const currentRoleIsAllowed = allowedRoles.includes(formData.role as AssignableRole)
+        if (!currentRoleIsAllowed) {
+          setFormData((prev) => ({ ...prev, role: allowedRoles[0] as User["role"] }))
+        }
+      }
+    }
+  }, [showAddUserModal, editingUser])
+
+  // Current page users (API returns filtered by organisation_id when admin selects an org)
+  const filteredUsers = users
+
+  // Sort current page (client-side)
+  const sortedUsers = React.useMemo(() => {
+    if (!sortBy) return [...filteredUsers]
+    const key = sortBy as keyof User
+    return [...filteredUsers].sort((a, b) => {
+      let aVal: any = a[key]
+      let bVal: any = b[key]
+      if (key === "classes" || key === "organization") {
+        aVal = String(aVal ?? "")
+        bVal = String(bVal ?? "")
+        return sortOrder === "asc" ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal)
+      }
+      if (key === "name" || key === "email" || key === "role") {
+        aVal = String(aVal ?? "")
+        bVal = String(bVal ?? "")
+        return sortOrder === "asc" ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal)
+      }
+      if (key === "isActive") {
+        aVal = aVal ? 1 : 0
+        bVal = bVal ? 1 : 0
+        return sortOrder === "asc" ? aVal - bVal : bVal - aVal
+      }
+      aVal = String(aVal ?? "")
+      bVal = String(bVal ?? "")
+      return sortOrder === "asc" ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal)
+    })
+  }, [filteredUsers, sortBy, sortOrder])
+
+  const handleSort = (column: keyof User) => {
+    if (sortBy === column) {
+      setSortOrder((o) => (o === "asc" ? "desc" : "asc"))
+    } else {
+      setSortBy(column)
+      setSortOrder("asc")
+    }
+  }
 
   // Handle checkbox selection
   const handleSelectUser = (userId: string) => {
@@ -668,7 +846,10 @@ export function ClassManagement() {
   // Handle add user
   const handleAddUser = async () => {
     if (!formData.firstName || !formData.lastName || !formData.email || !formData.organisation_id) {
-      alert("Please fill in all required fields including Organisation")
+      toast.error("Validation Error", {
+        description: "Please fill in all required fields including Organisation",
+        duration: 4000,
+      })
       return
     }
 
@@ -694,20 +875,31 @@ export function ClassManagement() {
       console.log("Create User API Response:", response)
 
       if (response.success === true) {
-        // Refresh users from API
+        if (formData.classes && formData.classes.trim()) {
+          const newClass = formData.classes.trim()
+          if (!availableClasses.includes(newClass)) {
+            setAvailableClasses([...availableClasses, newClass].sort())
+          }
+        }
         await loadUsers()
-
         resetForm()
         setShowAddUserModal(false)
         setShowAddUserForm(false)
-        alert(`User "${formData.firstName} ${formData.lastName}" created successfully!`)
+        toast.success("User created successfully!", {
+          description: `"${formData.firstName} ${formData.lastName}" has been added.`,
+          duration: 3000,
+        })
       } else {
         throw new Error(response.message || "Failed to create user")
       }
     } catch (error: any) {
       console.error("Error creating user:", error)
-      setError(error.message || "Failed to create user. Please try again.")
-      alert(`Error: ${error.message || "Failed to create user. Please try again."}`)
+      const userFriendlyError = parseErrorMessage(error)
+      setError(userFriendlyError)
+      toast.error("Failed to create user", {
+        description: userFriendlyError,
+        duration: 5000,
+      })
     } finally {
       setIsLoading(false)
     }
@@ -716,21 +908,26 @@ export function ClassManagement() {
   // Handle edit user
   const handleEditUser = (user: User) => {
     const nameParts = user.name.split(" ")
-    // user.classes is already a string (comma-separated if multiple) from loadUsers mapping
-    // For editing, use the first class if multiple, or the single class
     const classesValue = user.classes && user.classes !== "None" && typeof user.classes === "string"
-      ? user.classes.split(",")[0].trim() // Take first class if comma-separated
+      ? user.classes.split(",")[0].trim()
       : (user.classes && typeof user.classes === "number" ? String(user.classes) : "")
+    
+    const allowedRoles = getAllowedRoles()
+    let roleToSet = user.role
+    if (!allowedRoles.includes(user.role as AssignableRole)) {
+      roleToSet = allowedRoles[0] as User["role"]
+    }
     
     setFormData({
       firstName: nameParts[0] || "",
       lastName: nameParts.slice(1).join(" ") || "",
       email: user.email,
-      role: user.role,
+      role: roleToSet,
       classes: classesValue,
       organization: user.organization,
       organisation_id: user.organisation_id?.toString() || "",
     })
+    setClassInputValue(classesValue)
     setEditingUser(user)
     setShowAddUserModal(true)
   }
@@ -738,13 +935,19 @@ export function ClassManagement() {
   // Handle update user
   const handleUpdateUser = async () => {
     if (!editingUser || !formData.firstName || !formData.lastName || !formData.email || !formData.organisation_id) {
-      alert("Please fill in all required fields including Organisation")
+      toast.error("Validation Error", {
+        description: "Please fill in all required fields including Organisation",
+        duration: 4000,
+      })
       return
     }
 
     const userId = parseInt(editingUser.id)
     if (isNaN(userId) || userId <= 0) {
-      alert("Invalid User ID. Please refresh the page and try again.")
+      toast.error("Invalid User ID", {
+        description: "Please refresh the page and try again.",
+        duration: 4000,
+      })
       return
     }
 
@@ -772,20 +975,31 @@ export function ClassManagement() {
       console.log("Update User API Response:", response)
 
       if (response.success === true) {
-        // Refresh users from API
+        if (formData.classes && formData.classes.trim()) {
+          const newClass = formData.classes.trim()
+          if (!availableClasses.includes(newClass)) {
+            setAvailableClasses([...availableClasses, newClass].sort())
+          }
+        }
         await loadUsers()
-
         resetForm()
         setEditingUser(null)
         setShowAddUserModal(false)
-        alert(`User "${formData.firstName} ${formData.lastName}" updated successfully!`)
+        toast.success("User updated successfully!", {
+          description: `"${formData.firstName} ${formData.lastName}" has been updated.`,
+          duration: 3000,
+        })
       } else {
         throw new Error(response.message || "Failed to update user")
       }
     } catch (error: any) {
       console.error("Error updating user:", error)
-      setError(error.message || "Failed to update user. Please try again.")
-      alert(`Error: ${error.message || "Failed to update user. Please try again."}`)
+      const userFriendlyError = parseErrorMessage(error)
+      setError(userFriendlyError)
+      toast.error("Failed to update user", {
+        description: userFriendlyError,
+        duration: 5000,
+      })
     } finally {
       setIsUpdating(false)
     }
@@ -803,7 +1017,10 @@ export function ClassManagement() {
     // Use user_id if available (from API), otherwise parse from id
     const userId = userToToggle.user_id || parseInt(userToToggle.id)
     if (isNaN(userId) || userId <= 0) {
-      alert("Invalid User ID. Please refresh the page and try again.")
+      toast.error("Invalid User ID", {
+        description: "Please refresh the page and try again.",
+        duration: 4000,
+      })
       return
     }
 
@@ -856,10 +1073,10 @@ export function ClassManagement() {
       setUserToToggle(null)
       setShowStatusDialog(false)
 
-      const successMessage = currentStatus 
-        ? `User "${userToToggle.name}" has been deactivated successfully!`
-        : `User "${userToToggle.name}" has been activated successfully!`
-      alert(successMessage)
+      toast.success(currentStatus ? "User deactivated" : "User activated", {
+        description: `"${userToToggle.name}" has been ${currentStatus ? "deactivated" : "activated"} successfully!`,
+        duration: 3000,
+      })
     } catch (error: any) {
       console.error("Error toggling user status:", error)
       const action = currentStatus ? "deactivate" : "activate"
@@ -869,38 +1086,32 @@ export function ClassManagement() {
       const errorLower = errorMessage.toLowerCase()
       
       // Handle specific error cases with better, user-friendly messages based on the action
+      const userFriendlyError = parseErrorMessage(error)
       if (errorLower.includes("already active")) {
-        // This error can occur if we tried to activate but user is already active
         if (!currentStatus) {
-          errorMessage = "Unable to activate: This user is already active in the system. The status displayed may be incorrect. Refreshing the user list to show the correct status."
+          errorMessage = "This user is already active. The status displayed may be incorrect. Refreshing the user list."
         } else {
-          errorMessage = "Unable to deactivate: This user is already active. This may indicate a data synchronization issue. Refreshing the user list."
+          errorMessage = "This user is already active. This may indicate a data synchronization issue. Refreshing the user list."
         }
         await loadUsers()
-        alert(errorMessage)
+        toast.warning("Status Update", { description: errorMessage, duration: 5000 })
       } else if (errorLower.includes("already inactive") || errorLower.includes("already deactivated") || errorLower.includes("already deleted")) {
-        // User is already inactive/deactivated
-        errorMessage = `Unable to ${action}: This user is already ${!currentStatus ? "deactivated" : "deactivated"}. Refreshing the user list to show the correct status.`
+        errorMessage = `This user is already ${!currentStatus ? "deactivated" : "deactivated"}. Refreshing the user list.`
         await loadUsers()
-        alert(errorMessage)
+        toast.warning("Status Update", { description: errorMessage, duration: 5000 })
       } else if (errorLower.includes("not found") || errorLower.includes("does not exist") || errorLower.includes("invalid user")) {
         errorMessage = "User not found. The user may have been deleted. Refreshing the user list."
         await loadUsers()
-        alert(errorMessage)
-      } else if (errorLower.includes("not found") || errorLower.includes("does not exist") || errorLower.includes("invalid user")) {
-        errorMessage = "User not found. The user may have been deleted. Refreshing the user list."
-        await loadUsers()
-        alert(errorMessage)
+        toast.error("User Not Found", { description: errorMessage, duration: 5000 })
       } else if (errorLower.includes("permission") || errorLower.includes("unauthorized") || errorLower.includes("forbidden")) {
         errorMessage = "You do not have permission to perform this action. Please contact your administrator."
-        alert(errorMessage)
+        toast.error("Permission Denied", { description: errorMessage, duration: 5000 })
       } else if (errorLower.includes("network") || errorLower.includes("fetch")) {
         errorMessage = "Network error. Please check your internet connection and try again."
-        alert(errorMessage)
+        toast.error("Network Error", { description: errorMessage, duration: 5000 })
       } else {
-        // Generic error - show the actual error message with context
-        alert(`Failed to ${action} user "${userToToggle?.name || 'this user'}":\n\n${errorMessage}\n\nThe user list will be refreshed.`)
-      await loadUsers()
+        toast.error(`Failed to ${action} user`, { description: userFriendlyError, duration: 5000 })
+        await loadUsers()
       }
       
       // Close dialog and reset state
@@ -912,7 +1123,10 @@ export function ClassManagement() {
   // Handle bulk delete (deactivate)
   const handleBulkDelete = async () => {
     if (selectedUsers.size === 0) {
-      alert("Please select users to deactivate")
+      toast.error("No Users Selected", {
+        description: "Please select users to deactivate",
+        duration: 4000,
+      })
       return
     }
 
@@ -922,11 +1136,9 @@ export function ClassManagement() {
     }
 
     try {
-      // Deactivate all selected users (only if they are currently active)
       const deactivatePromises = Array.from(selectedUsers).map(async (userId) => {
         const user = users.find((u) => u.id === userId)
         if (user && user.isActive === true) {
-          // Use user_id if available (from API), otherwise parse from id
           const userIdNum = user.user_id || parseInt(userId)
           if (!isNaN(userIdNum) && userIdNum > 0) {
             await deactivateUser(userIdNum)
@@ -935,14 +1147,19 @@ export function ClassManagement() {
       })
 
       await Promise.all(deactivatePromises)
-
-      // Refresh users from API
       await loadUsers()
       setSelectedUsers(new Set())
-      alert(`${selectedCount} user(s) deactivated successfully!`)
+      toast.success("Users Deactivated", {
+        description: `${selectedCount} user(s) deactivated successfully!`,
+        duration: 3000,
+      })
     } catch (error: any) {
       console.error("Error bulk deactivating users:", error)
-      alert(`Error: ${error.message || "Failed to deactivate users. Please try again."}`)
+      const userFriendlyError = parseErrorMessage(error)
+      toast.error("Failed to Deactivate Users", {
+        description: userFriendlyError,
+        duration: 5000,
+      })
       await loadUsers()
     }
   }
@@ -952,11 +1169,13 @@ export function ClassManagement() {
       firstName: "",
       lastName: "",
       email: "",
-      role: "Company Learner",
+      role: "Student",
       classes: "",
       organization: "",
       organisation_id: "",
     })
+    setClassInputValue("")
+    setShowClassDropdown(false)
     setEditingUser(null)
     setError(null)
   }
@@ -967,19 +1186,73 @@ export function ClassManagement() {
   }
 
   return (
+    <>
+      <style>
+        {`
+          @media (max-width: 768px) {
+            .class-sidebar {
+              position: fixed !important;
+              left: ${sidebarCollapsed ? "-280px" : "0"} !important;
+              z-index: 1000 !important;
+              height: 100vh !important;
+              overflow-y: auto !important;
+            }
+            .class-main-content {
+              margin-left: 0 !important;
+              width: 100% !important;
+            }
+            .class-overlay {
+              display: ${sidebarCollapsed ? "none" : "block"} !important;
+            }
+          }
+          @media (max-width: 640px) {
+            .class-card {
+              padding: 16px !important;
+            }
+            .class-title {
+              font-size: 18px !important;
+            }
+            .class-button-group {
+              flex-direction: column !important;
+              width: 100% !important;
+            }
+            .class-button-group button {
+              width: 100% !important;
+            }
+            .class-table-container {
+              overflow-x: auto !important;
+            }
+            .class-table {
+              min-width: 600px !important;
+            }
+          }
+        `}
+      </style>
+      <div
+        className="class-overlay"
+        onClick={() => setSidebarCollapsed(true)}
+        style={{
+          display: isMobile && !sidebarCollapsed ? "block" : "none",
+          position: "fixed",
+          inset: 0,
+          backgroundColor: "rgba(0, 0, 0, 0.5)",
+          zIndex: 999,
+        }}
+      />
     <div style={{ display: "flex", minHeight: "100vh", backgroundColor: "#1E40AF" }}>
       {/* Sidebar */}
       <div
+        className="class-sidebar"
         style={{
           width: sidebarCollapsed ? "80px" : "280px",
           backgroundColor: "#1E3A8A",
           minHeight: "100vh",
           display: "flex",
           flexDirection: "column",
-          transition: "width 0.3s ease",
-          position: "fixed",
+          transition: "width 0.3s ease, left 0.3s ease",
+          position: isMobile ? "fixed" : "fixed",
           top: 0,
-          left: 0,
+          left: isMobile ? (sidebarCollapsed ? "-280px" : "0") : "0",
           zIndex: 100,
         }}
       >
@@ -1041,7 +1314,18 @@ export function ClassManagement() {
             overflowY: "auto",
           }}
         >
-          {menuItems.map((item) => {
+          {menuItems.filter((item) => {
+            const userRole = (authData?.user?.role || "").toLowerCase()
+            if (item.id === "license-management") {
+              return userRole === "administrator" || userRole.includes("admin")
+            }
+            if (item.id === "class-management") {
+              return userRole === "principal" || userRole.includes("principal") ||
+                userRole === "teacher" || userRole.includes("teacher") ||
+                userRole === "administrator" || userRole.includes("admin")
+            }
+            return true
+          }).map((item) => {
             const Icon = item.icon
             const isActive = item.active || window.location.pathname === item.route
             return (
@@ -1189,6 +1473,7 @@ export function ClassManagement() {
 
       {/* Main Content */}
       <div
+        className="class-main-content"
         style={{
           flex: 1,
           display: "flex",
@@ -1211,6 +1496,23 @@ export function ClassManagement() {
             gap: "16px",
           }}
         >
+          {isMobile && (
+            <button
+              onClick={() => setSidebarCollapsed(false)}
+              style={{
+                background: "transparent",
+                border: "none",
+                color: "#1E3A8A",
+                cursor: "pointer",
+                padding: "8px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Menu style={{ width: "24px", height: "24px" }} />
+            </button>
+          )}
           <h1
             style={{
               fontSize: "24px",
@@ -1222,6 +1524,7 @@ export function ClassManagement() {
             Class Management
           </h1>
           <div
+            className="class-button-group"
             style={{
               display: "flex",
               gap: "12px",
@@ -1229,12 +1532,7 @@ export function ClassManagement() {
             }}
           >
             <Button
-              onClick={() => {
-                setShowAddUserForm(!showAddUserForm)
-                if (!showAddUserForm) {
-                  openAddUserModal()
-                }
-              }}
+              onClick={openAddUserModal}
               style={{
                 backgroundColor: "#3B82F6",
                 color: "#FFFFFF",
@@ -1254,6 +1552,7 @@ export function ClassManagement() {
               <Upload style={{ width: "16px", height: "16px", marginRight: "8px" }} />
               Upload CSV
             </Button>
+            {(isAdministrator() || isPrincipal()) && (
             <Button
               onClick={() => setShowAssignClassDialog(true)}
               variant="outline"
@@ -1265,57 +1564,15 @@ export function ClassManagement() {
               <Users style={{ width: "16px", height: "16px", marginRight: "8px" }} />
               Assign Class
             </Button>
+            )}
           </div>
         </div>
 
         {/* Main Content Area */}
         <div style={{ padding: "32px", flex: 1, backgroundColor: "#1E40AF" }}>
-          {/* Add User Section */}
-          {showAddUserForm && (
-            <div
-              style={{
-                backgroundColor: "#FFFFFF",
-                borderRadius: "16px",
-                padding: "24px",
-                marginBottom: "24px",
-                boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-              }}
-            >
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
-                <h2 style={{ fontSize: "20px", fontWeight: "bold", color: "#1E3A8A", margin: 0 }}>
-                  Add User
-                </h2>
-                <button
-                  onClick={() => {
-                    setShowAddUserForm(false)
-                    resetForm()
-                  }}
-                  style={{
-                    background: "transparent",
-                    border: "none",
-                    color: "#1E3A8A",
-                    cursor: "pointer",
-                    padding: "4px",
-                  }}
-                >
-                  <X style={{ width: "20px", height: "20px" }} />
-                </button>
-              </div>
-              <Button
-                onClick={openAddUserModal}
-                style={{
-                  backgroundColor: "#3B82F6",
-                  color: "#FFFFFF",
-                }}
-              >
-                <Plus style={{ width: "16px", height: "16px", marginRight: "8px" }} />
-                Add Another User
-              </Button>
-            </div>
-          )}
-
           {/* Existing Users Section */}
           <div
+            className="class-card"
             style={{
               backgroundColor: "#FFFFFF",
               borderRadius: "16px",
@@ -1325,6 +1582,7 @@ export function ClassManagement() {
           >
             <div style={{ marginBottom: "24px" }}>
               <h2
+                className="class-title"
                 style={{
                   fontSize: "20px",
                   fontWeight: "bold",
@@ -1340,40 +1598,140 @@ export function ClassManagement() {
               </p>
             </div>
 
-            {/* Filter Section */}
+            {/* Filter Section - hidden for Teacher and Principal */}
+            {!isTeacherOrPrincipal() && (
+            <div style={{ marginBottom: "24px", display: "flex", flexWrap: "wrap", gap: "16px", alignItems: "flex-end" }}>
+              <div>
+                <label style={{ display: "block", fontSize: "14px", fontWeight: "500", color: "#1E3A8A", marginBottom: "8px" }}>
+                  Filter by Organization:
+                </label>
+                <div data-dropdown style={{ position: "relative", width: "100%", maxWidth: "300px" }}>
+                  <button
+                    type="button"
+                    onClick={() => setIsFilterOrgDropdownOpen(!isFilterOrgDropdownOpen)}
+                    style={{
+                      width: "100%",
+                      padding: "10px 12px",
+                      borderRadius: "8px",
+                      border: "1px solid rgba(30, 58, 138, 0.2)",
+                      fontSize: "14px",
+                      color: "#1E3A8A",
+                      backgroundColor: "#FFFFFF",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <span>{filterOrganization === "all" ? "All Organizations" : filterOrganization}</span>
+                    <ChevronDown style={{ width: "16px", height: "16px", flexShrink: 0 }} />
+                  </button>
+                  {isFilterOrgDropdownOpen && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: "100%",
+                        left: 0,
+                        right: 0,
+                        marginTop: "4px",
+                        backgroundColor: "#FFFFFF",
+                        border: "1px solid rgba(30, 58, 138, 0.2)",
+                        borderRadius: "8px",
+                        boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                        maxHeight: "200px",
+                        overflow: "auto",
+                        zIndex: 50,
+                      }}
+                    >
+                      <input
+                        type="text"
+                        placeholder="Search organizations..."
+                        value={filterOrgSearchTerm}
+                        onChange={(e) => setFilterOrgSearchTerm(e.target.value)}
+                        onFocus={(e) => e.stopPropagation()}
+                        style={{
+                          width: "100%",
+                          padding: "8px 12px",
+                          border: "none",
+                          borderBottom: "1px solid rgba(30, 58, 138, 0.1)",
+                          fontSize: "14px",
+                          outline: "none",
+                        }}
+                      />
+                      {organizationsList
+                        .filter((org) =>
+                          (org === "All Organizations" ? "all" : org).toLowerCase().includes(filterOrgSearchTerm.toLowerCase())
+                        )
+                        .map((org) => (
+                          <button
+                            key={org}
+                            type="button"
+                            onClick={() => {
+                              setFilterOrganization(org === "All Organizations" ? "all" : org)
+                              setIsFilterOrgDropdownOpen(false)
+                              setFilterOrgSearchTerm("")
+                            }}
+                            style={{
+                              width: "100%",
+                              padding: "10px 12px",
+                              textAlign: "left",
+                              border: "none",
+                              background: filterOrganization === (org === "All Organizations" ? "all" : org) ? "rgba(59, 130, 246, 0.1)" : "transparent",
+                              cursor: "pointer",
+                              fontSize: "14px",
+                              color: "#1E3A8A",
+                            }}
+                          >
+                            {org}
+                          </button>
+                        ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div>
+                <label style={{ display: "block", fontSize: "14px", fontWeight: "500", color: "#1E3A8A", marginBottom: "8px" }}>
+                  Search:
+                </label>
+                <input
+                  type="text"
+                  placeholder="Search by name or email..."
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  style={{
+                    padding: "10px 12px",
+                    borderRadius: "8px",
+                    border: "1px solid rgba(30, 58, 138, 0.2)",
+                    fontSize: "14px",
+                    color: "#1E3A8A",
+                    minWidth: "200px",
+                  }}
+                />
+              </div>
+            </div>
+            )}
+
+            {/* Search for Teacher/Principal (no org filter) */}
+            {isTeacherOrPrincipal() && (
             <div style={{ marginBottom: "24px" }}>
-              <label
+              <label style={{ display: "block", fontSize: "14px", fontWeight: "500", color: "#1E3A8A", marginBottom: "8px" }}>Search:</label>
+              <input
+                type="text"
+                placeholder="Search by name or email..."
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
                 style={{
-                  display: "block",
-                  fontSize: "14px",
-                  fontWeight: "500",
-                  color: "#1E3A8A",
-                  marginBottom: "8px",
-                }}
-              >
-                Filter by Organization:
-              </label>
-              <select
-                value={filterOrganization}
-                onChange={(e) => setFilterOrganization(e.target.value)}
-                style={{
-                  width: "100%",
-                  maxWidth: "300px",
                   padding: "10px 12px",
                   borderRadius: "8px",
                   border: "1px solid rgba(30, 58, 138, 0.2)",
                   fontSize: "14px",
                   color: "#1E3A8A",
-                  backgroundColor: "#FFFFFF",
+                  maxWidth: "300px",
+                  width: "100%",
                 }}
-              >
-                {organizationsList.map((org) => (
-                  <option key={org} value={org === "All Organizations" ? "all" : org}>
-                    {org}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
+            )}
 
             {/* Bulk Actions */}
             {selectedUsers.size > 0 && (
@@ -1404,9 +1762,16 @@ export function ClassManagement() {
               </div>
             )}
 
+            {error && (
+              <div style={{ marginBottom: "16px", padding: "12px", backgroundColor: "#FEE2E2", borderRadius: "8px", color: "#DC2626", fontSize: "14px" }}>
+                {error}
+              </div>
+            )}
+
             {/* Users Table */}
-            <div style={{ overflowX: "auto" }}>
+            <div className="class-table-container" style={{ overflowX: "auto" }}>
               <table
+                className="class-table"
                 style={{
                   width: "100%",
                   borderCollapse: "collapse",
@@ -1423,103 +1788,59 @@ export function ClassManagement() {
                     <th style={{ padding: "12px", textAlign: "left", width: "40px" }}>
                       <input
                         type="checkbox"
-                        checked={selectedUsers.size === filteredUsers.length && filteredUsers.length > 0}
+                        checked={selectedUsers.size === sortedUsers.length && sortedUsers.length > 0}
                         onChange={handleSelectAll}
-                        style={{
-                          width: "18px",
-                          height: "18px",
-                          cursor: "pointer",
-                        }}
+                        style={{ width: "18px", height: "18px", cursor: "pointer" }}
                       />
                     </th>
-                    <th
-                      style={{
-                        padding: "12px",
-                        textAlign: "left",
-                        fontSize: "14px",
-                        fontWeight: "600",
-                        color: "#1E3A8A",
-                      }}
-                    >
-                      NAME
-                    </th>
-                    <th
-                      style={{
-                        padding: "12px",
-                        textAlign: "left",
-                        fontSize: "14px",
-                        fontWeight: "600",
-                        color: "#1E3A8A",
-                      }}
-                    >
-                      EMAIL
-                    </th>
-                    <th
-                      style={{
-                        padding: "12px",
-                        textAlign: "left",
-                        fontSize: "14px",
-                        fontWeight: "600",
-                        color: "#1E3A8A",
-                      }}
-                    >
-                      ROLE
-                    </th>
-                    <th
-                      style={{
-                        padding: "12px",
-                        textAlign: "left",
-                        fontSize: "14px",
-                        fontWeight: "600",
-                        color: "#1E3A8A",
-                      }}
-                    >
-                      CLASSES
-                    </th>
-                    <th
-                      style={{
-                        padding: "12px",
-                        textAlign: "left",
-                        fontSize: "14px",
-                        fontWeight: "600",
-                        color: "#1E3A8A",
-                      }}
-                    >
-                      ORGANIZATION
-                    </th>
-                    <th
-                      style={{
-                        padding: "12px",
-                        textAlign: "left",
-                        fontSize: "14px",
-                        fontWeight: "600",
-                        color: "#1E3A8A",
-                      }}
-                    >
-                      STATUS
-                    </th>
-                    <th
-                      style={{
-                        padding: "12px",
-                        textAlign: "center",
-                        fontSize: "14px",
-                        fontWeight: "600",
-                        color: "#1E3A8A",
-                      }}
-                    >
+                    {[
+                      { key: "name" as const, label: "NAME" },
+                      { key: "email" as const, label: "EMAIL" },
+                      { key: "role" as const, label: "ROLE" },
+                      { key: "classes" as const, label: "CLASSES" },
+                      { key: "organization" as const, label: "ORGANIZATION" },
+                      { key: "isActive" as const, label: "STATUS" },
+                    ].map(({ key, label }) => (
+                      <th
+                        key={key}
+                        onClick={() => handleSort(key)}
+                        style={{
+                          padding: "12px",
+                          textAlign: key === "organization" || key === "isActive" ? "left" : "left",
+                          fontSize: "14px",
+                          fontWeight: "600",
+                          color: "#1E3A8A",
+                          cursor: "pointer",
+                          userSelect: "none",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                          {label}
+                          {sortBy === key && (sortOrder === "asc" ? <ChevronUp size={16} /> : <ChevronDown size={16} />)}
+                        </span>
+                      </th>
+                    ))}
+                    <th style={{ padding: "12px", textAlign: "center", fontSize: "14px", fontWeight: "600", color: "#1E3A8A" }}>
                       ACTIONS
                     </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredUsers.length === 0 ? (
+                  {isLoading ? (
+                    <tr>
+                      <td colSpan={8} style={{ padding: "40px", textAlign: "center", color: "rgba(30, 58, 138, 0.6)" }}>
+                        Loading...
+                      </td>
+                    </tr>
+                  ) : sortedUsers.length === 0 ? (
                     <tr>
                       <td colSpan={8} style={{ padding: "40px", textAlign: "center", color: "rgba(30, 58, 138, 0.6)" }}>
                         No users found
                       </td>
                     </tr>
                   ) : (
-                    filteredUsers.map((user) => {
+                    sortedUsers.map((user) => {
                       // Explicitly check if isActive is true (not defaulting to true)
                       // If isActive is undefined/null/false, treat as inactive/deactivated
                       const isActive = user.isActive === true
@@ -1625,6 +1946,47 @@ export function ClassManagement() {
                   )}
                 </tbody>
               </table>
+            </div>
+
+            {/* Pagination */}
+            <div
+              style={{
+                marginTop: "20px",
+                display: "flex",
+                flexWrap: "wrap",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: "16px",
+              }}
+            >
+              <div style={{ fontSize: "14px", color: "rgba(30, 58, 138, 0.8)" }}>
+                Showing {total === 0 ? 0 : (page - 1) * perPage + 1}–{Math.min(page * perPage, total)} of {total} users
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page <= 1 || isLoading}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  style={{ borderColor: "#1E3A8A", color: "#1E3A8A" }}
+                >
+                  <ChevronLeft style={{ width: "16px", height: "16px" }} />
+                  Previous
+                </Button>
+                <span style={{ fontSize: "14px", color: "#1E3A8A", fontWeight: "500", minWidth: "80px", textAlign: "center" }}>
+                  Page {page} of {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page >= totalPages || isLoading}
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  style={{ borderColor: "#1E3A8A", color: "#1E3A8A" }}
+                >
+                  Next
+                  <ChevronRight style={{ width: "16px", height: "16px" }} />
+                </Button>
+              </div>
             </div>
           </div>
         </div>
@@ -1740,24 +2102,87 @@ export function ClassManagement() {
               >
                 Role *
               </label>
-              <select
-                value={formData.role}
-                onChange={(e) => setFormData({ ...formData, role: e.target.value as User["role"] })}
-                style={{
-                  width: "100%",
-                  padding: "10px 12px",
-                  borderRadius: "8px",
-                  border: "1px solid rgba(30, 58, 138, 0.2)",
-                  fontSize: "14px",
-                  color: "#1E3A8A",
-                  backgroundColor: "#FFFFFF",
-                }}
-              >
-                <option value="Company Learner">Company Learner</option>
-                <option value="Company Trainer">Company Trainer</option>
-                <option value="Company Manager">Company Manager</option>
-                <option value="Company Administrator">Company Administrator</option>
-              </select>
+              <div data-dropdown style={{ position: "relative" }}>
+                <button
+                  type="button"
+                  onClick={() => setIsRoleDropdownOpen(!isRoleDropdownOpen)}
+                  style={{
+                    width: "100%",
+                    padding: "10px 12px",
+                    borderRadius: "8px",
+                    border: "1px solid rgba(30, 58, 138, 0.2)",
+                    fontSize: "14px",
+                    color: "#1E3A8A",
+                    backgroundColor: "#FFFFFF",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    cursor: "pointer",
+                  }}
+                >
+                  <span>{formData.role}</span>
+                  <ChevronDown style={{ width: "16px", height: "16px", flexShrink: 0 }} />
+                </button>
+                {isRoleDropdownOpen && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "100%",
+                      left: 0,
+                      right: 0,
+                      marginTop: "4px",
+                      backgroundColor: "#FFFFFF",
+                      border: "1px solid rgba(30, 58, 138, 0.2)",
+                      borderRadius: "8px",
+                      boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                      maxHeight: "200px",
+                      overflow: "auto",
+                      zIndex: 50,
+                    }}
+                  >
+                    <input
+                      type="text"
+                      placeholder="Search roles..."
+                      value={roleSearchTerm}
+                      onChange={(e) => setRoleSearchTerm(e.target.value)}
+                      onFocus={(e) => e.stopPropagation()}
+                      style={{
+                        width: "100%",
+                        padding: "8px 12px",
+                        border: "none",
+                        borderBottom: "1px solid rgba(30, 58, 138, 0.1)",
+                        fontSize: "14px",
+                        outline: "none",
+                      }}
+                    />
+                    {getAllowedRoles()
+                      .filter((r) => r.toLowerCase().includes(roleSearchTerm.toLowerCase()))
+                      .map((role) => (
+                        <button
+                          key={role}
+                          type="button"
+                          onClick={() => {
+                            setFormData({ ...formData, role: role as User["role"] })
+                            setIsRoleDropdownOpen(false)
+                            setRoleSearchTerm("")
+                          }}
+                          style={{
+                            width: "100%",
+                            padding: "10px 12px",
+                            textAlign: "left",
+                            border: "none",
+                            background: formData.role === role ? "rgba(59, 130, 246, 0.1)" : "transparent",
+                            cursor: "pointer",
+                            fontSize: "14px",
+                            color: "#1E3A8A",
+                          }}
+                        >
+                          {role}
+                        </button>
+                      ))}
+                  </div>
+                )}
+              </div>
             </div>
             <div>
               <label
@@ -1771,27 +2196,123 @@ export function ClassManagement() {
               >
                 Classes
               </label>
-              <select
-                value={formData.classes}
-                onChange={(e) => setFormData({ ...formData, classes: e.target.value })}
-                style={{
-                  width: "100%",
-                  padding: "10px 12px",
-                  borderRadius: "8px",
-                  border: "1px solid rgba(30, 58, 138, 0.2)",
-                  fontSize: "14px",
-                  color: "#1E3A8A",
-                  backgroundColor: "#FFFFFF",
-                  cursor: "pointer",
-                }}
-              >
-                <option value="">Select a class</option>
-                {availableClasses.map((className) => (
-                  <option key={className} value={className}>
-                    {className}
-                  </option>
-                ))}
-              </select>
+              <div data-dropdown style={{ position: "relative" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    border: "1px solid rgba(30, 58, 138, 0.2)",
+                    borderRadius: "8px",
+                    backgroundColor: "#FFFFFF",
+                    overflow: "hidden",
+                  }}
+                >
+                  <input
+                    type="text"
+                    value={showClassDropdown ? classInputValue : formData.classes || classInputValue}
+                    onChange={(e) => {
+                      setClassInputValue(e.target.value)
+                      setShowClassDropdown(true)
+                      if (availableClasses.includes(e.target.value)) {
+                        setFormData({ ...formData, classes: e.target.value })
+                      } else {
+                        setFormData({ ...formData, classes: e.target.value })
+                      }
+                    }}
+                    onFocus={() => setShowClassDropdown(true)}
+                    placeholder="Select or type to create new class"
+                    style={{
+                      flex: 1,
+                      padding: "10px 12px",
+                      border: "none",
+                      fontSize: "14px",
+                      color: "#1E3A8A",
+                      outline: "none",
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowClassDropdown(!showClassDropdown)}
+                    style={{
+                      padding: "8px",
+                      background: "transparent",
+                      border: "none",
+                      cursor: "pointer",
+                      color: "#1E3A8A",
+                    }}
+                  >
+                    <ChevronDown style={{ width: "16px", height: "16px" }} />
+                  </button>
+                </div>
+                {showClassDropdown && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "100%",
+                      left: 0,
+                      right: 0,
+                      marginTop: "4px",
+                      backgroundColor: "#FFFFFF",
+                      border: "1px solid rgba(30, 58, 138, 0.2)",
+                      borderRadius: "8px",
+                      boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                      maxHeight: "200px",
+                      overflow: "auto",
+                      zIndex: 50,
+                    }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormData({ ...formData, classes: classInputValue || "New Class" })
+                        setClassInputValue(classInputValue || "New Class")
+                        setShowClassDropdown(false)
+                      }}
+                      style={{
+                        width: "100%",
+                        padding: "10px 12px",
+                        textAlign: "left",
+                        border: "none",
+                        background: "transparent",
+                        cursor: "pointer",
+                        fontSize: "14px",
+                        color: "#3B82F6",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                      }}
+                    >
+                      <Plus style={{ width: "16px", height: "16px" }} />
+                      Create new class "{classInputValue || "New Class"}"
+                    </button>
+                    {availableClasses
+                      .filter((c) => c.toLowerCase().includes(classInputValue.toLowerCase()))
+                      .map((className) => (
+                        <button
+                          key={className}
+                          type="button"
+                          onClick={() => {
+                            setFormData({ ...formData, classes: className })
+                            setClassInputValue(className)
+                            setShowClassDropdown(false)
+                          }}
+                          style={{
+                            width: "100%",
+                            padding: "10px 12px",
+                            textAlign: "left",
+                            border: "none",
+                            background: formData.classes === className ? "rgba(59, 130, 246, 0.1)" : "transparent",
+                            cursor: "pointer",
+                            fontSize: "14px",
+                            color: "#1E3A8A",
+                          }}
+                        >
+                          {className}
+                        </button>
+                      ))}
+                  </div>
+                )}
+              </div>
             </div>
             <div>
               <label
@@ -1805,33 +2326,93 @@ export function ClassManagement() {
               >
                 Organization *
               </label>
-              <select
-                value={formData.organisation_id}
-                onChange={(e) => {
-                  const selectedOrg = organizations.find((o) => o.id.toString() === e.target.value)
-                  setFormData({
-                    ...formData,
-                    organisation_id: e.target.value,
-                    organization: selectedOrg?.organisation || "",
-                  })
-                }}
-                style={{
-                  width: "100%",
-                  padding: "10px 12px",
-                  borderRadius: "8px",
-                  border: "1px solid rgba(30, 58, 138, 0.2)",
-                  fontSize: "14px",
-                  color: "#1E3A8A",
-                  backgroundColor: "#FFFFFF",
-                }}
-              >
-                <option value="">Select Organization</option>
-                {organizations.map((org) => (
-                  <option key={org.id} value={org.id.toString()}>
-                    {org.organisation}
-                  </option>
-                ))}
-              </select>
+              <div data-dropdown style={{ position: "relative" }}>
+                <button
+                  type="button"
+                  onClick={() => setIsOrgDropdownOpen(!isOrgDropdownOpen)}
+                  style={{
+                    width: "100%",
+                    padding: "10px 12px",
+                    borderRadius: "8px",
+                    border: "1px solid rgba(30, 58, 138, 0.2)",
+                    fontSize: "14px",
+                    color: "#1E3A8A",
+                    backgroundColor: "#FFFFFF",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    cursor: "pointer",
+                  }}
+                >
+                  <span>{formData.organization || "Select Organization"}</span>
+                  <ChevronDown style={{ width: "16px", height: "16px", flexShrink: 0 }} />
+                </button>
+                {isOrgDropdownOpen && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "100%",
+                      left: 0,
+                      right: 0,
+                      marginTop: "4px",
+                      backgroundColor: "#FFFFFF",
+                      border: "1px solid rgba(30, 58, 138, 0.2)",
+                      borderRadius: "8px",
+                      boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                      maxHeight: "200px",
+                      overflow: "auto",
+                      zIndex: 50,
+                    }}
+                  >
+                    <input
+                      type="text"
+                      placeholder="Search organizations..."
+                      value={orgSearchTerm}
+                      onChange={(e) => setOrgSearchTerm(e.target.value)}
+                      onFocus={(e) => e.stopPropagation()}
+                      style={{
+                        width: "100%",
+                        padding: "8px 12px",
+                        border: "none",
+                        borderBottom: "1px solid rgba(30, 58, 138, 0.1)",
+                        fontSize: "14px",
+                        outline: "none",
+                      }}
+                    />
+                    {organizations
+                      .filter((org) =>
+                        org.organisation.toLowerCase().includes(orgSearchTerm.toLowerCase())
+                      )
+                      .map((org) => (
+                        <button
+                          key={org.id}
+                          type="button"
+                          onClick={() => {
+                            setFormData({
+                              ...formData,
+                              organisation_id: org.id.toString(),
+                              organization: org.organisation,
+                            })
+                            setIsOrgDropdownOpen(false)
+                            setOrgSearchTerm("")
+                          }}
+                          style={{
+                            width: "100%",
+                            padding: "10px 12px",
+                            textAlign: "left",
+                            border: "none",
+                            background: formData.organisation_id === org.id.toString() ? "rgba(59, 130, 246, 0.1)" : "transparent",
+                            cursor: "pointer",
+                            fontSize: "14px",
+                            color: "#1E3A8A",
+                          }}
+                        >
+                          {org.organisation}
+                        </button>
+                      ))}
+                  </div>
+                )}
+              </div>
             </div>
             {error && (
               <p style={{ color: "#DC2626", fontSize: "14px", margin: 0 }}>
@@ -1951,8 +2532,9 @@ export function ClassManagement() {
             </Button>
             <Button
               onClick={() => {
-                // Handle CSV upload
-                alert("CSV upload functionality will be implemented")
+                toast.info("Coming Soon", {
+                  description: "CSV upload functionality will be implemented soon.",
+                })
                 setShowUploadCSVDialog(false)
               }}
               style={{
@@ -1991,32 +2573,117 @@ export function ClassManagement() {
               >
                 Filter by Organization:
               </label>
-              <select
-                value={assignClassForm.filterOrganization}
-                onChange={(e) => {
-                  setAssignClassForm({
-                    ...assignClassForm,
-                    filterOrganization: e.target.value,
-                    selectedUserId: "", // Reset user selection when organization changes
-                  })
-                }}
-                style={{
-                  width: "100%",
-                  padding: "10px 12px",
-                  borderRadius: "8px",
-                  border: "1px solid rgba(30, 58, 138, 0.2)",
-                  fontSize: "14px",
-                  color: "#1E3A8A",
-                  backgroundColor: "#FFFFFF",
-                }}
-              >
-                <option value="all">All Organizations</option>
-                {organizations.map((org) => (
-                  <option key={org.id} value={org.organisation}>
-                    {org.organisation}
-                  </option>
-                ))}
-              </select>
+              <div data-dropdown style={{ position: "relative" }}>
+                <button
+                  type="button"
+                  onClick={() => setIsAssignOrgDropdownOpen(!isAssignOrgDropdownOpen)}
+                  style={{
+                    width: "100%",
+                    padding: "10px 12px",
+                    borderRadius: "8px",
+                    border: "1px solid rgba(30, 58, 138, 0.2)",
+                    fontSize: "14px",
+                    color: "#1E3A8A",
+                    backgroundColor: "#FFFFFF",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    cursor: "pointer",
+                  }}
+                >
+                  <span>{assignClassForm.filterOrganization === "all" ? "All Organizations" : assignClassForm.filterOrganization}</span>
+                  <ChevronDown style={{ width: "16px", height: "16px", flexShrink: 0 }} />
+                </button>
+                {isAssignOrgDropdownOpen && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "100%",
+                      left: 0,
+                      right: 0,
+                      marginTop: "4px",
+                      backgroundColor: "#FFFFFF",
+                      border: "1px solid rgba(30, 58, 138, 0.2)",
+                      borderRadius: "8px",
+                      boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                      maxHeight: "200px",
+                      overflow: "auto",
+                      zIndex: 50,
+                    }}
+                  >
+                    <input
+                      type="text"
+                      placeholder="Search organizations..."
+                      value={assignOrgSearchTerm}
+                      onChange={(e) => setAssignOrgSearchTerm(e.target.value)}
+                      onFocus={(e) => e.stopPropagation()}
+                      style={{
+                        width: "100%",
+                        padding: "8px 12px",
+                        border: "none",
+                        borderBottom: "1px solid rgba(30, 58, 138, 0.1)",
+                        fontSize: "14px",
+                        outline: "none",
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAssignClassForm({
+                          ...assignClassForm,
+                          filterOrganization: "all",
+                          selectedUserId: "",
+                        })
+                        setIsAssignOrgDropdownOpen(false)
+                        setAssignOrgSearchTerm("")
+                      }}
+                      style={{
+                        width: "100%",
+                        padding: "10px 12px",
+                        textAlign: "left",
+                        border: "none",
+                        background: assignClassForm.filterOrganization === "all" ? "rgba(59, 130, 246, 0.1)" : "transparent",
+                        cursor: "pointer",
+                        fontSize: "14px",
+                        color: "#1E3A8A",
+                      }}
+                    >
+                      All Organizations
+                    </button>
+                    {organizations
+                      .filter((org) =>
+                        org.organisation.toLowerCase().includes(assignOrgSearchTerm.toLowerCase())
+                      )
+                      .map((org) => (
+                        <button
+                          key={org.id}
+                          type="button"
+                          onClick={() => {
+                            setAssignClassForm({
+                              ...assignClassForm,
+                              filterOrganization: org.organisation,
+                              selectedUserId: "",
+                            })
+                            setIsAssignOrgDropdownOpen(false)
+                            setAssignOrgSearchTerm("")
+                          }}
+                          style={{
+                            width: "100%",
+                            padding: "10px 12px",
+                            textAlign: "left",
+                            border: "none",
+                            background: assignClassForm.filterOrganization === org.organisation ? "rgba(59, 130, 246, 0.1)" : "transparent",
+                            cursor: "pointer",
+                            fontSize: "14px",
+                            color: "#1E3A8A",
+                          }}
+                        >
+                          {org.organisation}
+                        </button>
+                      ))}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Select User */}
@@ -2032,33 +2699,95 @@ export function ClassManagement() {
               >
                 Select User
               </label>
-              <select
-                value={assignClassForm.selectedUserId}
-                onChange={(e) => {
-                  setAssignClassForm({ ...assignClassForm, selectedUserId: e.target.value })
-                }}
-                style={{
-                  width: "100%",
-                  padding: "10px 12px",
-                  borderRadius: "8px",
-                  border: "1px solid rgba(30, 58, 138, 0.2)",
-                  fontSize: "14px",
-                  color: "#1E3A8A",
-                  backgroundColor: "#FFFFFF",
-                }}
-              >
-                <option value="">Select a user</option>
-                {users
-                  .filter((user) => {
-                    if (assignClassForm.filterOrganization === "all") return true
-                    return user.organization === assignClassForm.filterOrganization
-                  })
-                  .map((user) => (
-                    <option key={user.id} value={user.id}>
-                      {user.name} ({user.email})
-                    </option>
-                  ))}
-              </select>
+              <div data-dropdown style={{ position: "relative" }}>
+                <button
+                  type="button"
+                  onClick={() => setIsUserDropdownOpen(!isUserDropdownOpen)}
+                  style={{
+                    width: "100%",
+                    padding: "10px 12px",
+                    borderRadius: "8px",
+                    border: "1px solid rgba(30, 58, 138, 0.2)",
+                    fontSize: "14px",
+                    color: "#1E3A8A",
+                    backgroundColor: "#FFFFFF",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    cursor: "pointer",
+                  }}
+                >
+                  <span>
+                    {assignClassForm.selectedUserId
+                      ? users.find((u) => u.id === assignClassForm.selectedUserId)?.name || "Select a user"
+                      : "Select a user"}
+                  </span>
+                  <ChevronDown style={{ width: "16px", height: "16px", flexShrink: 0 }} />
+                </button>
+                {isUserDropdownOpen && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "100%",
+                      left: 0,
+                      right: 0,
+                      marginTop: "4px",
+                      backgroundColor: "#FFFFFF",
+                      border: "1px solid rgba(30, 58, 138, 0.2)",
+                      borderRadius: "8px",
+                      boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                      maxHeight: "200px",
+                      overflow: "auto",
+                      zIndex: 50,
+                    }}
+                  >
+                    <input
+                      type="text"
+                      placeholder="Search users..."
+                      value={userSearchTerm}
+                      onChange={(e) => setUserSearchTerm(e.target.value)}
+                      onFocus={(e) => e.stopPropagation()}
+                      style={{
+                        width: "100%",
+                        padding: "8px 12px",
+                        border: "none",
+                        borderBottom: "1px solid rgba(30, 58, 138, 0.1)",
+                        fontSize: "14px",
+                        outline: "none",
+                      }}
+                    />
+                    {users
+                      .filter((user) => {
+                        if (assignClassForm.filterOrganization !== "all" && user.organization !== assignClassForm.filterOrganization) return false
+                        const search = userSearchTerm.toLowerCase()
+                        return !search || user.name.toLowerCase().includes(search) || user.email.toLowerCase().includes(search)
+                      })
+                      .map((user) => (
+                        <button
+                          key={user.id}
+                          type="button"
+                          onClick={() => {
+                            setAssignClassForm({ ...assignClassForm, selectedUserId: user.id })
+                            setIsUserDropdownOpen(false)
+                            setUserSearchTerm("")
+                          }}
+                          style={{
+                            width: "100%",
+                            padding: "10px 12px",
+                            textAlign: "left",
+                            border: "none",
+                            background: assignClassForm.selectedUserId === user.id ? "rgba(59, 130, 246, 0.1)" : "transparent",
+                            cursor: "pointer",
+                            fontSize: "14px",
+                            color: "#1E3A8A",
+                          }}
+                        >
+                          {user.name} ({user.email})
+                        </button>
+                      ))}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Classes (typable dropdown) */}
@@ -2157,7 +2886,7 @@ export function ClassManagement() {
             <Button
               onClick={() => {
                 if (!assignClassForm.selectedUserId || !assignClassForm.classes) {
-                  alert("Please select a user and enter classes")
+                  toast.error("Please select a user and enter classes")
                   return
                 }
                 // Handle class assignment
@@ -2190,5 +2919,6 @@ export function ClassManagement() {
         </DialogContent>
       </Dialog>
     </div>
+    </>
   )
 }

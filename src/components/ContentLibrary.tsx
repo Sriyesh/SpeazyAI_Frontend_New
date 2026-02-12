@@ -216,6 +216,13 @@ export function ContentLibrary({ onBack }: ContentLibraryProps) {
     const [publicUrl, setPublicUrl] = useState<string | null>(null);
     const [errorMessage, setErrorMessage] = useState<string>("");
 
+    // Check if current user is administrator (admins see all classes)
+    const isAdministrator = (): boolean => {
+        if (!authData?.user?.role) return false;
+        const role = (authData.user.role || "").toLowerCase();
+        return role === "administrator" || role.includes("admin");
+    };
+
     // Get user's assigned classes from auth data
     const getUserClasses = (): string[] => {
         if (!authData?.user?.class) {
@@ -231,22 +238,31 @@ export function ContentLibrary({ onBack }: ContentLibraryProps) {
         return [authData.user.class];
     };
 
-    // Filter class options to only show user's assigned classes
+    // Fallback class list when none available
+    const fallbackClasses = [
+        "Grade 4A", "Grade 4B", "Grade 4C",
+        "Grade 5A", "Grade 5B", "Grade 5C",
+        "Grade 6A", "Grade 6B", "Grade 6C",
+    ];
+
+    // Normalize: split comma-separated and deduplicate
     const userClasses = getUserClasses();
-    const classOptions = userClasses.length > 0 
-        ? userClasses 
-        : [
-            // Fallback if no classes assigned (shouldn't happen in production)
-            "Grade 4A",
-            "Grade 4B",
-            "Grade 4C",
-            "Grade 5A",
-            "Grade 5B",
-            "Grade 5C",
-            "Grade 6A",
-            "Grade 6B",
-            "Grade 6C",
-        ];
+    const userClassesNormalized = [...new Set(
+        userClasses.flatMap((c) =>
+            c.split(",").map((s) => s.trim()).filter(Boolean)
+        )
+    )];
+
+    // For admins: show all classes (from existing content + user's classes). For others: only assigned classes.
+    const classesFromContent = [...new Set(
+        contentItems.map((item) => item.className).filter(Boolean)
+    )];
+    const classOptions = isAdministrator()
+        ? (() => {
+            const combined = [...new Set([...classesFromContent, ...userClassesNormalized])];
+            return combined.length > 0 ? combined.sort() : fallbackClasses;
+          })()
+        : userClassesNormalized.length > 0 ? userClassesNormalized : fallbackClasses;
 
     const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
