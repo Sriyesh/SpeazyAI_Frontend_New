@@ -13,6 +13,9 @@ Add these to your DigitalOcean Function / server environment:
 | `JIRA_DOMAIN` | Your Jira domain (e.g. `yourcompany.atlassian.net`) |
 | `JIRA_PROJECT_KEY` | Project key for new bugs (e.g. `SUP`). Default: `SUP` |
 | `ALLOWED_ORIGIN` | CORS origin for your frontend (e.g. `https://exeleratetechnology.com`) |
+| `SENDGRID_API_KEY` | SendGrid API key for support notification emails |
+| `SUPPORT_EMAIL` | From address (e.g. `support@exeleratetechnology.com`) |
+| `SUPPORT_NOTIFY_EMAILS` | Comma-separated list of recipients (e.g. `sriyesh.m@gmail.com,other@example.com`) |
 
 ## Deploy Support Proxy (DigitalOcean)
 
@@ -26,12 +29,15 @@ Add these to your DigitalOcean Function / server environment:
 
 ## Local Development
 
-1. Create `.env` in project root with Jira credentials:
+1. Create `.env` in project root with Jira and (optional) SendGrid credentials:
    ```
    JIRA_EMAIL=your@email.com
    JIRA_API_TOKEN=your_api_token
    JIRA_DOMAIN=yourcompany.atlassian.net
    JIRA_PROJECT_KEY=SUP
+   SENDGRID_API_KEY=SG.xxx
+   SUPPORT_EMAIL=support@exeleratetechnology.com
+   SUPPORT_NOTIFY_EMAILS=sriyesh.m@gmail.com,other@example.com
    ```
 
 2. Run the support proxy:
@@ -49,17 +55,16 @@ If you run `digitalocean/api-server.js` on a Droplet, the support route is at:
 
 Point `VITE_SUPPORT_PROXY_URL` to `https://your-api-server.com/api/support-ticket` and set the Jira env vars on the server.
 
-## Email Notification (Optional)
+## Email Notification
 
-The backend logs ticket creation. To send email to your support team, add your email service (e.g. SendGrid, Nodemailer) in:
-- `digitalocean/functions/supportProxy.js` - after `console.log` 
-- `supportProxyServer.js` - after `console.log`
+Emails are sent **from** `SUPPORT_EMAIL` (e.g. `support@exeleratetechnology.com`) **to** everyone listed in `SUPPORT_NOTIFY_EMAILS` after a Jira ticket is created.
 
-Example structure:
-```js
-await sendSupportEmail({
-  to: 'support@exeleratetechnology.com',
-  subject: `New ticket: ${issueKey}`,
-  body: `Ticket ${issueKey} created. Link: https://${JIRA_DOMAIN}/browse/${issueKey}`,
-});
-```
+Set these in your environment (local `.env` or DigitalOcean function env):
+
+- `SENDGRID_API_KEY` – Your SendGrid API key
+- `SUPPORT_EMAIL` – From address (e.g. `support@exeleratetechnology.com`). The domain must be verified in SendGrid.
+- `SUPPORT_NOTIFY_EMAILS` – Comma-separated recipients, e.g. `sriyesh.m@gmail.com,other@example.com`
+
+If `SUPPORT_NOTIFY_EMAILS` is missing or empty, no email is sent (ticket creation still succeeds).
+
+**SendGrid sender verification:** To send from `support@exeleratetechnology.com`, you must verify that domain (or single sender) in SendGrid: [Sender Authentication](https://docs.sendgrid.com/ui/account-and-settings/how-to-set-up-domain-authentication). Until verified, SendGrid may reject the request or drop the email. Check your DigitalOcean function logs after submitting a ticket: you should see either `Support email sent to N recipient(s)` or `SendGrid failed: <status> <body>` with SendGrid’s error message.

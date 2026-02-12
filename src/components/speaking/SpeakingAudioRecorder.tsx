@@ -209,9 +209,8 @@ export function SpeakingAudioRecorder({
     const payloadObj: any = {
       audio_base64: base64Audio,
       audio_format: format,
+      endpoint,
     }
-    
-    // Only send expected_text if it's a scripted endpoint
     if (isScripted && expectedText) {
       payloadObj.expected_text = expectedText
     }
@@ -232,13 +231,21 @@ export function SpeakingAudioRecorder({
         throw new Error(`API Error (${response.status}): ${errorText}`)
       }
 
-      const data = await response.json()
-      console.log("API Response:", data)
+      let data = await response.json()
+      // Unwrap proxy response: DO returns { statusCode, body } where body may be object or string
+      if (data && typeof data.body === "string") {
+        try {
+          data = JSON.parse(data.body)
+        } catch (_) {}
+      } else if (data && typeof data.body === "object" && data.body !== null) {
+        data = data.body
+      } else if (data && typeof data.data === "object" && data.data !== null) {
+        data = data.data
+      }
       setApiResponse(data)
       // Pass API response and audio URL to parent component
       if (onApiResponse) {
         const audioDataUrl = recordedAudioUrlRef.current
-        console.log("Passing audio URL to onApiResponse:", audioDataUrl ? audioDataUrl.substring(0, 50) + "..." : "null")
         onApiResponse({
           apiResponse: data,
           audioUrl: audioDataUrl // Pass the recorded audio URL from ref (base64 data URL)

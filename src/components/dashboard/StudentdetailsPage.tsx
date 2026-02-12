@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useEffect } from "react"
-import { useNavigate, useLocation } from "react-router-dom"
+import { useNavigate, useLocation, useParams } from "react-router-dom"
 import { Button } from "../ui/button"
 import { ArrowLeft, Mic2, BookOpen, PenTool, Headphones } from "lucide-react"
 import { useAuth } from "../../contexts/AuthContext"
@@ -35,24 +35,13 @@ export function StudentDetailsPage() {
   const apiBase = getExelerateApiBase() + "/api"
   const API_TOKEN = token || ""
   
-  // Get student data from location state or use default sample data
+  // Student ID in URL (e.g. /progress-dashboard/students/51)
+  const { userId: urlUserId } = useParams<{ userId?: string }>()
+  // Get student data and return state (org/class, fromSection) from location state
   const rawStudentData: StudentDetailsData = location.state?.studentData || {}
-  
-  // Log the received student data for debugging
-  useEffect(() => {
-    console.log("=".repeat(80))
-    console.log("📥 RECEIVED STUDENT DATA in StudentDetailsPage:", {
-      id: rawStudentData.id || rawStudentData.user_id || rawStudentData.userId,
-      name: rawStudentData.name,
-      studentName: rawStudentData.studentName,
-      user_name: rawStudentData.user_name,
-      email: rawStudentData.email,
-      class: rawStudentData.class,
-      fullRawData: rawStudentData
-    })
-    console.log("=".repeat(80))
-  }, [location.state])
-  
+  const returnState = location.state?.returnState as { selectedOrganization?: string; selectedClass?: string } | undefined
+  const fromSection = location.state?.fromSection as "my-analysis" | "organization" | undefined
+
   const [detailedResult, setDetailedResult] = useState<any>(rawStudentData.detailedResult?.item || rawStudentData.detailedResult?.data || rawStudentData.detailedResult || {})
   const [isLoadingSkillData, setIsLoadingSkillData] = useState(false)
   const [skillDataError, setSkillDataError] = useState<string | null>(null)
@@ -66,8 +55,8 @@ export function StudentDetailsPage() {
     speaking: "Speaking",
   }
   
-  // Get user ID from student data
-  const userId = rawStudentData.id || rawStudentData.user_id || rawStudentData.userId
+  // Get user ID: URL param (so URL is the source of truth) or state
+  const userId = urlUserId || rawStudentData.id || rawStudentData.user_id || rawStudentData.userId
   
   // Fetch skill-specific result when skill changes or component mounts
   useEffect(() => {
@@ -76,49 +65,55 @@ export function StudentDetailsPage() {
     }
   }, [skill, userId])
   
-  // Function to fetch skill-specific result
+  // Function to fetch skill-specific results via list-results.php?user_id=X (per API spec)
   const fetchSkillResult = async (skillType: string, id: string | number) => {
     if (!id) {
       console.warn("No user ID provided for fetching skill result")
       return
     }
-    
+
     setIsLoadingSkillData(true)
     setSkillDataError(null)
     setIsNotAttempted(false)
-    
+
     try {
-      // All skill APIs use GET with id as query parameter (including reading)
+      // Use list-results.php with user_id query param for each skill (per API)
       let API_URL = ""
       switch (skillType) {
         case "speaking":
-          API_URL = `${apiBase}/speaking/get-result.php?id=${id}`
+          API_URL = `${apiBase}/speaking/list-results.php?user_id=${id}`
           break
         case "reading":
-          API_URL = `${apiBase}/reading/get-result.php?id=${id}`
+          API_URL = `${apiBase}/reading/list-results.php?user_id=${id}`
           break
         case "writing":
-          API_URL = `${apiBase}/writing/get-result.php?id=${id}`
+          API_URL = `${apiBase}/writing/list-results.php?user_id=${id}`
           break
         case "listening":
-          API_URL = `${apiBase}/listening/get-result.php?id=${id}`
+          API_URL = `${apiBase}/listening/list-results.php?user_id=${id}`
           break
         default:
           console.warn(`Unknown skill type: ${skillType}`)
           setIsLoadingSkillData(false)
           return
       }
-      
-      console.log(`Fetching ${skillType} result for ID: ${id} using GET`)
-      
-      const response = await fetch(API_URL, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token || ""}`,
-        },
-      })
-      
+
+      const headers: HeadersInit = {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token || ""}`,
+      }
+
+      let response = await fetch(API_URL, { method: "GET", headers })
+
+      // Listening API may accept POST with empty body; try if GET returns 405
+      if (response.status === 405 && skillType === "listening") {
+        response = await fetch(API_URL, {
+          method: "POST",
+          headers,
+          body: "",
+        })
+      }
+
       if (!response.ok) {
         const errorText = await response.text()
         console.error(`${skillType} API Error (${response.status}):`, errorText)
@@ -131,9 +126,8 @@ export function StudentDetailsPage() {
         }
         throw new Error(`API Error (${response.status}): ${errorText || response.statusText}`)
       }
-      
+
       const data = await response.json()
-      console.log(`${skillType} API Response:`, data)
 
       // Handle 200 OK with "Result not found" in body
       if (data?.success === false && /result not found|not found/i.test(data?.message || "")) {
@@ -143,33 +137,31 @@ export function StudentDetailsPage() {
         setIsLoadingSkillData(false)
         return
       }
-      
-      // Handle different response formats
-      const result = data.item || data.data || data || {}
-      
-      // Validate that API response matches the requested user ID
-      const apiUserId = result.user_id || result.id || result.userId
-      const requestedUserId = id
-      
-      console.log("🔍 API Result Validation:", {
-        requestedUserId: requestedUserId,
-        apiResponseUserId: apiUserId,
-        match: String(apiUserId) === String(requestedUserId),
-        user_name: result.user_name || result.user || result.first_name,
-        email: result.email || result.user_email,
-        fullResult: result
-      })
-      
-      // Warn if user ID doesn't match (API returned wrong user's data)
-      if (apiUserId && String(apiUserId) !== String(requestedUserId)) {
-        console.warn("⚠️ WARNING: API returned data for different user!", {
-          requested: requestedUserId,
-          received: apiUserId,
-          requestedName: rawStudentData.studentName || rawStudentData.name,
-          receivedName: result.user_name || result.user || result.first_name
-        })
+
+      // list-results can return { items: [...] }, { data: [...] }, or { success, data/items: [...] }
+      const list =
+        Array.isArray(data.items) ? data.items
+        : Array.isArray(data.data) ? data.data
+        : Array.isArray(data) ? data
+        : []
+      if (list.length === 0) {
+        setDetailedResult({})
+        setSkillDataError("Student has not attempted this skill yet.")
+        setIsNotAttempted(true)
+        setIsLoadingSkillData(false)
+        return
       }
-      
+
+      // Use most recent result (first by date); support date_time, created_at, date
+      const sorted = [...list].sort((a: any, b: any) => {
+        const dateA = a.date_time || a.created_at || a.date || ""
+        const dateB = b.date_time || b.created_at || b.date || ""
+        const timeA = dateA ? new Date(dateA).getTime() : 0
+        const timeB = dateB ? new Date(dateB).getTime() : 0
+        return timeB - timeA
+      })
+      const result = sorted[0] || list[0]
+
       setDetailedResult(result)
       
     } catch (error: any) {
@@ -209,19 +201,6 @@ export function StudentDetailsPage() {
     user: rawStudentData.user || rawStudentData.studentName || rawStudentData.name || rawStudentData.user_name,
   }
   
-  // Log final student data being displayed
-  useEffect(() => {
-    console.log("📊 FINAL STUDENT DATA (being displayed):", {
-      studentName: studentData.studentName,
-      name: studentData.name,
-      email: studentData.email,
-      class: studentData.class,
-      user_name: studentData.user_name,
-      user: studentData.user
-    })
-  }, [studentData.studentName, studentData.email, detailedResult])
-
-
   return (
     <div
       style={{
@@ -248,10 +227,28 @@ export function StudentDetailsPage() {
           <Button
             variant="outline"
             onClick={() => {
-              // Navigate back to edu/home with the skill pre-selected
+              let org = returnState?.selectedOrganization
+              let cls = returnState?.selectedClass
+              let from = fromSection
+              try {
+                const stored = sessionStorage.getItem("progressDashboardReturnState")
+                if (stored) {
+                  const parsed = JSON.parse(stored) as { selectedOrganization?: string; selectedClass?: string; fromSection?: "my-analysis" | "organization" }
+                  if (org === undefined) org = parsed.selectedOrganization
+                  if (cls === undefined) cls = parsed.selectedClass
+                  if (from === undefined) from = parsed.fromSection
+                }
+                sessionStorage.setItem(
+                  "progressDashboardReturnState",
+                  JSON.stringify({ selectedOrganization: org, selectedClass: cls, fromSection: from })
+                )
+              } catch (_) {}
               navigate("/progress-dashboard", {
                 state: {
-                  selectedSkill: skill, // Pass the skill so EduDashboard can select it
+                  selectedSkill: skill,
+                  selectedOrganization: org,
+                  selectedClass: cls,
+                  fromSection: from,
                 },
               })
             }}
@@ -419,14 +416,17 @@ export function StudentDetailsPage() {
                       if (userId) {
                         fetchSkillResult(skillBtn.id, userId)
                       }
-                      // Navigate to the same page but with different skill
-                      navigate("/progress-dashboard/students", {
+                      // Keep URL with student ID and preserve state
+                      const path = userId ? `/progress-dashboard/students/${userId}` : "/progress-dashboard/students"
+                      navigate(path, {
                         state: {
                           studentData: {
                             ...rawStudentData,
                             skill: skillBtn.id,
                             id: userId,
                           },
+                          returnState,
+                          fromSection,
                         },
                       })
                     }}

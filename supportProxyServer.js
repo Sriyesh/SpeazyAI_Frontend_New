@@ -2,12 +2,13 @@
  * Local Support Proxy Server - For development
  * Same logic as DigitalOcean supportProxy function.
  * Run: node supportProxyServer.js (default port 4002)
- * Set env: JIRA_EMAIL, JIRA_API_TOKEN, JIRA_DOMAIN, JIRA_PROJECT_KEY
+ * Set env: JIRA_EMAIL, JIRA_API_TOKEN, JIRA_DOMAIN, JIRA_PROJECT_KEY, SENDGRID_API_KEY, SUPPORT_EMAIL
  */
 
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import { sendSupportEmail } from "./emailService.js";
 
 dotenv.config();
 
@@ -189,6 +190,16 @@ app.post("/supportProxy", async (req, res) => {
     }
 
     const issueKey = await createJiraBug({ summary, description, attachments });
+
+    // Send support notification email after Jira success; failure must not break response.
+    sendSupportEmail({
+      issueKey,
+      summary,
+      description,
+      userEmail: userEmail || undefined,
+      environment: technicalInfoText || undefined,
+      errors: capturedErrorsText || undefined,
+    }).catch((err) => console.error('[Support] Email send error:', err.message));
 
     console.log(`[Support] Created ${issueKey} for ${userEmail || "anonymous"}`);
     res.json({ success: true, issueKey });

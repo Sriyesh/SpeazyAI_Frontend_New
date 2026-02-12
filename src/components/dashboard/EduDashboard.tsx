@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useMemo } from "react"
 import type { CSSProperties } from "react"
 import { useNavigate, useLocation } from "react-router-dom"
 import { Button } from "../ui/button"
@@ -28,6 +28,7 @@ import {
   ChevronLeft,
   ChevronDown,
   ChevronUp,
+  Menu,
 } from "lucide-react"
 import {
   ChartContainer,
@@ -1039,7 +1040,31 @@ export function EduDashboard() {
   const [selectedStudent, setSelectedStudent] = useState<string | null>(null)
   const [activeSkill, setActiveSkill] = useState<"speaking" | "reading" | "writing" | "listening" | null>(null)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [isMobile, setIsMobile] = useState(typeof window !== "undefined" ? window.innerWidth < 768 : false)
   const { authData, logout, token } = useAuth()
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768)
+      if (window.innerWidth < 768) {
+        setSidebarCollapsed(true)
+      }
+    }
+    window.addEventListener("resize", handleResize)
+    handleResize()
+    return () => window.removeEventListener("resize", handleResize)
+  }, [])
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (orgDropdownRef.current && !orgDropdownRef.current.contains(event.target as Node)) {
+        setOrgDropdownOpen(false)
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [])
+
   const apiBase = getExelerateApiBase() + "/api"
   
   // State for skill-based results
@@ -1084,6 +1109,16 @@ export function EduDashboard() {
   const [isLoadingTeacherDashboard, setIsLoadingTeacherDashboard] = useState(false)
   const [teacherDashboardError, setTeacherDashboardError] = useState<string | null>(null)
 
+  // State for current user's overall scores (My Analysis) from users/overall_results.php
+  const [myOverallScores, setMyOverallScores] = useState<{
+    listening: number | null
+    speaking: number | null
+    reading: number | null
+    writing: number | null
+  } | null>(null)
+  const [isLoadingMyOverall, setIsLoadingMyOverall] = useState(false)
+  const [myOverallError, setMyOverallError] = useState<string | null>(null)
+
   // State for organizations from API
   interface Organisation {
     id?: number | string
@@ -1098,6 +1133,9 @@ export function EduDashboard() {
   const [organizationsList, setOrganizationsList] = useState<Organisation[]>([])
   const [isLoadingOrganizations, setIsLoadingOrganizations] = useState(false)
   const [organizationsError, setOrganizationsError] = useState<string | null>(null)
+  const [orgDropdownOpen, setOrgDropdownOpen] = useState(false)
+  const [orgSearchTerm, setOrgSearchTerm] = useState("")
+  const orgDropdownRef = React.useRef<HTMLDivElement>(null)
 
   // Progress over time data
   const progressOverTimeData = [
@@ -1164,13 +1202,7 @@ export function EduDashboard() {
      // If a class is selected, show users with their scores (listening, speaking, reading, writing, overall)
      if (selectedClass) {
        const classData = classesData[selectedClass]
-       
-       console.log(`[getTableData] Selected class: ${selectedClass}`)
-       console.log(`[getTableData] Class data exists:`, !!classData)
-       console.log(`[getTableData] All users count:`, classData?.allUsers?.length || 0)
-       console.log(`[getTableData] Full class data:`, classData)
-       console.log(`[getTableData] All classesData keys:`, Object.keys(classesData))
-       
+
        if (classData && classData.allUsers && classData.allUsers.length > 0) {
          return classData.allUsers.map((user: any) => {
            const userRole = (user.role || "").toLowerCase()
@@ -1229,9 +1261,34 @@ export function EduDashboard() {
          ...result,
        }))
      }
-     // Default: show empty
-     return []
+    // Default: show empty
+    return []
    }
+
+  // Memoize table data so the table uses one stable value (avoids multiple getTableData() calls per render)
+  const tableData = useMemo(() => getTableData(), [selectedClass, activeSkill, classesData, skillResults])
+
+  // Current user's overall scores for My Analysis: prefer users/overall_results.php, fallback to teacher dashboard
+  const myAnalysisScores = useMemo(() => {
+    if (myOverallScores) return myOverallScores
+    if (!authData?.user) return null
+    const uid = authData.user.id
+    const email = (authData.user.email || "").toLowerCase()
+    const byId = uid != null ? teacherDashboardUserScores[String(uid)] : null
+    const byEmail = email ? teacherDashboardUserScores[email] : null
+    const raw = byId || byEmail
+    if (!raw) return null
+    const listening = raw.listening ?? raw.listening_score ?? raw.scores?.listening
+    const speaking = raw.speaking ?? raw.speaking_score ?? raw.scores?.speaking
+    const reading = raw.reading ?? raw.reading_score ?? raw.scores?.reading
+    const writing = raw.writing ?? raw.writing_score ?? raw.scores?.writing
+    return {
+      listening: typeof listening === "number" ? listening : null,
+      speaking: typeof speaking === "number" ? speaking : null,
+      reading: typeof reading === "number" ? reading : null,
+      writing: typeof writing === "number" ? writing : null,
+    }
+  }, [authData?.user, teacherDashboardUserScores, myOverallScores])
 
   // Get teacher name for a class
   const getTeacherForClass = (className: string): string => {
@@ -1240,7 +1297,6 @@ export function EduDashboard() {
       return classData.teacher
     }
     // Fallback to "Unknown Teacher" if class data doesn't exist or teacher is missing
-    console.warn(`No teacher found for class "${className}". Class data:`, classData)
     return "Unknown Teacher"
   }
 
@@ -1268,7 +1324,7 @@ export function EduDashboard() {
       })
   }
 
-  // Get organization name from ID
+  // Get organization name from ID (from list or fallback to id)
   const getOrganizationName = (orgId: string | null | undefined): string => {
     if (!orgId || orgId === "" || orgId === "null" || orgId === "undefined") return "Not selected"
     
@@ -1297,16 +1353,19 @@ export function EduDashboard() {
       }
     }
     
-    // If not found, log warning and return the ID
-    console.warn(`Organization name not found for ID: "${searchId}". Available org IDs:`, organizationsList.map(o => ({
-      id: o.id,
-      organisation_id: o.organisation_id,
-      organisation: o.organisation,
-      name: o.name,
-      organisation_name: o.organisation_name,
-      organization_name: o.organization_name
-    })))
     return orgId
+  }
+
+  // Prefer organisation_name from login.php when showing the current user's org
+  const getDisplayOrganizationName = (orgId: string | null | undefined): string => {
+    const userOrgId = getUserOrganizationId()
+    if (orgId && userOrgId && String(orgId).trim() === String(userOrgId).trim()) {
+      const fromLogin = authData?.user?.organisation_name
+      if (fromLogin && typeof fromLogin === "string" && fromLogin.trim() !== "") {
+        return fromLogin.trim()
+      }
+    }
+    return getOrganizationName(orgId)
   }
 
   // Get table columns based on selected skill
@@ -1373,7 +1432,6 @@ export function EduDashboard() {
     const API_URL = `${apiBase}/teacher/dashboard.php`
     
     try {
-      console.log("Fetching organization from teacher dashboard API...")
 
       // Try GET first
       let response = await fetch(API_URL, {
@@ -1386,7 +1444,6 @@ export function EduDashboard() {
 
       // If GET returns 405, try POST as fallback
       if (!response.ok && response.status === 405) {
-        console.log("GET returned 405, trying POST method...")
         response = await fetch(API_URL, {
           method: "POST",
           headers: {
@@ -1404,7 +1461,6 @@ export function EduDashboard() {
       }
 
       const data = await response.json()
-      console.log("Teacher Dashboard API Response (for organization):", data)
 
       // Extract organization information from response
       let orgId: string | null = null
@@ -1470,101 +1526,73 @@ export function EduDashboard() {
       setIsLoadingOrganizations(true)
       setOrganizationsError(null)
 
-      // For teachers/principals, skip organizations list API and use teacher dashboard instead
-      if (isTeacherOrPrincipal()) {
-        console.log("User is teacher/principal, fetching organization from teacher dashboard...")
-        const orgFromDashboard = await fetchOrganizationFromTeacherDashboard()
-        
-        if (orgFromDashboard) {
-          setOrganizationsList([orgFromDashboard])
-          console.log("Organization from teacher dashboard:", orgFromDashboard)
-          setIsLoadingOrganizations(false)
-          return [orgFromDashboard]
-        } else {
-          // Fallback to user's organisation_id from auth data
-          const userOrgId = getUserOrganizationId()
-          if (userOrgId) {
-            const orgName = `Organization ${userOrgId}`
-            const fallbackOrg: Organisation = {
+      // Try org/list.php for all roles first (so we get real org names for teacher/principal/student)
+      const API_URL = `${apiBase}/org/list.php`
+      let organizations: Organisation[] = []
+
+      try {
+        const response = await fetch(API_URL, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${authToken}`,
+          },
+        })
+
+        if (response.ok) {
+          const data = await response.json()
+          if (data.success === true && Array.isArray(data.data)) {
+            organizations = data.data
+          } else if (Array.isArray(data.data)) {
+            organizations = data.data
+          } else if (Array.isArray(data)) {
+            organizations = data
+          } else if (data.success === true && Array.isArray(data.organizations)) {
+            organizations = data.organizations
+          } else if (Array.isArray(data.organizations)) {
+            organizations = data.organizations
+          } else if (data.success === true && Array.isArray(data.orgs)) {
+            organizations = data.orgs
+          } else if (Array.isArray(data.orgs)) {
+            organizations = data.orgs
+          }
+        }
+      } catch (_) {
+        // org/list.php may not be allowed for non-admin; fall back below
+      }
+
+      // For teacher/principal/student: if we have a list, keep it (names will show). If empty, use fallback so at least ID shows.
+      if (organizations.length === 0 && (isTeacherOrPrincipal() || isStudent())) {
+        const userOrgId = getUserOrganizationId()
+        if (isTeacherOrPrincipal()) {
+          const orgFromDashboard = await fetchOrganizationFromTeacherDashboard()
+          if (orgFromDashboard) {
+            organizations = [orgFromDashboard]
+          } else if (userOrgId) {
+            organizations = [{
               id: userOrgId,
               organisation_id: userOrgId,
               organization_id: userOrgId,
-              organisation: orgName,
-              name: orgName,
-              organisation_name: orgName,
-              organization_name: orgName
-            }
-            setOrganizationsList([fallbackOrg])
-            setIsLoadingOrganizations(false)
-            return [fallbackOrg]
+              organisation: `Organization ${userOrgId}`,
+              name: `Organization ${userOrgId}`,
+              organisation_name: `Organization ${userOrgId}`,
+              organization_name: `Organization ${userOrgId}`,
+            }]
           }
+        } else if (isStudent() && userOrgId) {
+          organizations = [{
+            id: userOrgId,
+            organisation_id: userOrgId,
+            organization_id: userOrgId,
+            organisation: `Organization ${userOrgId}`,
+            name: `Organization ${userOrgId}`,
+            organisation_name: `Organization ${userOrgId}`,
+            organization_name: `Organization ${userOrgId}`,
+          }]
         }
-        
-        // If no organization found, set empty list
-        setOrganizationsList([])
-        setIsLoadingOrganizations(false)
-        return []
-      }
-
-      // For administrators, fetch from organizations list API
-      const API_URL = `${apiBase}/org/list.php`
-
-      const response = await fetch(API_URL, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${authToken}`,
-        },
-      })
-
-      if (!response.ok) {
-        const errorText = await response.text()
-        console.error(`Organizations List API Error (${response.status}):`, errorText)
-        throw new Error(`API Error (${response.status}): ${errorText || response.statusText}`)
-      }
-
-      const data = await response.json()
-      console.log("Organizations List API Response (Full):", JSON.stringify(data, null, 2))
-
-      // Parse response - handle different formats
-      let organizations: Organisation[] = []
-      if (data.success === true && Array.isArray(data.data)) {
-        organizations = data.data
-      } else if (Array.isArray(data.data)) {
-        organizations = data.data
-      } else if (Array.isArray(data)) {
-        organizations = data
-      } else if (data.success === true && Array.isArray(data.organizations)) {
-        organizations = data.organizations
-      } else if (Array.isArray(data.organizations)) {
-        organizations = data.organizations
-      } else if (data.success === true && Array.isArray(data.orgs)) {
-        organizations = data.orgs
-      } else if (Array.isArray(data.orgs)) {
-        organizations = data.orgs
       }
 
       setOrganizationsList(organizations)
-      console.log("Parsed organizations count:", organizations.length)
-      console.log("Sample organization structure:", organizations[0] || "No organizations found")
-      
-      // Log all organization IDs and names for debugging
-      organizations.forEach((org, index) => {
-        const orgId = org.id || org.organisation_id || org.organization_id
-        const orgName = org.organisation || org.name || org.organisation_name || org.organization_name || org.org_name || org.title
-        console.log(`Organization ${index + 1}:`, {
-          id: orgId,
-          name: orgName || "NO NAME FOUND",
-          allFields: Object.keys(org),
-          fullObject: org
-        })
-        
-        // Warn if name is missing or same as ID
-        if (!orgName || orgName === String(orgId)) {
-          console.warn(`Organization ${orgId} is missing a name field or name equals ID. Available fields:`, Object.keys(org))
-        }
-      })
-
       return organizations
     } catch (error: any) {
       console.error("Error fetching organizations list:", error)
@@ -1628,6 +1656,13 @@ export function EduDashboard() {
     return userRole === "administrator" || userRole.includes("admin")
   }
 
+  // Check if logged-in user is student (hide Organization tab for them)
+  const isStudent = () => {
+    if (!authData?.user?.role) return false
+    const userRole = (authData.user.role || "").toLowerCase()
+    return userRole === "student" || userRole.includes("student")
+  }
+
   // Get user's organization ID from auth data
   const getUserOrganizationId = () => {
     if (!authData?.user) return null
@@ -1656,7 +1691,6 @@ export function EduDashboard() {
 
       // If GET returns 405, try POST as fallback
       if (!response.ok && response.status === 405) {
-        console.log("GET returned 405, trying POST method as fallback...")
         try {
           response = await fetch(API_URL, {
             method: "POST",
@@ -1688,7 +1722,6 @@ export function EduDashboard() {
       }
 
       const data = await response.json()
-      console.log("Users List API Response (successful):", data)
 
       // Parse response - handle different formats
       let users: ApiUser[] = []
@@ -1704,8 +1737,6 @@ export function EduDashboard() {
         users = data.users
       }
 
-      console.log(`Parsed ${users.length} total users from API`)
-
        // Filter users by selected organization if an organization is selected
        const filterOrgId = orgId || selectedOrganization
        let filteredUsers = users
@@ -1716,22 +1747,6 @@ export function EduDashboard() {
            const matches = String(userOrgId) === String(filterOrgId)
            return matches
          })
-         console.log(`Filtered ${filteredUsers.length} users for organization ${filterOrgId} out of ${users.length} total users`)
-         
-         // Log sample users for debugging
-         if (filteredUsers.length > 0) {
-           console.log("Sample filtered user:", {
-             id: filteredUsers[0].id,
-             name: filteredUsers[0].first_name,
-             role: filteredUsers[0].role,
-             class: filteredUsers[0].class,
-             organisation_id: filteredUsers[0].organisation_id
-           })
-         } else {
-           console.warn(`No users found for organization ${filterOrgId}. Available users have org IDs:`, 
-             users.map(u => u.organisation_id || u.organization_id || u.org_id).filter(Boolean).slice(0, 5)
-           )
-         }
        }
 
        setUsersList(filteredUsers)
@@ -1803,14 +1818,11 @@ export function EduDashboard() {
                  } else {
                    groupedByClass[classKey].teacher = teacherName
                  }
-                 console.log(`Assigned teacher "${teacherName}" to class "${classKey}"`)
                }
              }
            })
          }
        })
-
-       console.log("Teachers mapped to classes:", teacherByClass)
 
        // Third pass: Add ALL users (students, teachers, etc.) to their classes
        let usersAddedCount = 0
@@ -1841,13 +1853,10 @@ export function EduDashboard() {
              // Also add to students array if user is a student
              if (userRole !== "teacher" && userRole !== "principal" && userRole !== "administrator" && !userRole.includes("admin")) {
              groupedByClass[classKey].students.push(user)
-               console.log(`Added student ${user.first_name || user.email || user.id} to class "${classKey}"`)
            } else {
-               console.log(`Added ${userRole} ${user.first_name || user.email || user.id} to class "${classKey}"`)
              }
            } else {
              // This should rarely happen, but handle edge case
-             console.warn(`Class "${classKey}" not found when adding user ${user.first_name || user.email || user.id}. Creating entry.`)
              const isStudent = userRole !== "teacher" && userRole !== "principal" && userRole !== "administrator" && !userRole.includes("admin")
              groupedByClass[classKey] = {
                students: isStudent ? [user] : [],
@@ -1858,8 +1867,6 @@ export function EduDashboard() {
            }
          })
        })
-       
-       console.log(`Total users added to classes: ${usersAddedCount}`)
 
        // Verify the structure before setting state
        Object.keys(groupedByClass).forEach(key => {
@@ -1893,34 +1900,7 @@ export function EduDashboard() {
          }
        })
        
-       // Log final state before setting
-       const finalSummary = Object.keys(groupedByClass).map(key => ({
-         class: key,
-         teacher: groupedByClass[key]?.teacher || "MISSING",
-         studentCount: groupedByClass[key]?.students?.length || 0,
-         allUsersCount: groupedByClass[key]?.allUsers?.length || 0,
-         studentIds: groupedByClass[key]?.students?.map(s => s.id || s.user_id) || [],
-         studentNames: groupedByClass[key]?.students?.map(s => s.first_name || s.email || s.id) || [],
-         allUserNames: groupedByClass[key]?.allUsers?.map(s => s.first_name || s.email || s.id) || []
-       }))
-       
-       console.log("=== FINAL CLASSES SUMMARY ===")
-       console.log(`Total classes: ${Object.keys(groupedByClass).length}`)
-       console.log(`Total users added: ${usersAddedCount}`)
-       console.log("Detailed grouped classes:", finalSummary)
-       console.log("Grouped classes data (full structure):", JSON.parse(JSON.stringify(groupedByClass)))
-       
        setClassesData(groupedByClass)
-       
-       if (Object.keys(groupedByClass).length === 0) {
-         console.warn("No classes found. This could be because:")
-         console.warn(`  - No users have class assignments (filtered users: ${filteredUsers.length})`)
-         console.warn(`  - All users are teachers/admins (students count: ${filteredUsers.filter(u => {
-           const role = (u.role || "").toLowerCase()
-           return !role.includes("teacher") && !role.includes("principal") && !role.includes("administrator") && !role.includes("admin")
-         }).length})`)
-         console.warn(`  - Users have null/empty class fields`)
-       }
 
       return { users, classesData: groupedByClass }
     } catch (error: any) {
@@ -1934,12 +1914,12 @@ export function EduDashboard() {
     }
   }
 
-  // API function to fetch teacher dashboard data (for teachers and principals)
+  // API function to fetch teacher dashboard data (for admins with org, and for teachers/principals without param)
   const fetchTeacherDashboard = async (orgId?: string | null) => {
-    if (!isTeacherOrPrincipal()) {
-      console.log("User is not a teacher or principal, skipping teacher dashboard fetch")
-      return
-    }
+    const isAdmin = isAdministrator()
+    const isTeacherOrPrincipalRole = isTeacherOrPrincipal()
+    if (!isAdmin && !isTeacherOrPrincipalRole) return
+    if (isAdmin && !orgId) return
 
     // Use token from login (from auth context)
     const authToken = token || ""
@@ -1949,14 +1929,15 @@ export function EduDashboard() {
       return
     }
 
-    const API_URL = `${apiBase}/teacher/dashboard.php`
-    
+    // For admin: pass organisation_id as query param. For teacher/principal: no param (API uses their org)
+    const API_URL = isAdmin && orgId
+      ? `${apiBase}/teacher/dashboard.php?organisation_id=${encodeURIComponent(orgId)}`
+      : `${apiBase}/teacher/dashboard.php`
+
     try {
       setIsLoadingTeacherDashboard(true)
       setTeacherDashboardError(null)
 
-      console.log("Fetching teacher dashboard data for organization:", orgId)
-      console.log("Using token from login:", authToken.substring(0, 20) + "...")
 
       // Try GET first
       let response = await fetch(API_URL, {
@@ -1969,7 +1950,6 @@ export function EduDashboard() {
 
       // If GET returns 405, try POST as fallback
       if (!response.ok && response.status === 405) {
-        console.log("GET returned 405, trying POST method...")
         response = await fetch(API_URL, {
           method: "POST",
           headers: {
@@ -1987,7 +1967,6 @@ export function EduDashboard() {
       }
 
       const data = await response.json()
-      console.log("Teacher Dashboard API Response:", data)
 
       // Parse response - handle different formats
       // The API response structure: { success: true, classes: [{ class_name: "9-A", students: [...] }] }
@@ -2010,17 +1989,15 @@ export function EduDashboard() {
         dashboardData = data
       }
 
-      // Filter by organization if orgId is provided
-      if (orgId && dashboardData) {
-        // If dashboardData is an array, filter by organisation_id
+      // Filter by organization only when we did NOT pass organisation_id in URL (e.g. legacy or multi-org response)
+      const alreadyScopedByOrg = isAdmin && orgId
+      if (orgId && dashboardData && !alreadyScopedByOrg) {
         if (Array.isArray(dashboardData)) {
           dashboardData = dashboardData.filter((item: any) => {
             const itemOrgId = item.organisation_id || item.organization_id || item.org_id
             return String(itemOrgId) === String(orgId)
           })
-        }
-        // If dashboardData is an object with classes, filter classes by organization
-        else if (dashboardData.classes && Array.isArray(dashboardData.classes)) {
+        } else if (dashboardData.classes && Array.isArray(dashboardData.classes)) {
           dashboardData = {
             ...dashboardData,
             classes: dashboardData.classes.filter((item: any) => {
@@ -2035,7 +2012,8 @@ export function EduDashboard() {
       const classScores: Record<string, any> = {}
       const userScores: Record<string, any> = {}
       const classStudents: Record<string, any[]> = {} // Store students by class_name
-      
+      const classTeachers: Record<string, any[]> = {} // Store teachers by class_name (from API teachers array)
+
       // Helper function to extract scores from item
       const extractScores = (item: any) => {
         // Check if scores are in a nested "scores" object
@@ -2071,8 +2049,6 @@ export function EduDashboard() {
               // Generate email if not provided (for display purposes)
               const email = student.email || `${fullName.toLowerCase().replace(/\s+/g, ".")}@xeleratelearning.com`
               
-              console.log(`Student ${fullName} - Original student:`, student)
-              console.log(`Student ${fullName} - Extracted scores:`, extractedScores)
               
               // Create student object with scores at top level
               // IMPORTANT: Set scores AFTER spread to ensure they override any existing values
@@ -2095,25 +2071,6 @@ export function EduDashboard() {
               }
               
               // Verify scores are set correctly
-              if (extractedScores.speaking > 0 || extractedScores.reading > 0 || extractedScores.writing > 0 || extractedScores.listening > 0) {
-                console.log(`✓ Scores set correctly for ${fullName}:`, {
-                  speaking: studentObj.speaking,
-                  reading: studentObj.reading,
-                  writing: studentObj.writing,
-                  listening: studentObj.listening
-                })
-              } else {
-                console.warn(`⚠ No scores found for ${fullName}. Extracted scores:`, extractedScores, "Original student:", student)
-              }
-              
-              console.log(`Student object for ${fullName}:`, {
-                name: studentObj.name,
-                speaking: studentObj.speaking,
-                reading: studentObj.reading,
-                writing: studentObj.writing,
-                listening: studentObj.listening,
-                scores: studentObj.scores
-              })
               return studentObj
             })
             
@@ -2142,6 +2099,44 @@ export function EduDashboard() {
             })
           }
         })
+        // Process teachers array from same API response: { class_name, teachers: [{ id, name, scores }] }
+        if (dashboardData.teachers && Array.isArray(dashboardData.teachers)) {
+          dashboardData.teachers.forEach((item: any) => {
+            const className = item.class_name || item.class || item.className
+            if (!className || !item.teachers || !Array.isArray(item.teachers)) return
+            const classKey = String(className).trim()
+            if (!classTeachers[classKey]) classTeachers[classKey] = []
+            item.teachers.forEach((teacher: any) => {
+              const extractedScores = extractScores(teacher)
+              const fullName = teacher.name || `${teacher.first_name || ""} ${teacher.last_name || ""}`.trim()
+              const teacherObj: any = {
+                ...teacher,
+                id: teacher.id,
+                first_name: teacher.first_name,
+                last_name: teacher.last_name,
+                name: fullName,
+                email: teacher.email || "",
+                role: "teacher",
+                scores: teacher.scores || extractedScores,
+                speaking: extractedScores.speaking,
+                reading: extractedScores.reading,
+                writing: extractedScores.writing,
+                listening: extractedScores.listening,
+              }
+              classTeachers[classKey].push(teacherObj)
+              const userId = teacher.id
+              if (userId) {
+                userScores[String(userId)] = {
+                  speaking: extractedScores.speaking,
+                  reading: extractedScores.reading,
+                  writing: extractedScores.writing,
+                  listening: extractedScores.listening,
+                  ...teacherObj,
+                }
+              }
+            })
+          })
+        }
       } else if (Array.isArray(dashboardData)) {
         dashboardData.forEach((item: any) => {
           const className = item.class || item.class_name || item.className
@@ -2277,24 +2272,19 @@ export function EduDashboard() {
       setTeacherDashboardData(classScores)
       setTeacherDashboardUserScores(userScores)
       
-      // Store students by class for direct table display
-      if (Object.keys(classStudents).length > 0) {
-        // Update classesData with students from teacher dashboard
+      // Store students and teachers by class for direct table display
+      const allClassKeys = new Set([...Object.keys(classStudents), ...Object.keys(classTeachers)])
+      if (allClassKeys.size > 0) {
+        // Update classesData with students and teachers from teacher dashboard
         const updatedClassesData: Record<string, { students: ApiUser[], teacher: string, allUsers: ApiUser[] }> = {}
-        Object.keys(classStudents).forEach((classKey) => {
-          const students = classStudents[classKey]
-          console.log(`Setting students for class ${classKey}:`, students.map(s => ({
-            name: s.name,
-            speaking: s.speaking,
-            reading: s.reading,
-            writing: s.writing,
-            listening: s.listening,
-            scores: s.scores
-          })))
+        allClassKeys.forEach((classKey) => {
+          const students = classStudents[classKey] || []
+          const teachers = classTeachers[classKey] || []
+          const allUsers = [...students, ...teachers]
           updatedClassesData[classKey] = {
             students: students,
-            teacher: "Teacher", // Will be updated from users list if available
-            allUsers: students // For now, all users are students from dashboard
+            teacher: teachers.length > 0 ? (teachers[0].name || "Teacher") : "Teacher", // Will be updated from users list if available
+            allUsers: allUsers
           }
         })
         // Merge with existing classesData (preserve teacher info from users list)
@@ -2303,7 +2293,6 @@ export function EduDashboard() {
             updatedClassesData[classKey].teacher = classesData[classKey].teacher || "Teacher"
           }
         })
-        console.log("Updating classesData with teacher dashboard students:", updatedClassesData)
         setClassesData(prev => {
           // Merge properly: preserve existing allUsers and students, but update with teacher dashboard data
           const merged: Record<string, any> = { ...prev }
@@ -2365,16 +2354,10 @@ export function EduDashboard() {
             }
           })
           
-          console.log("Merged classesData:", merged)
-          console.log("Sample merged class data:", merged[Object.keys(merged)[0]])
           return merged
         })
       }
       
-      console.log("Teacher dashboard data organized by class:", classScores)
-      console.log("Teacher dashboard data organized by user:", userScores)
-      console.log("Teacher dashboard students by class:", classStudents)
-
       return classScores
     } catch (error: any) {
       console.error("Error fetching teacher dashboard:", error)
@@ -2387,6 +2370,46 @@ export function EduDashboard() {
     }
   }
 
+  // Fetch current user's overall scores for My Analysis (users/overall_results.php)
+  const fetchMyOverallResults = async () => {
+    const userId = authData?.user?.id
+    if (!userId || !API_TOKEN) return
+    const API_URL = `${apiBase}/users/overall_results.php?user_id=${encodeURIComponent(String(userId))}`
+    setIsLoadingMyOverall(true)
+    setMyOverallError(null)
+    try {
+      const response = await fetch(API_URL, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${API_TOKEN}`,
+        },
+      })
+      if (!response.ok) {
+        throw new Error(`API Error (${response.status})`)
+      }
+      const data = await response.json()
+      // API returns { scores_percent: { listening, speaking, reading, writing } }; also support data/scores/flat
+      const raw = data?.scores_percent ?? data?.data?.scores ?? data?.data ?? data?.scores ?? data
+      const listening = raw?.listening ?? raw?.listening_score
+      const speaking = raw?.speaking ?? raw?.speaking_score
+      const reading = raw?.reading ?? raw?.reading_score
+      const writing = raw?.writing ?? raw?.writing_score
+      setMyOverallScores({
+        listening: typeof listening === "number" ? listening : null,
+        speaking: typeof speaking === "number" ? speaking : null,
+        reading: typeof reading === "number" ? reading : null,
+        writing: typeof writing === "number" ? writing : null,
+      })
+    } catch (error: any) {
+      console.error("Error fetching my overall results:", error)
+      setMyOverallError(error.message || "Failed to load overall scores")
+      setMyOverallScores(null)
+    } finally {
+      setIsLoadingMyOverall(false)
+    }
+  }
+
   // API function to fetch Reading results
   const fetchReadingResults = async () => {
     const API_URL = `${apiBase}/reading/list-results.php`
@@ -2394,7 +2417,6 @@ export function EduDashboard() {
     try {
       // Based on 405 error, the endpoint might not accept POST with empty body
       // Try GET first (most list endpoints use GET)
-      console.log("Attempting Reading API with GET method...")
       let response = await fetch(API_URL, {
         method: "GET",
         headers: {
@@ -2405,7 +2427,6 @@ export function EduDashboard() {
 
       // If GET returns 405, try POST with empty body (similar to listening/get-result.php pattern)
       if (response.status === 405) {
-        console.log("GET method returned 405, trying POST with empty body...")
         response = await fetch(API_URL, {
           method: "POST",
           headers: {
@@ -2433,7 +2454,6 @@ export function EduDashboard() {
       }
 
       const data = await response.json()
-      console.log("Reading API Response:", data)
       return data
     } catch (error: any) {
       console.error("Error fetching reading results:", error)
@@ -2461,7 +2481,6 @@ export function EduDashboard() {
       }
 
       const data = await response.json()
-      console.log("Writing API Response:", data)
       return data
     } catch (error: any) {
       console.error("Error fetching writing results:", error)
@@ -2485,7 +2504,6 @@ export function EduDashboard() {
 
       // If GET returns 405, try POST as fallback
       if (response.status === 405) {
-        console.log("Listening API returned 405 with GET, trying POST...")
         response = await fetch(API_URL, {
           method: "POST",
           headers: {
@@ -2507,7 +2525,6 @@ export function EduDashboard() {
       }
 
       const data = await response.json()
-      console.log("Listening API Response:", data)
       return data
     } catch (error: any) {
       console.error("Error fetching listening results:", error)
@@ -2531,7 +2548,6 @@ export function EduDashboard() {
 
       // If GET returns 405, try POST as fallback
       if (response.status === 405) {
-        console.log("Speaking API returned 405 with GET, trying POST...")
         response = await fetch(API_URL, {
           method: "POST",
           headers: {
@@ -2553,7 +2569,6 @@ export function EduDashboard() {
       }
 
       const data = await response.json()
-      console.log("Speaking API Response:", data)
       return data
     } catch (error: any) {
       console.error("Error fetching speaking results:", error)
@@ -2566,24 +2581,19 @@ export function EduDashboard() {
     setIsLoadingAllSkills(true)
     
     try {
-      console.log("Fetching all skill results in parallel...")
       
       // Fetch all skills in parallel using Promise.allSettled to handle partial failures
       const [readingResult, writingResult, listeningResult, speakingResult] = await Promise.allSettled([
         fetchReadingResults().catch(err => {
-          console.warn("Reading API failed:", err)
           return { success: false, data: [], error: err.message }
         }),
         fetchWritingResults().catch(err => {
-          console.warn("Writing API failed:", err)
           return { success: false, data: [], error: err.message }
         }),
         fetchListeningResults().catch(err => {
-          console.warn("Listening API failed:", err)
           return { success: false, data: [], error: err.message }
         }),
         fetchSpeakingResults().catch(err => {
-          console.warn("Speaking API failed:", err)
           return { success: false, data: [], error: err.message }
         })
       ])
@@ -2634,13 +2644,6 @@ export function EduDashboard() {
 
       setAllSkillResults(combinedResults)
       
-      console.log("All skill results fetched successfully:", {
-        reading: readingResults.length,
-        writing: writingResults.length,
-        listening: listeningResults.length,
-        speaking: speakingResults.length
-      })
-
       return combinedResults
     } catch (error: any) {
       console.error("Error fetching all skill results:", error)
@@ -2664,7 +2667,6 @@ export function EduDashboard() {
     
     try {
       // Check if we have organization/class selected and might need to filter
-      console.log("Loading skill results for:", skill, { selectedOrganization, selectedClass })
       
       // Check if we have cached results, if not fetch all skills first
       let allResults: any[] = []
@@ -2672,10 +2674,8 @@ export function EduDashboard() {
       if (allSkillResults[skill] && allSkillResults[skill].length >= 0) {
         // Use cached results
         allResults = allSkillResults[skill]
-        console.log(`Using cached results for ${skill}: ${allResults.length} results`)
       } else {
         // Fetch all skills if not cached
-        console.log(`No cached results for ${skill}, fetching all skills...`)
         await fetchAllSkillResults()
         allResults = allSkillResults[skill] || []
       }
@@ -2689,14 +2689,7 @@ export function EduDashboard() {
         const loggedInUserEmail = authData.user.email?.toLowerCase()
         const loggedInUserFirstName = authData.user.first_name?.toLowerCase()
         const loggedInUserLastName = authData.user.last_name?.toLowerCase()
-        
-        console.log("Filtering results for logged-in user:", {
-          userId: loggedInUserId,
-          email: loggedInUserEmail,
-          firstName: loggedInUserFirstName,
-          lastName: loggedInUserLastName
-        })
-        
+
         filteredResults = allResults.filter((result: any) => {
           // Match by user_id
           const resultUserId = result.user_id || result.userId || result.id
@@ -2723,7 +2716,6 @@ export function EduDashboard() {
           return false
         })
         
-        console.log(`Filtered ${filteredResults.length} results for logged-in user out of ${allResults.length} total results`)
       }
       
       setSkillResults(filteredResults)
@@ -2903,25 +2895,54 @@ export function EduDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token])
 
-  // Effect to handle skill selection from navigation state (e.g., when coming back from StudentDetailsPage)
+  // Effect to restore dashboard state when coming back from StudentDetailsPage (org, class, skill, fromSection)
   useEffect(() => {
-    const state = (location as any).state
-    if (state?.selectedSkill) {
-      const skillToSelect = state.selectedSkill as "speaking" | "reading" | "writing" | "listening"
+    const state = (location as any).state || {}
+    let fromStorage: { selectedOrganization?: string; selectedClass?: string; fromSection?: "my-analysis" | "organization" } = {}
+    try {
+      const stored = sessionStorage.getItem("progressDashboardReturnState")
+      if (stored) {
+        fromStorage = JSON.parse(stored)
+        sessionStorage.removeItem("progressDashboardReturnState")
+      }
+    } catch (_) {}
+
+    const restoredOrg = state.selectedOrganization ?? fromStorage.selectedOrganization
+    const restoredClass = state.selectedClass ?? fromStorage.selectedClass
+    const selectedSkill = state.selectedSkill
+    const fromSection = state.fromSection ?? fromStorage.fromSection
+
+    let didRestore = false
+
+    if (restoredOrg) {
+      setSelectedOrganization(restoredOrg)
+      didRestore = true
+    }
+    if (restoredClass !== undefined && restoredClass !== null) {
+      setSelectedClass(restoredClass)
+      didRestore = true
+    }
+    // Restore the tab we came from: My Analysis vs Select Organization
+    if (fromSection === "my-analysis") {
+      setActiveFilter("My Analysis")
+    } else if (restoredOrg != null || restoredClass !== undefined) {
+      setActiveFilter("Select Organization")
+    }
+    if (selectedSkill) {
+      const skillToSelect = selectedSkill as "speaking" | "reading" | "writing" | "listening"
       setActiveSkill(skillToSelect)
-      // Load the skill results
       loadSkillResults(skillToSelect).catch((error) => {
         console.error("Failed to load skill results:", error)
       })
-      // Scroll to detailed analysis section
       setTimeout(() => {
         const element = document.getElementById("detailed-analysis")
-        if (element) {
-          element.scrollIntoView({ behavior: "smooth", block: "start" })
-        }
+        if (element) element.scrollIntoView({ behavior: "smooth", block: "start" })
       }, 100)
-      // Clear the location state to avoid re-triggering
-      window.history.replaceState({}, document.title)
+      didRestore = true
+    }
+
+    if (didRestore) {
+      setTimeout(() => window.history.replaceState({}, document.title), 0)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location])
@@ -2939,7 +2960,6 @@ export function EduDashboard() {
       })
       
       if (!orgExists) {
-        console.warn(`Selected organization ID "${selectedOrganization}" not found in organizations list. Clearing selection.`)
         setSelectedOrganization("")
         setClassesData({})
         setUsersList([])
@@ -2948,24 +2968,19 @@ export function EduDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [organizationsList])
 
-  // Effect to auto-select organization for teachers/principals
+  // Effect to auto-select organization for teachers/principals/students (so header and dropdown show org name)
   useEffect(() => {
-    if (isTeacherOrPrincipal() && !selectedOrganization && organizationsList.length > 0) {
+    if (!selectedOrganization && organizationsList.length > 0) {
       const userOrgId = getUserOrganizationId()
       if (userOrgId) {
-        // Verify organization exists in the list
         const orgExists = organizationsList.some((org) => {
           const oId1 = org.id ? String(org.id) : null
           const oId2 = org.organisation_id ? String(org.organisation_id) : null
           const oId3 = org.organization_id ? String(org.organization_id) : null
           return oId1 === userOrgId || oId2 === userOrgId || oId3 === userOrgId
         })
-        
         if (orgExists) {
-          console.log("Auto-selecting organization for teacher/principal:", userOrgId)
           setSelectedOrganization(userOrgId)
-        } else {
-          console.warn("User's organization not found in organizations list:", userOrgId)
         }
       }
     }
@@ -2994,8 +3009,12 @@ export function EduDashboard() {
           console.error("Failed to fetch all skill results:", error)
         })
         
-        // Fetch teacher dashboard data if user is teacher or principal
-        if (isTeacherOrPrincipal()) {
+        // Fetch teacher dashboard: for admin pass org_id; for teacher/principal no param (API uses their org)
+        if (isAdministrator()) {
+          fetchTeacherDashboard(selectedOrganization).catch((error) => {
+            console.error("Failed to fetch teacher dashboard:", error)
+          })
+        } else if (isTeacherOrPrincipal()) {
           fetchTeacherDashboard(selectedOrganization).catch((error) => {
             console.error("Failed to fetch teacher dashboard:", error)
           })
@@ -3005,30 +3024,19 @@ export function EduDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedOrganization, organizationsList])
 
-  // Effect to refresh skill results when class is selected
+  // Effect to refresh data when class is selected (so table shows teacher/student scores, not 0)
   useEffect(() => {
     if (selectedClass && selectedOrganization) {
-      console.log(`[useEffect] Class selected: ${selectedClass}, Organization: ${selectedOrganization}`)
-      console.log(`[useEffect] Current classesData keys:`, Object.keys(classesData))
-      console.log(`[useEffect] Class data for ${selectedClass}:`, classesData[selectedClass])
-      
-      // If no data for this class, fetch users list again
-      if (!classesData[selectedClass] || !classesData[selectedClass].allUsers || classesData[selectedClass].allUsers.length === 0) {
-        console.log(`[useEffect] No data found for class ${selectedClass}, fetching users list...`)
+      const needsData = !classesData[selectedClass]?.allUsers?.length
+      if (needsData) {
         fetchUsersList(selectedOrganization).catch((error) => {
           console.error("Failed to fetch users list for class:", error)
         })
       }
-      
-      // If teacher/principal, also fetch teacher dashboard
-      if (isTeacherOrPrincipal()) {
-        console.log(`[useEffect] User is teacher/principal, fetching teacher dashboard...`)
-        fetchTeacherDashboard(selectedOrganization).catch((error) => {
-          console.error("Failed to fetch teacher dashboard for class:", error)
-        })
-      }
-      
-      // Refresh all skill results when a class is selected
+      // Always refetch teacher dashboard when class is selected so scores are present (admin + teacher/principal)
+      fetchTeacherDashboard(selectedOrganization).catch((error) => {
+        console.error("Failed to fetch teacher dashboard for class:", error)
+      })
       fetchAllSkillResults().catch((error) => {
         console.error("Failed to refresh skill results for class:", error)
       })
@@ -3054,7 +3062,64 @@ export function EduDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeFilter])
 
+  // When My Analysis is active (or user is student), fetch current user's overall scores from users/overall_results.php
+  useEffect(() => {
+    if (!authData?.user?.id) return
+    const shouldFetch = activeFilter === "My Analysis" || isStudent()
+    if (!shouldFetch) return
+    fetchMyOverallResults().catch((error) => {
+      console.error("Failed to fetch my overall results:", error)
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeFilter, authData?.user?.id])
+
+  // When My Analysis is active, also ensure teacher dashboard is loaded (fallback for scores)
+  useEffect(() => {
+    if (activeFilter !== "My Analysis" || !authData?.user) return
+    const orgId = isAdministrator()
+      ? (authData.user.organisation_id != null ? String(authData.user.organisation_id) : selectedOrganization)
+      : selectedOrganization
+    if (orgId) {
+      fetchTeacherDashboard(orgId).catch((error) => {
+        console.error("Failed to fetch teacher dashboard for My Analysis:", error)
+      })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeFilter, authData?.user?.id, authData?.user?.organisation_id, selectedOrganization])
+
   return (
+    <>
+      <style>
+        {`
+          @media (max-width: 768px) {
+            .edu-sidebar {
+              position: fixed !important;
+              left: ${sidebarCollapsed ? "-280px" : "0"} !important;
+              z-index: 1000 !important;
+              height: 100vh !important;
+              overflow-y: auto !important;
+            }
+            .edu-main-content {
+              margin-left: 0 !important;
+              width: 100% !important;
+            }
+            .edu-overlay {
+              display: ${sidebarCollapsed ? "none" : "block"} !important;
+            }
+          }
+        `}
+      </style>
+      <div
+        className="edu-overlay"
+        onClick={() => setSidebarCollapsed(true)}
+        style={{
+          display: isMobile && !sidebarCollapsed ? "block" : "none",
+          position: "fixed",
+          inset: 0,
+          backgroundColor: "rgba(0, 0, 0, 0.5)",
+          zIndex: 999,
+        }}
+      />
     <div
       style={{
         minHeight: "100vh",
@@ -3076,15 +3141,17 @@ export function EduDashboard() {
       
       {/* Sidebar */}
       <div
+        className="edu-sidebar"
         style={{
           width: sidebarCollapsed ? "80px" : "280px",
           backgroundColor: "#1E3A8A",
           minHeight: "100vh",
           display: "flex",
           flexDirection: "column",
-          transition: "width 0.3s ease",
-          position: "sticky",
+          transition: "width 0.3s ease, left 0.3s ease",
+          position: isMobile ? "fixed" : "sticky",
           top: 0,
+          left: isMobile ? (sidebarCollapsed ? "-280px" : "0") : "auto",
           zIndex: 100,
         }}
       >
@@ -3104,7 +3171,9 @@ export function EduDashboard() {
                 fontSize: "20px",
                 fontWeight: "bold",
                 color: "#FFFFFF",
+                cursor: "pointer",
               }}
+              onClick={() => navigate("/skills-home")}
             >
               ENGLISH SKILL AI
             </h2>
@@ -3143,7 +3212,18 @@ export function EduDashboard() {
             gap: "8px",
           }}
         >
-          {menuItems.map((item) => {
+          {menuItems.filter((item) => {
+            const userRole = (authData?.user?.role || "").toLowerCase()
+            if (item.id === "license-management") {
+              return userRole === "administrator" || userRole.includes("admin")
+            }
+            if (item.id === "class-management") {
+              return userRole === "principal" || userRole.includes("principal") ||
+                userRole === "teacher" || userRole.includes("teacher") ||
+                userRole === "administrator" || userRole.includes("admin")
+            }
+            return true
+          }).map((item) => {
             const Icon = item.icon
             const isActive = item.active || window.location.pathname === item.route
             return (
@@ -3290,13 +3370,40 @@ export function EduDashboard() {
 
       {/* Main Content */}
       <div
+        className="edu-main-content"
         style={{
           flex: 1,
           display: "flex",
           flexDirection: "column",
           overflowY: "auto",
+          marginLeft: isMobile ? 0 : undefined,
+          transition: "margin-left 0.3s ease",
+          width: isMobile ? "100%" : undefined,
         }}
       >
+        {isMobile && (
+          <button
+            onClick={() => setSidebarCollapsed(false)}
+            style={{
+              position: "fixed",
+              top: "16px",
+              left: "16px",
+              zIndex: 1001,
+              backgroundColor: "#1E3A8A",
+              color: "#FFFFFF",
+              border: "none",
+              borderRadius: "8px",
+              padding: "10px",
+              cursor: "pointer",
+              boxShadow: "0 2px 8px rgba(0, 0, 0, 0.2)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Menu style={{ width: "24px", height: "24px" }} />
+          </button>
+        )}
         {/* Main Content Area */}
         <div
           style={{
@@ -3339,7 +3446,7 @@ export function EduDashboard() {
                 Role: {(authData?.user?.role || "administrator").toLowerCase()}
               </p>
                <p style={{ fontSize: "14px", color: "rgba(30, 58, 138, 0.7)", margin: 0, lineHeight: "1.5" }}>
-                 Organization: {getOrganizationName(selectedOrganization)}
+                 Organization: {getDisplayOrganizationName(getUserOrganizationId())}
                </p>
             </div>
             <div
@@ -3377,7 +3484,105 @@ export function EduDashboard() {
             </div>
           </div>
 
-          {/* Organization Section */}
+          {/* My Analysis Section - for Student role only (no tabs, no organization selector) */}
+          {isStudent() && (
+          <div
+            style={{
+              backgroundColor: "#FFFFFF",
+              borderRadius: "16px",
+              padding: "24px",
+              marginBottom: "24px",
+              boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+            }}
+          >
+            <h2 style={{ fontSize: "18px", fontWeight: "bold", color: "#1E3A8A", margin: 0, marginBottom: "16px" }}>
+              My Analysis
+            </h2>
+            <p style={{ fontSize: "14px", color: "rgba(30, 58, 138, 0.7)", margin: 0, marginBottom: "16px" }}>
+              View your personal analytics and progress
+            </p>
+            <div style={{ marginTop: "16px", marginBottom: "24px" }}>
+              {isLoadingMyOverall && (
+                <p style={{ fontSize: "14px", color: "rgba(30, 58, 138, 0.7)", marginBottom: "12px" }}>
+                  Loading overall scores...
+                </p>
+              )}
+              {myOverallError && !isLoadingMyOverall && (
+                <p style={{ fontSize: "14px", color: "#DC2626", marginBottom: "12px" }}>{myOverallError}</p>
+              )}
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+                  gap: "16px",
+                  marginBottom: "20px",
+                }}
+              >
+                {[
+                  { key: "listening", label: "Listening", icon: Headphones, value: myAnalysisScores?.listening },
+                  { key: "speaking", label: "Speaking", icon: Mic2, value: myAnalysisScores?.speaking },
+                  { key: "reading", label: "Reading", icon: BookOpen, value: myAnalysisScores?.reading },
+                  { key: "writing", label: "Writing", icon: PenTool, value: myAnalysisScores?.writing },
+                ].map(({ key, label, icon: Icon, value }) => (
+                  <div
+                    key={key}
+                    style={{
+                      padding: "16px",
+                      borderRadius: "12px",
+                      border: "1px solid rgba(30, 58, 138, 0.2)",
+                      backgroundColor: "#FFFFFF",
+                      textAlign: "center",
+                      boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+                    }}
+                  >
+                    <Icon style={{ width: "24px", height: "24px", color: "#1E3A8A", margin: "0 auto 8px", display: "block" }} />
+                    <div style={{ fontSize: "12px", fontWeight: "600", color: "rgba(30, 58, 138, 0.8)", marginBottom: "4px" }}>{label}</div>
+                    <div style={{ fontSize: "20px", fontWeight: "700", color: "#1E3A8A" }}>
+                      {isLoadingMyOverall ? "…" : typeof value === "number" ? `${value}%` : "—"}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <Button
+                onClick={() => {
+                  if (!authData?.user) return
+                  const u = authData.user
+                  const studentDataToPass = {
+                    id: u.id,
+                    user_id: u.id,
+                    userId: u.id,
+                    email: u.email,
+                    first_name: u.first_name,
+                    last_name: u.last_name,
+                    name: `${u.first_name || ""} ${u.last_name || ""}`.trim() || u.email || "User",
+                    studentName: `${u.first_name || ""} ${u.last_name || ""}`.trim() || u.email || "User",
+                    listening: myAnalysisScores?.listening,
+                    speaking: myAnalysisScores?.speaking,
+                    reading: myAnalysisScores?.reading,
+                    writing: myAnalysisScores?.writing,
+                    skill: "speaking" as const,
+                  }
+                  const returnState = { selectedOrganization: selectedOrganization || undefined, selectedClass: selectedClass || undefined }
+                  const fromSection = "my-analysis"
+                  try {
+                    sessionStorage.setItem("progressDashboardReturnState", JSON.stringify({ ...returnState, fromSection }))
+                  } catch (_) {}
+                  const studentId = u.id ?? u.user_id
+                  navigate(studentId ? `/progress-dashboard/students/${studentId}` : "/progress-dashboard/students", {
+                    state: { studentData: studentDataToPass, returnState, fromSection },
+                  })
+                }}
+                style={{ backgroundColor: "#1E3A8A", color: "#FFFFFF", border: "none" }}
+              >
+                <Eye style={{ width: "18px", height: "18px", marginRight: "8px", verticalAlign: "middle" }} />
+                View my details
+              </Button>
+            </div>
+          </div>
+          )}
+
+          {/* Organization Section - for Teacher, Principal, Administrator (tabs: My Analysis / Select Organization) */}
+          {!isStudent() && (
           <div
             style={{
               backgroundColor: "#FFFFFF",
@@ -3434,6 +3639,94 @@ export function EduDashboard() {
             <p style={{ fontSize: "14px", color: "rgba(30, 58, 138, 0.7)", margin: 0, marginBottom: "16px" }}>
               View your personal analytics and progress
             </p>
+
+            {activeFilter === "My Analysis" && (
+              <div style={{ marginTop: "16px", marginBottom: "24px" }}>
+                {isLoadingMyOverall && (
+                  <p style={{ fontSize: "14px", color: "rgba(30, 58, 138, 0.7)", marginBottom: "12px" }}>
+                    Loading overall scores...
+                  </p>
+                )}
+                {myOverallError && !isLoadingMyOverall && (
+                  <p style={{ fontSize: "14px", color: "#DC2626", marginBottom: "12px" }}>
+                    {myOverallError}
+                  </p>
+                )}
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+                    gap: "16px",
+                    marginBottom: "20px",
+                  }}
+                >
+                  {[
+                    { key: "listening", label: "Listening", icon: Headphones, value: myAnalysisScores?.listening },
+                    { key: "speaking", label: "Speaking", icon: Mic2, value: myAnalysisScores?.speaking },
+                    { key: "reading", label: "Reading", icon: BookOpen, value: myAnalysisScores?.reading },
+                    { key: "writing", label: "Writing", icon: PenTool, value: myAnalysisScores?.writing },
+                  ].map(({ key, label, icon: Icon, value }) => (
+                    <div
+                      key={key}
+                      style={{
+                        padding: "16px",
+                        borderRadius: "12px",
+                        border: "1px solid rgba(30, 58, 138, 0.2)",
+                        backgroundColor: "#FFFFFF",
+                        textAlign: "center",
+                        boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+                      }}
+                    >
+                      <Icon style={{ width: "24px", height: "24px", color: "#1E3A8A", margin: "0 auto 8px", display: "block" }} />
+                      <div style={{ fontSize: "12px", fontWeight: "600", color: "rgba(30, 58, 138, 0.8)", marginBottom: "4px" }}>
+                        {label}
+                      </div>
+                      <div style={{ fontSize: "20px", fontWeight: "700", color: "#1E3A8A" }}>
+                        {isLoadingMyOverall ? "…" : typeof value === "number" ? `${value}%` : "—"}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <Button
+                  onClick={() => {
+                    if (!authData?.user) return
+                    const u = authData.user
+                    const studentDataToPass = {
+                      id: u.id,
+                      user_id: u.id,
+                      userId: u.id,
+                      email: u.email,
+                      first_name: u.first_name,
+                      last_name: u.last_name,
+                      name: `${u.first_name || ""} ${u.last_name || ""}`.trim() || u.email || "User",
+                      studentName: `${u.first_name || ""} ${u.last_name || ""}`.trim() || u.email || "User",
+                      listening: myAnalysisScores?.listening,
+                      speaking: myAnalysisScores?.speaking,
+                      reading: myAnalysisScores?.reading,
+                      writing: myAnalysisScores?.writing,
+                      skill: "speaking" as const,
+                    }
+                    const returnState = { selectedOrganization: selectedOrganization || undefined, selectedClass: selectedClass || undefined }
+                    const fromSection = "my-analysis"
+                    try {
+                      sessionStorage.setItem("progressDashboardReturnState", JSON.stringify({ ...returnState, fromSection }))
+                    } catch (_) {}
+                    const studentId = u.id ?? u.user_id
+                    navigate(studentId ? `/progress-dashboard/students/${studentId}` : "/progress-dashboard/students", {
+                      state: { studentData: studentDataToPass, returnState, fromSection },
+                    })
+                  }}
+                  style={{
+                    backgroundColor: "#1E3A8A",
+                    color: "#FFFFFF",
+                    border: "none",
+                  }}
+                >
+                  <Eye style={{ width: "18px", height: "18px", marginRight: "8px", verticalAlign: "middle" }} />
+                  View my details
+                </Button>
+              </div>
+            )}
             
             {activeFilter === "Select Organization" && (
               <div style={{ marginTop: "16px" }}>
@@ -3461,89 +3754,127 @@ export function EduDashboard() {
                        fontWeight: "500",
                      }}
                    >
-                     {selectedOrganization ? getOrganizationName(selectedOrganization) : "Loading organization..."}
+                     {selectedOrganization ? getDisplayOrganizationName(selectedOrganization) : "Loading organization..."}
                    </div>
                  ) : (
-                   // For administrators, show dropdown to select organization
-                 <select
-                   value={selectedOrganization}
-                     onChange={async (e) => {
-                     const selectedValue = e.target.value
-                     console.log("Organization selected:", selectedValue, "Available orgs:", organizationsList.map(o => ({
-                       id: o.id,
-                       organisation_id: o.organisation_id,
-                       name: o.name || o.organisation_name
-                     })))
-                     setSelectedOrganization(selectedValue)
-                     setSelectedClass(null)
-                     setSelectedStudent(null)
-                     // Clear classes data when organization changes
-                     setClassesData({})
-                     setUsersList([])
-                       // Automatically fetch users list when organization is selected
-                       if (selectedValue) {
-                         try {
-                           await fetchUsersList(selectedValue)
-                         } catch (error) {
-                           console.error("Failed to fetch users list:", error)
-                         }
-                       }
-                   }}
-                   disabled={isLoadingOrganizations}
-                   style={{
-                     width: "100%",
-                     maxWidth: "400px",
-                     padding: "10px 12px",
-                     borderRadius: "8px",
-                     border: "1px solid rgba(30, 58, 138, 0.2)",
-                     fontSize: "14px",
-                     color: "#1E3A8A",
-                     backgroundColor: "#FFFFFF",
-                     opacity: isLoadingOrganizations ? 0.6 : 1,
-                     cursor: isLoadingOrganizations ? "not-allowed" : "pointer",
-                   }}
-                 >
-                   <option value="">
-                     {isLoadingOrganizations ? "Loading organizations..." : "Select Organization"}
-                   </option>
-                   {organizationsList.map((org) => {
-                     // Always use ID for value, never fallback to name
-                     const orgId = org.id || org.organisation_id || org.organization_id
-                     if (!orgId) {
-                       console.warn("Organization missing ID:", org)
-                       return null // Skip organizations without ID
-                     }
-                     
-                     // Check organisation field first (primary field name from API)
-                     // Try multiple possible field names to get the organization name
-                     const orgName = org.organisation || 
-                                     org.name || 
-                                     org.organisation_name || 
-                                     org.organization_name || 
-                                     org.org_name ||
-                                     org.title ||
-                                     null
-                     
-                     // Ensure we have a valid name (not just ID or empty string)
-                     // If no name found, create a fallback name
-                     let displayName = orgName
-                     if (!displayName || displayName.trim() === "" || displayName === String(orgId)) {
-                       displayName = `Organization ${orgId}`
-                     }
-                     
-                     // Log if we're using fallback name for debugging
-                     if (displayName === `Organization ${orgId}`) {
-                       console.warn(`Organization ${orgId} has no name field. Available fields:`, Object.keys(org))
-                     }
-                     
-                     const orgIdString = String(orgId)
-                     return (
-                       <option key={orgIdString} value={orgIdString}>
-                         {displayName}
-                       </option>
-                     )
-                   }).filter(Boolean)}
-                 </select>
+                   // For administrators, show search-and-select organization dropdown
+                   <div
+                     ref={orgDropdownRef}
+                     style={{ position: "relative", width: "100%", maxWidth: "400px" }}
+                   >
+                     <input
+                       type="text"
+                       value={orgDropdownOpen ? orgSearchTerm : (selectedOrganization ? getDisplayOrganizationName(selectedOrganization) : "")}
+                       onChange={(e) => {
+                         setOrgSearchTerm(e.target.value)
+                         setOrgDropdownOpen(true)
+                       }}
+                       onFocus={() => {
+                         setOrgDropdownOpen(true)
+                         setOrgSearchTerm("")
+                       }}
+                       placeholder={isLoadingOrganizations ? "Loading organizations..." : "Search or select organization"}
+                       disabled={isLoadingOrganizations}
+                       style={{
+                         width: "100%",
+                         padding: "10px 12px 10px 36px",
+                         borderRadius: "8px",
+                         border: "1px solid rgba(30, 58, 138, 0.2)",
+                         fontSize: "14px",
+                         color: "#1E3A8A",
+                         backgroundColor: "#FFFFFF",
+                         opacity: isLoadingOrganizations ? 0.6 : 1,
+                         cursor: isLoadingOrganizations ? "not-allowed" : "text",
+                         boxSizing: "border-box",
+                       }}
+                     />
+                     <span
+                       style={{
+                         position: "absolute",
+                         left: "12px",
+                         top: "50%",
+                         transform: "translateY(-50%)",
+                         pointerEvents: "none",
+                         color: "rgba(30, 58, 138, 0.5)",
+                       }}
+                     >
+                       <ChevronDown style={{ width: "16px", height: "16px" }} />
+                     </span>
+                     {orgDropdownOpen && !isLoadingOrganizations && (() => {
+                       const options = organizationsList
+                         .map((org) => {
+                           const orgId = org.id || org.organisation_id || org.organization_id
+                           if (!orgId) return null
+                           const orgName = org.organisation || org.name || org.organisation_name || org.organization_name || org.org_name || org.title || null
+                           const displayName = !orgName || !orgName.trim() || orgName === String(orgId) ? `Organization ${orgId}` : orgName
+                           return { orgId: String(orgId), displayName }
+                         })
+                         .filter((x): x is { orgId: string; displayName: string } => x !== null)
+                         .filter(({ displayName }) => !orgSearchTerm || displayName.toLowerCase().includes(orgSearchTerm.toLowerCase()))
+                       return (
+                         <ul
+                           style={{
+                             position: "absolute",
+                             top: "100%",
+                             left: 0,
+                             right: 0,
+                             margin: 0,
+                             marginTop: "4px",
+                             padding: 0,
+                             listStyle: "none",
+                             maxHeight: "240px",
+                             overflowY: "auto",
+                             backgroundColor: "#FFFFFF",
+                             border: "1px solid rgba(30, 58, 138, 0.2)",
+                             borderRadius: "8px",
+                             boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                             zIndex: 50,
+                           }}
+                         >
+                           {options.length === 0 ? (
+                             <li style={{ padding: "12px", fontSize: "14px", color: "rgba(30, 58, 138, 0.6)" }}>
+                               No organizations match your search
+                             </li>
+                           ) : (
+                             options.map(({ orgId, displayName }) => (
+                               <li
+                                 key={orgId}
+                                 onClick={async () => {
+                                   setSelectedOrganization(orgId)
+                                   setSelectedClass(null)
+                                   setSelectedStudent(null)
+                                   setClassesData({})
+                                   setUsersList([])
+                                   setOrgDropdownOpen(false)
+                                   setOrgSearchTerm("")
+                                   try {
+                                     await fetchUsersList(orgId)
+                                   } catch (error) {
+                                     console.error("Failed to fetch users list:", error)
+                                   }
+                                 }}
+                                 style={{
+                                   padding: "10px 12px",
+                                   fontSize: "14px",
+                                   color: "#1E3A8A",
+                                   cursor: "pointer",
+                                   borderBottom: "1px solid rgba(30, 58, 138, 0.08)",
+                                 }}
+                                 onMouseEnter={(e) => {
+                                   e.currentTarget.style.backgroundColor = "rgba(30, 58, 138, 0.08)"
+                                 }}
+                                 onMouseLeave={(e) => {
+                                   e.currentTarget.style.backgroundColor = "transparent"
+                                 }}
+                               >
+                                 {displayName}
+                               </li>
+                             ))
+                           )}
+                         </ul>
+                       )
+                     })()}
+                   </div>
                  )}
                  {organizationsError && (
                    <p style={{ fontSize: "12px", color: "#EF4444", marginTop: "8px" }}>
@@ -3553,8 +3884,8 @@ export function EduDashboard() {
               </div>
             )}
 
-              {/* Classes - shown directly when organization is selected */}
-              {selectedOrganization && (
+              {/* Classes - only in Select Organization view */}
+              {activeFilter === "Select Organization" && selectedOrganization && (
                 <div
                   style={{
                     paddingTop: "16px",
@@ -3602,11 +3933,8 @@ export function EduDashboard() {
                          
                          // Debug logging
                          if (!classData) {
-                           console.warn(`Class "${className}" has no classData in UI render. Available classes:`, Object.keys(classesData))
                          } else if (!Array.isArray(classData.students)) {
-                           console.warn(`Class "${className}" has invalid students array. Class data:`, classData)
                          } else {
-                           console.log(`Class "${className}" rendering with ${studentCount} students. Students:`, classData.students.map(s => s.first_name || s.email || s.id))
                          }
                          
                          return (
@@ -3670,9 +3998,10 @@ export function EduDashboard() {
                 </div>
               )}
           </div>
+          )}
 
-          {/* Skill Buttons Section - Temporarily disabled */}
-          {SHOW_SKILLS_TAB && (
+          {/* Skill Buttons Section - only in Select Organization view */}
+          {SHOW_SKILLS_TAB && activeFilter === "Select Organization" && (
             <div
               style={{
                 backgroundColor: "#FFFFFF",
@@ -3743,8 +4072,8 @@ export function EduDashboard() {
               </div>
           )}
 
-          {/* Detailed Analysis Section - Show after skill is selected or class is selected */}
-          {(activeSkill || selectedClass) && (
+          {/* Detailed Analysis Section - only in Select Organization view when skill or class is selected */}
+          {activeFilter === "Select Organization" && (activeSkill || selectedClass) && (
           <div
             id="detailed-analysis"
             style={{
@@ -3777,152 +4106,6 @@ export function EduDashboard() {
                 {selectedStudent && ` - ${selectedStudent}`}
               </h3>
             </div>
-
-            {/* Overall Scores Tiles */}
-            {(() => {
-              // Calculate overall scores for each skill
-              const overallScores: { skill: string; label: string; score: number; color: string }[] = []
-              
-              if (selectedClass) {
-                // When a class is selected, calculate average scores from all users in the class
-                const classData = classesData[selectedClass]
-                if (classData && classData.allUsers && classData.allUsers.length > 0) {
-                  const skillTotals: { [key: string]: { sum: number; count: number } } = {
-                    reading: { sum: 0, count: 0 },
-                    writing: { sum: 0, count: 0 },
-                    listening: { sum: 0, count: 0 },
-                    speaking: { sum: 0, count: 0 }
-                  }
-                  
-                  classData.allUsers.forEach((user: any) => {
-                    const scoresObj = user.scores || {}
-                    const skills = [
-                      { key: "reading", score: user.reading ?? scoresObj.reading ?? 0 },
-                      { key: "writing", score: user.writing ?? scoresObj.writing ?? 0 },
-                      { key: "listening", score: user.listening ?? scoresObj.listening ?? 0 },
-                      { key: "speaking", score: user.speaking ?? scoresObj.speaking ?? 0 }
-                    ]
-                    
-                    skills.forEach(({ key, score }) => {
-                      if (score > 0) {
-                        skillTotals[key].sum += score
-                        skillTotals[key].count += 1
-                      }
-                    })
-                  })
-                  
-                  const skillColors: { [key: string]: string } = {
-                    reading: "#246BCF",
-                    writing: "#00B9FC",
-                    listening: "#1E3A8A",
-                    speaking: "#3B82F6"
-                  }
-                  
-                  const skillLabels: { [key: string]: string } = {
-                    reading: "Reading",
-                    writing: "Writing",
-                    listening: "Listening",
-                    speaking: "Speaking"
-                  }
-                  
-                  Object.keys(skillTotals).forEach((skill) => {
-                    const total = skillTotals[skill]
-                    if (total.count > 0) {
-                      const avgScore = total.sum / total.count
-                      overallScores.push({
-                        skill,
-                        label: skillLabels[skill],
-                        score: avgScore,
-                        color: skillColors[skill]
-                      })
-                    }
-                  })
-                }
-              } else if (Object.keys(allSkillResults).length > 0) {
-                // When skills are loaded, calculate average from allSkillResults
-                const skillColors: { [key: string]: string } = {
-                  reading: "#246BCF",
-                  writing: "#00B9FC",
-                  listening: "#1E3A8A",
-                  speaking: "#3B82F6"
-                }
-                
-                const skillLabels: { [key: string]: string } = {
-                  reading: "Reading",
-                  writing: "Writing",
-                  listening: "Listening",
-                  speaking: "Speaking"
-                }
-                
-                Object.keys(allSkillResults).forEach((skill) => {
-                  const results = allSkillResults[skill]
-                  if (results && results.length > 0) {
-                    const scores = results
-                      .map((r: any) => r.overall_score || r.overallScore || r.score || 0)
-                      .filter((s: number) => s > 0)
-                    
-                    if (scores.length > 0) {
-                      const avgScore = scores.reduce((sum: number, score: number) => sum + score, 0) / scores.length
-                      overallScores.push({
-                        skill,
-                        label: skillLabels[skill],
-                        score: avgScore,
-                        color: skillColors[skill]
-                      })
-                    }
-                  }
-                })
-              }
-              
-              if (overallScores.length === 0) {
-                return null
-              }
-              
-              return (
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-                    gap: "16px",
-                    marginBottom: "24px",
-                  }}
-                >
-                  {overallScores.map(({ skill, label, score, color }) => (
-                    <div
-                      key={skill}
-                      style={{
-                        backgroundColor: "#EFF6FF",
-                        borderRadius: "12px",
-                        padding: "20px",
-                        border: `2px solid ${color}`,
-                        boxShadow: `0 2px 8px ${color}33`,
-                      }}
-                    >
-                      <p
-                        style={{
-                          fontSize: "14px",
-                          color: "rgba(30, 58, 138, 0.7)",
-                          margin: "0 0 8px 0",
-                          fontWeight: "500",
-                        }}
-                      >
-                        {label} Overall Score
-                      </p>
-                      <p
-                        style={{
-                          fontSize: "24px",
-                          fontWeight: "bold",
-                          color: color,
-                          margin: 0,
-                        }}
-                      >
-                        {typeof score === "number" ? `${score.toFixed(1)}%` : score}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              )
-            })()}
 
             {/* Combined Table with Stats and Analysis */}
             <div style={{ overflowX: "auto" }}>
@@ -4147,7 +4330,6 @@ export function EduDashboard() {
                     <tr>
                       <td colSpan={(() => {
                         if (selectedClass && !selectedStudent && !activeSkill) {
-                          const tableData = getTableData()
                           const hasSkillResults = tableData.length > 0 && tableData[0]?.type === "skill-result"
                           return hasSkillResults ? 6 : (isTeacherOrPrincipal() ? 8 : 7)
                         }
@@ -4160,7 +4342,6 @@ export function EduDashboard() {
                     <tr>
                       <td colSpan={(() => {
                         if (selectedClass && !selectedStudent && !activeSkill) {
-                          const tableData = getTableData()
                           const hasSkillResults = tableData.length > 0 && tableData[0]?.type === "skill-result"
                           return hasSkillResults ? 6 : (isTeacherOrPrincipal() ? 8 : 7)
                         }
@@ -4169,7 +4350,7 @@ export function EduDashboard() {
                         Error: {resultsError || usersError}
                       </td>
                     </tr>
-                  ) : getTableData().length === 0 ? (
+                  ) : tableData.length === 0 ? (
                     <tr>
                       <td colSpan={(() => {
                         if (selectedClass && !selectedStudent && !activeSkill) {
@@ -4180,7 +4361,7 @@ export function EduDashboard() {
                         {selectedClass ? (isLoadingUsers || isLoadingAllSkills ? "Loading data..." : "No data found for this class") : activeSkill ? `No ${activeSkill} results available` : "Select a skill or class to view data"}
                       </td>
                     </tr>
-                  ) : getTableData().map((row: any, index) => {
+                  ) : tableData.map((row: any, index) => {
                     // If showing skill results for a selected class
                     if (selectedClass && !selectedStudent && !activeSkill && row.type === "skill-result") {
                       const skillLabel = skillButtons.find(s => s.id === row.skill)?.label || row.skill?.toUpperCase() || "Unknown"
@@ -4279,114 +4460,74 @@ export function EduDashboard() {
                             {row.writing !== undefined && row.writing !== null ? (typeof row.writing === "number" ? row.writing.toFixed(2) : row.writing) : "0"}
                           </td>
                           <td style={{ padding: "12px", textAlign: "center" }}>
-                            {row.isStudent && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  // Get the actual user object from classesData to ensure we have complete user data
-                                  const classData = classesData[selectedClass || ""]
-                                  const actualUser = classData?.allUsers?.find((u: any) => {
-                                    const userId = u.id || u.user_id
-                                    const rowUserId = row.id
-                                    // Match by ID to get the correct user
-                                    return userId === rowUserId || String(userId) === String(rowUserId)
-                                  })
-                                  
-                                  // Use the actual user data if found, otherwise use row data
-                                  const userData = actualUser || {}
-                                  
-                                  // Prepare the student data object
-                                  const studentDataToPass = {
-                                    // CRITICAL: Set row data FIRST to ensure correct student info
-                                    // Pass ID from row (this is the correct student's ID)
-                                    id: row.id,
-                                    user_id: row.id,
-                                    userId: row.id,
-                                    // Use row data for name and email (these are already correct)
-                                    name: row.name,
-                                    studentName: row.name, // Use row.name which is already correct
-                                    user_name: row.name,
-                                    user: row.name,
-                                    email: row.email || userEmail,
-                                    class: selectedClass ? `Class ${selectedClass}` : "",
-                                    date: new Date().toLocaleString(),
-                                    // Include scores from row (these are already correct)
-                                    listening: row.listening,
-                                    speaking: row.speaking,
-                                    reading: row.reading,
-                                    writing: row.writing,
-                                    overall_score: row.overall_score,
-                                    // Then add additional fields from userData (but row data takes precedence)
-                                    first_name: userData.first_name || row.name.split(" ")[0] || row.name,
-                                    last_name: userData.last_name || row.name.split(" ").slice(1).join(" ") || "",
-                                    // Spread other user data fields (but name/ID fields above will not be overridden)
-                                    ...Object.fromEntries(
-                                      Object.entries(userData).filter(([key]) => 
-                                        !['id', 'user_id', 'userId', 'name', 'studentName', 'user_name', 'user', 'email'].includes(key)
-                                      )
-                                    ),
-                                  }
-                                  
-                                  // Comprehensive logging
-                                  console.log("=".repeat(80))
-                                  console.log("📋 SELECTED USER (from table row):", {
-                                    name: row.name,
-                                    id: row.id,
-                                    email: row.email || userEmail,
-                                    class: selectedClass,
-                                    scores: {
-                                      listening: row.listening,
-                                      speaking: row.speaking,
-                                      reading: row.reading,
-                                      writing: row.writing,
-                                      overall: row.overall_score
-                                    }
-                                  })
-                                  console.log("🔍 ACTUAL USER (from classesData lookup):", {
-                                    found: !!actualUser,
-                                    name: userData.name || userData.first_name || "Not found",
-                                    id: userData.id || userData.user_id || "Not found",
-                                    email: userData.email || "Not found",
-                                    fullData: actualUser || "User not found in classesData"
-                                  })
-                                  console.log("📤 ACTION USER (data being passed to StudentDetailsPage):", {
-                                    id: studentDataToPass.id,
-                                    user_id: studentDataToPass.user_id,
-                                    userId: studentDataToPass.userId,
-                                    name: studentDataToPass.name,
-                                    studentName: studentDataToPass.studentName,
-                                    user_name: studentDataToPass.user_name,
-                                    email: studentDataToPass.email,
-                                    class: studentDataToPass.class,
-                                    first_name: studentDataToPass.first_name,
-                                    last_name: studentDataToPass.last_name,
-                                    scores: {
-                                      listening: studentDataToPass.listening,
-                                      speaking: studentDataToPass.speaking,
-                                      reading: studentDataToPass.reading,
-                                      writing: studentDataToPass.writing,
-                                      overall: studentDataToPass.overall_score
-                                    },
-                                    fullData: studentDataToPass
-                                  })
-                                  console.log("=".repeat(80))
-                                  
-                                  navigate("/progress-dashboard/students", {
-                                    state: {
-                                      studentData: studentDataToPass,
-                                    },
-                                  })
-                                }}
-                                style={{
-                                  color: "#3B82F6",
-                                  padding: "4px 8px",
-                                }}
-                              >
-                                <Eye style={{ width: "16px", height: "16px" }} />
-                              </Button>
-                            )}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                // Get the actual user object from classesData to ensure we have complete user data
+                                const classData = classesData[selectedClass || ""]
+                                const actualUser = classData?.allUsers?.find((u: any) => {
+                                  const userId = u.id || u.user_id
+                                  const rowUserId = row.id
+                                  // Match by ID to get the correct user
+                                  return userId === rowUserId || String(userId) === String(rowUserId)
+                                })
+                                
+                                // Use the actual user data if found, otherwise use row data
+                                const userData = actualUser || {}
+                                
+                                // Prepare the user/student data object (works for both students and teachers)
+                                const studentDataToPass = {
+                                  // CRITICAL: Set row data FIRST to ensure correct user info
+                                  id: row.id,
+                                  user_id: row.id,
+                                  userId: row.id,
+                                  name: row.name,
+                                  studentName: row.name,
+                                  user_name: row.name,
+                                  user: row.name,
+                                  email: row.email || userEmail,
+                                  class: selectedClass ? `Class ${selectedClass}` : "",
+                                  date: new Date().toLocaleString(),
+                                  listening: row.listening,
+                                  speaking: row.speaking,
+                                  reading: row.reading,
+                                  writing: row.writing,
+                                  overall_score: row.overall_score,
+                                  first_name: userData.first_name || row.name.split(" ")[0] || row.name,
+                                  last_name: userData.last_name || row.name.split(" ").slice(1).join(" ") || "",
+                                  ...Object.fromEntries(
+                                    Object.entries(userData).filter(([key]) => 
+                                      !['id', 'user_id', 'userId', 'name', 'studentName', 'user_name', 'user', 'email'].includes(key)
+                                    )
+                                  ),
+                                }
+                                
+                                const returnState = {
+                                  selectedOrganization: selectedOrganization || undefined,
+                                  selectedClass: selectedClass || undefined,
+                                }
+                                const fromSection = "organization"
+                                try {
+                                  sessionStorage.setItem("progressDashboardReturnState", JSON.stringify({ ...returnState, fromSection }))
+                                } catch (_) {}
+                                const studentId = studentDataToPass.id ?? studentDataToPass.user_id
+                                navigate(studentId ? `/progress-dashboard/students/${studentId}` : "/progress-dashboard/students", {
+                                  state: {
+                                    studentData: studentDataToPass,
+                                    returnState,
+                                    fromSection,
+                                  },
+                                })
+                              }}
+                              style={{
+                                color: "#3B82F6",
+                                padding: "4px 8px",
+                              }}
+                            >
+                              <Eye style={{ width: "16px", height: "16px" }} />
+                            </Button>
                           </td>
                         </tr>
                       )
@@ -4432,21 +4573,35 @@ export function EduDashboard() {
                               size="sm"
                               onClick={(e) => {
                                 e.stopPropagation() // Prevent row click
-                                navigate("/progress-dashboard/students", {
+                                const studentId = row.id ?? row.user_id ?? row.userId
+                                const studentDataLegacy = {
+                                  id: studentId,
+                                  user_id: studentId,
+                                  email: studentEmail,
+                                  class: selectedClass ? `Class ${selectedClass}` : "",
+                                  transcribedText: "One day Andrew and Ferriter went to the market and you bought a bag. Later they went to a shop and bought a packet of ground and a bottle of juice.",
+                                  pitch: "N/A",
+                                  volume: 13.1199998855591,
+                                  tone: "Neutral",
+                                  hesitationWords: 0,
+                                  pauses: 2,
+                                  fillerWords: 0,
+                                  studentName: row.name,
+                                  date: new Date().toLocaleString(),
+                                }
+                                const rs = {
+                                  selectedOrganization: selectedOrganization || undefined,
+                                  selectedClass: selectedClass || undefined,
+                                }
+                                const fromSection = "organization" as const
+                                try {
+                                  sessionStorage.setItem("progressDashboardReturnState", JSON.stringify({ ...rs, fromSection }))
+                                } catch (_) {}
+                                navigate(studentId ? `/progress-dashboard/students/${studentId}` : "/progress-dashboard/students", {
                                   state: {
-                                    studentData: {
-                                      email: studentEmail,
-                                      class: selectedClass ? `Class ${selectedClass}` : "",
-                                      transcribedText: "One day Andrew and Ferriter went to the market and you bought a bag. Later they went to a shop and bought a packet of ground and a bottle of juice.",
-                                      pitch: "N/A",
-                                      volume: 13.1199998855591,
-                                      tone: "Neutral",
-                                      hesitationWords: 0,
-                                      pauses: 2,
-                                      fillerWords: 0,
-                                      studentName: row.name,
-                                      date: new Date().toLocaleString(),
-                                    },
+                                    studentData: studentDataLegacy,
+                                    returnState: rs,
+                                    fromSection,
                                   },
                                 })
                               }}
@@ -4709,5 +4864,6 @@ export function EduDashboard() {
         </div>
       </div>
     </div>
+    </>
   )
 }

@@ -67,16 +67,11 @@ export const API_URLS = {
   supportProxy: getApiUrl('supportProxy'),
 };
 
-// Helper function to build speech proxy URL with endpoint query param
+// Helper function to build speech proxy URL with endpoint query param.
+// Caller must pass the correct endpoint (scripted/uk or unscripted/uk) so the proxy forwards to the right Confidence API.
 export function getSpeechProxyUrl(endpoint?: string): string {
   const baseUrl = API_URLS.speechProxy;
-  if (endpoint && API_PROVIDER === 'digitalocean') {
-    // For DigitalOcean, add endpoint as query parameter
-    const separator = baseUrl.includes('?') ? '&' : '?';
-    return `${baseUrl}${separator}endpoint=${encodeURIComponent(endpoint)}`;
-  }
-  if (endpoint && API_PROVIDER === 'netlify') {
-    // For Netlify, add endpoint as query parameter
+  if (endpoint) {
     const separator = baseUrl.includes('?') ? '&' : '?';
     return `${baseUrl}${separator}endpoint=${encodeURIComponent(endpoint)}`;
   }

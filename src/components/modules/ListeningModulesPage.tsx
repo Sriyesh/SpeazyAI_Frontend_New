@@ -430,12 +430,30 @@ Be fair but strict. Consider partial credit for answers that are close but not e
               }
             })
           }
+
+          // Derive mark/total/percentage from answerResults so score always matches red/green borders
+          const total = questions.length
+          const mark = Object.keys(answerResults).reduce((sum, key) => sum + (answerResults[Number(key)] ? 1 : 0), 0)
+          const percentage = total > 0 ? Math.round((mark / total) * 100) : 0
+          // IELTS band from percentage so it stays consistent with the count
+          let ieltsScore = 0
+          if (percentage >= 95) ieltsScore = 9.0
+          else if (percentage >= 85) ieltsScore = 8.5
+          else if (percentage >= 75) ieltsScore = 8.0
+          else if (percentage >= 65) ieltsScore = 7.5
+          else if (percentage >= 55) ieltsScore = 7.0
+          else if (percentage >= 45) ieltsScore = 6.5
+          else if (percentage >= 35) ieltsScore = 6.0
+          else if (percentage >= 25) ieltsScore = 5.5
+          else if (percentage >= 15) ieltsScore = 5.0
+          else if (percentage >= 5) ieltsScore = 4.5
+          else ieltsScore = 4.0
           
           result = {
-            mark: parsed.mark || 0,
-            total: parsed.total || questions.length,
-            percentage: parsed.percentage || 0,
-            ieltsScore: parsed.ieltsScore || 0,
+            mark,
+            total,
+            percentage,
+            ieltsScore,
             feedback: parsed.feedback || "",
             answerResults: answerResults
           }
@@ -452,12 +470,28 @@ Be fair but strict. Consider partial credit for answers that are close but not e
               answerResults[idx] = userAnswer === correctAnswer
             }
           })
+
+          const total = questions.length
+          const mark = Object.keys(answerResults).reduce((sum, key) => sum + (answerResults[Number(key)] ? 1 : 0), 0)
+          const percentage = total > 0 ? Math.round((mark / total) * 100) : 0
+          let ieltsScore = 0
+          if (percentage >= 95) ieltsScore = 9.0
+          else if (percentage >= 85) ieltsScore = 8.5
+          else if (percentage >= 75) ieltsScore = 8.0
+          else if (percentage >= 65) ieltsScore = 7.5
+          else if (percentage >= 55) ieltsScore = 7.0
+          else if (percentage >= 45) ieltsScore = 6.5
+          else if (percentage >= 35) ieltsScore = 6.0
+          else if (percentage >= 25) ieltsScore = 5.5
+          else if (percentage >= 15) ieltsScore = 5.0
+          else if (percentage >= 5) ieltsScore = 4.5
+          else ieltsScore = 4.0
           
           result = {
-            mark: 0,
-            total: questions.length,
-            percentage: 0,
-            ieltsScore: 0,
+            mark,
+            total,
+            percentage,
+            ieltsScore,
             feedback: data.response || "Evaluation completed",
             answerResults: answerResults
           }
