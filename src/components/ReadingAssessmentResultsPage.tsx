@@ -133,67 +133,41 @@ export function ReadingAssessmentResultsPage() {
           return
         }
 
-        // Get user data from auth context
-        const user = authData?.user || {}
-        
-        // Map API response to the exact format specified by the user
-        // Handle english_proficiency_scores structure - it might be nested or flat
-        const englishProficiencyScores = apiResponse.overall?.english_proficiency_scores || {}
-        const mockIelts = englishProficiencyScores.mock_ielts || apiResponse.overall?.mock_ielts
-        const mockCefr = englishProficiencyScores.mock_cefr || apiResponse.overall?.mock_cefr
-        const mockPte = englishProficiencyScores.mock_pte || apiResponse.overall?.mock_pte
-
-        // Extract scores from API response
-        const overallScore = apiResponse.overall?.overall_score ?? 0
-        const pronunciationScore = apiResponse.pronunciation?.overall_score ?? 0
-        const fluencyScore = apiResponse.fluency?.overall_score ?? 0
-        const grammarScore = apiResponse.grammar?.overall_score ?? 0
-        
-        // Extract IELTS, CEFR, and PTE scores
-        const ieltsScore = mockIelts?.prediction ?? null
-        const cefrLevel = mockCefr?.prediction ?? null
-        const pteScore = mockPte?.prediction ?? null
-        
-        // Extract reading metrics
-        const totalTime = apiResponse.reading?.total_time ?? apiResponse.reading?.reading_time ?? 0
-        const wordsRead = apiResponse.reading?.words_read ?? 0
-        const wordsPerMinute = apiResponse.reading?.speed_wpm_correct ?? apiResponse.reading?.speed_wpm ?? 0
-        const completionPercent = apiResponse.reading?.completion 
-          ? (apiResponse.reading.completion * 100) 
+        // Reading completion and accuracy as 0-1 for result.reading
+        const rawCompletion = apiResponse.reading?.completion ?? apiResponse.reading?.completion_percent
+        const rawAccuracy = apiResponse.reading?.accuracy ?? apiResponse.reading?.accuracy_percent
+        const readingCompletion = rawCompletion != null
+          ? (Number(rawCompletion) <= 1 ? Number(rawCompletion) : Number(rawCompletion) / 100)
           : 0
-        const accuracyPercent = apiResponse.reading?.accuracy 
-          ? (apiResponse.reading.accuracy * 100) 
+        const readingAccuracy = rawAccuracy != null
+          ? (Number(rawAccuracy) <= 1 ? Number(rawAccuracy) : Number(rawAccuracy) / 100)
           : 0
 
-        // Format timestamp for created_at (MySQL datetime format)
-        const now = new Date()
-        const created_at = now.toISOString().slice(0, 19).replace('T', ' ')
-
-        // Build payload in the exact format specified
+        // Payload exactly as specified: module_type, module_key, module_title, result
         const payload = {
-          organisation_id: user.organisation_id ?? null,
-          user_id: user.id ?? null,
           module_type: finalModuleType,
           module_key: finalModuleKey,
           module_title: finalModuleTitle,
-          overall_score: overallScore.toFixed(2),
-          pronunciation_score: pronunciationScore.toFixed(2),
-          fluency_score: fluencyScore.toFixed(2),
-          grammar_score: grammarScore.toFixed(2),
-          ielts_score: ieltsScore ? ieltsScore.toString() : null,
-          cefr_level: cefrLevel || null,
-          pte_score: pteScore ? (typeof pteScore === 'number' ? pteScore : parseFloat(pteScore)) : null,
-          total_time: totalTime ? totalTime.toString() : "0.00",
-          words_read: wordsRead || 0,
-          words_per_minute: wordsPerMinute ? wordsPerMinute.toFixed(2) : "0.00",
-          completion_percent: completionPercent.toFixed(2),
-          accuracy_percent: accuracyPercent.toFixed(2),
-          created_at: created_at,
-          first_name: user.first_name || null,
-          last_name: user.last_name || null,
-          email: user.email || null,
-          user_role: user.role || null,
-          user_class: Array.isArray(user.class) ? user.class.join(',') : (user.class || null)
+          result: {
+            overall: {
+              overall_score: Number(apiResponse.overall?.overall_score) || 0,
+              english_proficiency_scores: {
+                mock_ielts: { prediction: apiResponse.overall?.english_proficiency_scores?.mock_ielts?.prediction ?? apiResponse.overall?.mock_ielts?.prediction ?? 0 },
+                mock_cefr: { prediction: apiResponse.overall?.english_proficiency_scores?.mock_cefr?.prediction ?? apiResponse.overall?.mock_cefr?.prediction ?? null },
+                mock_pte: { prediction: apiResponse.overall?.english_proficiency_scores?.mock_pte?.prediction ?? apiResponse.overall?.mock_pte?.prediction ?? 0 }
+              }
+            },
+            pronunciation: { overall_score: Number(apiResponse.pronunciation?.overall_score) || 0 },
+            fluency: { overall_score: Number(apiResponse.fluency?.overall_score) || 0 },
+            grammar: { overall_score: Number(apiResponse.grammar?.overall_score) || 0 },
+            reading: {
+              total_time: Number(apiResponse.reading?.total_time ?? apiResponse.reading?.reading_time ?? 0) || 0,
+              words_read: Number(apiResponse.reading?.words_read) || 0,
+              speed_wpm_correct: Number(apiResponse.reading?.speed_wpm_correct ?? apiResponse.reading?.speed_wpm ?? 0) || 0,
+              completion: readingCompletion,
+              accuracy: readingAccuracy
+            }
+          }
         }
 
         console.log("Saving result to database with payload:", JSON.stringify(payload, null, 2))

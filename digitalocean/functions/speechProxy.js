@@ -67,9 +67,10 @@ export async function main(event) {
     }
     body = stripped;
 
-    // ---- 2. BUILD API BODY (endpoint + expected_text → script) ----
-    const { endpoint: _e, expected_text: expectedText, ...rest } = body;
+    // ---- 2. BUILD API BODY (endpoint + expected_text for scripted) ----
+    const { endpoint: _e, expected_text: expectedText, script, ...rest } = body;
     let apiBody = { ...rest };
+    delete apiBody.script;
 
     let query = event?.__ow_query ?? event?.http?.query ?? event?.query ?? {};
     if (typeof query === "string") {
@@ -83,34 +84,38 @@ export async function main(event) {
       query = q;
     }
 
-    const qsEndpoint = query.endpoint;
+    // Endpoint can be in query (URL), in body, or at top-level event (DO may merge params)
     const targetEndpoint =
-      qsEndpoint || "https://apis.languageconfidence.ai/speech-assessment/unscripted/uk";
+      query.endpoint ||
+      body.endpoint ||
+      event.endpoint ||
+      "https://apis.languageconfidence.ai/speech-assessment/unscripted/uk";
     const isScripted = typeof targetEndpoint === "string" && targetEndpoint.includes("speech-assessment/scripted");
 
-    // Language Confidence scripted API: send only whitelisted fields to avoid upstream 400.
-    // Try "reference_text" first (docs: "expected/reference text"). Use LC_SCRIPT_FIELD=script to override.
-    const refField = process.env.LC_SCRIPT_FIELD || "reference_text";
+    // Scripted: use the field name the API accepts (LC scripted/uk = "expected_text"; set LC_SCRIPT_FIELD to override)
+    const scriptedTextField = process.env.LC_SCRIPT_FIELD || "expected_text";
     if (isScripted && expectedText != null && String(expectedText).trim() !== "") {
-      apiBody[refField] = typeof expectedText === "string" ? expectedText : String(expectedText);
+      let text = typeof expectedText === "string" ? expectedText : String(expectedText);
+      if (text.length >= 2 && text.startsWith('"') && text.endsWith('"')) {
+        try {
+          const unquoted = JSON.parse(text);
+          if (typeof unquoted === "string") text = unquoted;
+        } catch (_) {}
+      }
+      apiBody[scriptedTextField] = text;
     }
-    const refValue = apiBody[refField];
-    delete apiBody.expected_text;
-    delete apiBody.script;
 
-    // For scripted, send only fields the API accepts (avoid extra_forbidden / generic 400)
+    // For scripted, send only whitelisted fields to avoid upstream 422 "Extra inputs are not permitted"
     if (isScripted) {
       apiBody = {
         audio_base64: apiBody.audio_base64,
         audio_format: apiBody.audio_format,
-        ...(refValue && { [refField]: refValue }),
+        ...(apiBody[scriptedTextField] != null && { [scriptedTextField]: apiBody[scriptedTextField] }),
       };
     }
 
     // ---- 3. VALIDATE ----
     if (!apiBody.audio_base64 || !apiBody.audio_format) {
-      const keys = Object.keys(body);
-      console.error("speechProxy: missing audio_base64/audio_format. Keys seen:", keys.join(", ") || "(none)");
       return {
         statusCode: 400,
         body: JSON.stringify({
@@ -131,10 +136,6 @@ export async function main(event) {
 
     const beta = inHeaders["lc-beta-features"] || inHeaders["Lc-Beta-Features"] || "false";
 
-    const audioLen = apiBody.audio_base64 ? String(apiBody.audio_base64).length : 0;
-    const refLen = apiBody.reference_text ? String(apiBody.reference_text).length : (apiBody.script ? String(apiBody.script).length : 0);
-    console.log("speechProxy: calling upstream", targetEndpoint, "audio_base64 length", audioLen, "ref length", refLen, "format", apiBody.audio_format);
-
     // ---- 5. FORWARD TO LANGUAGE CONFIDENCE ----
     const resp = await fetch(targetEndpoint, {
       method: "POST",
@@ -147,9 +148,6 @@ export async function main(event) {
     });
 
     const text = await resp.text();
-    if (!resp.ok) {
-      console.error("speechProxy: upstream error", resp.status, text);
-    }
     let data;
     try {
       data = JSON.parse(text);
@@ -159,15 +157,15 @@ export async function main(event) {
 
     // If upstream 400, add a hint so we can distinguish from our validation 400
     if (resp.status === 400 && data?.error && !data?.hint) {
-      data.hint = "Language Confidence API rejected the request. Check audio format (e.g. webm), size, and that script/reference_text is valid. Try LC_SCRIPT_FIELD=script if using reference_text.";
+      data.hint = "Language Confidence API rejected the request. Check audio format (e.g. webm), size, and that expected_text is valid for scripted. Set LC_SCRIPT_FIELD to override the scripted text field name.";
     }
 
+    // Return body as JSON string so the client always gets { statusCode, body: "..." } and can JSON.parse(body) for full assessment (reading, metadata, etc.) regardless of platform serialization
     return {
       statusCode: resp.status,
       body: JSON.stringify(data),
     };
   } catch (err) {
-    console.error("speechProxy error:", err);
     return {
       statusCode: 500,
       body: JSON.stringify({

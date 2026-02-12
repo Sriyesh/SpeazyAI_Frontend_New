@@ -36,6 +36,8 @@ export function NewDashboard() {
   const [loadingUsageTime, setLoadingUsageTime] = useState(true)
   const [improvementDisplay, setImprovementDisplay] = useState<string>("0")
   const [loadingImprovement, setLoadingImprovement] = useState(true)
+  const [speakingTimeDisplay, setSpeakingTimeDisplay] = useState<string>("0m")
+  const [loadingSpeakingTime, setLoadingSpeakingTime] = useState(true)
 
   useEffect(() => {
     setTimeout(() => setIsLoaded(true), 100)
@@ -124,6 +126,46 @@ export function NewDashboard() {
     loadImprovementData()
   }, [token])
 
+  // Fetch total speaking time on mount and when token changes
+  useEffect(() => {
+    const loadSpeakingTime = async () => {
+      if (!token) {
+        setLoadingSpeakingTime(false)
+        return
+      }
+      try {
+        setLoadingSpeakingTime(true)
+        const res = await fetch("https://api.exeleratetechnology.com/api/speaking/total_speaking_time.php", {
+          method: "GET",
+          headers: {
+            "Authorization": `Bearer ${token}`,
+          },
+        })
+        const data = await res.json()
+        if (data?.success && data?.total_speaking_time) {
+          const t = data.total_speaking_time
+          const hhmmss = t.hhmmss || "00:00:00"
+          const [h = 0, m = 0, s = 0] = hhmmss.split(":").map(Number)
+          if (h > 0) {
+            setSpeakingTimeDisplay(`${h}h ${m}m`)
+          } else if (m > 0 || s > 0) {
+            setSpeakingTimeDisplay(s > 0 ? `${m}m ${s}s` : `${m}m`)
+          } else {
+            setSpeakingTimeDisplay("0m")
+          }
+        } else {
+          setSpeakingTimeDisplay("0m")
+        }
+      } catch (error) {
+        console.error("Error loading speaking time:", error)
+        setSpeakingTimeDisplay("0m")
+      } finally {
+        setLoadingSpeakingTime(false)
+      }
+    }
+    loadSpeakingTime()
+  }, [token])
+
   // Main learning modules (6 tiles in order: Speaking, Writing, Reading, Listening, IELTS, AI Tutor)
   const modules = [
     {
@@ -200,7 +242,7 @@ export function NewDashboard() {
   const stats = [
     {
       label: "Speaking Time",
-      value: "2h 45m",
+      value: loadingSpeakingTime ? "..." : speakingTimeDisplay,
       icon: Mic2,
       color: "#3B82F6",
     },

@@ -17,27 +17,35 @@ app.post("/speechProxy", async (req, res) => {
     const targetEndpoint = req.query.endpoint || "https://apis.languageconfidence.ai/speech-assessment/unscripted/uk";
     const isScripted = typeof targetEndpoint === "string" && targetEndpoint.includes("speech-assessment/scripted");
 
-    // Build API body: strip endpoint and expected_text; map expected_text → reference_text for scripted
-    const { endpoint: _e, expected_text: expectedText, ...rest } = req.body;
+    // Build API body: strip endpoint; keep expected_text for scripted (scripted/uk expects "expected_text", not "reference_text")
+    const { endpoint: _e, expected_text: expectedText, script, ...rest } = req.body;
     let apiBody = { ...rest };
-
-    // Language Confidence scripted API does not accept "expected_text" — use "reference_text"
-    const refField = process.env.LC_SCRIPT_FIELD || "reference_text";
-    if (isScripted && expectedText != null && String(expectedText).trim() !== "") {
-      apiBody[refField] = typeof expectedText === "string" ? expectedText : String(expectedText);
-    }
-    delete apiBody.expected_text;
     delete apiBody.script;
+
+    // Scripted: use the field name the API accepts (LC scripted/uk = "expected_text"; set LC_SCRIPT_FIELD to override)
+    const scriptedTextField = process.env.LC_SCRIPT_FIELD || "expected_text";
+    if (isScripted && expectedText != null && String(expectedText).trim() !== "") {
+      let text = typeof expectedText === "string" ? expectedText : String(expectedText);
+      // Avoid sending double-wrapped quotes (e.g. "\"I have a dream...\"")
+      if (text.length >= 2 && text.startsWith('"') && text.endsWith('"')) {
+        try {
+          const unquoted = JSON.parse(text);
+          if (typeof unquoted === "string") text = unquoted;
+        } catch (_) {}
+      }
+      apiBody[scriptedTextField] = text;
+    }
 
     // For scripted, send only whitelisted fields to avoid upstream 422 "Extra inputs are not permitted"
     if (isScripted) {
       apiBody = {
         audio_base64: apiBody.audio_base64,
         audio_format: apiBody.audio_format,
-        ...(apiBody[refField] && { [refField]: apiBody[refField] }),
+        ...(apiBody[scriptedTextField] != null && { [scriptedTextField]: apiBody[scriptedTextField] }),
       };
     }
 
+    // Keep lc-beta-features false so we get the same response as Postman: includes "reading" and metadata.content_relevance
     const response = await fetch(targetEndpoint, {
       method: "POST",
       headers: {

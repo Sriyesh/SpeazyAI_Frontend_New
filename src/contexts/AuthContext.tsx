@@ -10,6 +10,7 @@ interface User {
   email: string;
   role: string;
   organisation_id: number | null;
+  organisation_name?: string | null;  // From login.php API response
   class: string | string[] | null;
   created_at: string;
 }

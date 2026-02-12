@@ -114,7 +114,7 @@ export default function App() {
             <Route path="/connect-teacher" element={<ProtectedRoute><Connectteacher /></ProtectedRoute>} />
             <Route path="/progress-dashboard" element={<ProtectedRoute><EduDashboard /></ProtectedRoute>} />
             <Route path="/progress-dashboard/classes" element={<ProtectedRoute><ClassManagement /></ProtectedRoute>} />
-            <Route path="/progress-dashboard/students" element={<ProtectedRoute><StudentDetailsPage /></ProtectedRoute>} />
+            <Route path="/progress-dashboard/students/:userId?" element={<ProtectedRoute><StudentDetailsPage /></ProtectedRoute>} />
             <Route path="/progress-dashboard/license" element={<ProtectedRoute><LicenseManagement /></ProtectedRoute>} />
             <Route path="/skills-home" element={<ProtectedRoute><NewDashboard /></ProtectedRoute>} />
             <Route path="/skills/:skillId" element={<ProtectedRoute><SkillDetail /></ProtectedRoute>} />

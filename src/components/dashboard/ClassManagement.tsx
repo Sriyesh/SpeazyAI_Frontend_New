@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { Button } from "../ui/button"
 import { useAuth } from "../../contexts/AuthContext"
+import { toast } from "sonner"
 import {
   Mic2,
   Briefcase,
@@ -19,6 +20,8 @@ import {
   UserPlus,
   X,
   Check,
+  ChevronDown,
+  Menu,
 } from "lucide-react"
 import {
   Dialog,
@@ -52,6 +55,9 @@ interface User {
   isActive?: boolean // Status: active or inactive
 }
 
+// Type for available roles that can be assigned
+type AssignableRole = "Company Learner" | "Company Trainer" | "Company Manager"
+
 interface Organisation {
   id: number
   organisation: string
@@ -60,6 +66,7 @@ interface Organisation {
 export function ClassManagement() {
   const navigate = useNavigate()
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set())
   const [filterOrganization, setFilterOrganization] = useState<string>("all")
   const [showAddUserForm, setShowAddUserForm] = useState(false)
@@ -102,6 +109,20 @@ export function ClassManagement() {
   
   // Classes from API (extracted from users - classes are in array format)
   const [availableClasses, setAvailableClasses] = useState<string[]>([])
+  const [showClassDropdown, setShowClassDropdown] = useState(false)
+  const [classInputValue, setClassInputValue] = useState("")
+  
+  // Searchable dropdown states
+  const [isOrgDropdownOpen, setIsOrgDropdownOpen] = useState(false)
+  const [orgSearchTerm, setOrgSearchTerm] = useState("")
+  const [isRoleDropdownOpen, setIsRoleDropdownOpen] = useState(false)
+  const [roleSearchTerm, setRoleSearchTerm] = useState("")
+  const [isFilterOrgDropdownOpen, setIsFilterOrgDropdownOpen] = useState(false)
+  const [filterOrgSearchTerm, setFilterOrgSearchTerm] = useState("")
+  const [isAssignOrgDropdownOpen, setIsAssignOrgDropdownOpen] = useState(false)
+  const [assignOrgSearchTerm, setAssignOrgSearchTerm] = useState("")
+  const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false)
+  const [userSearchTerm, setUserSearchTerm] = useState("")
 
   // Sample users data
   const [users, setUsers] = useState<User[]>([
@@ -154,6 +175,52 @@ export function ClassManagement() {
     { id: "license-management", label: "License Management", icon: Shield, route: "/progress-dashboard/license" },
   ]
 
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768)
+      if (window.innerWidth < 768) {
+        setSidebarCollapsed(true)
+      }
+    }
+    window.addEventListener("resize", handleResize)
+    handleResize()
+    return () => window.removeEventListener("resize", handleResize)
+  }, [])
+
+  useEffect(() => {
+    if (!showAddUserModal) {
+      setIsOrgDropdownOpen(false)
+      setIsRoleDropdownOpen(false)
+      setOrgSearchTerm("")
+      setRoleSearchTerm("")
+    }
+  }, [showAddUserModal])
+
+  useEffect(() => {
+    if (!showAssignClassDialog) {
+      setIsAssignOrgDropdownOpen(false)
+      setIsUserDropdownOpen(false)
+      setAssignOrgSearchTerm("")
+      setUserSearchTerm("")
+    }
+  }, [showAssignClassDialog])
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement
+      if (!target.closest("[data-dropdown]")) {
+        setIsOrgDropdownOpen(false)
+        setIsRoleDropdownOpen(false)
+        setIsFilterOrgDropdownOpen(false)
+        setIsAssignOrgDropdownOpen(false)
+        setIsUserDropdownOpen(false)
+        setShowClassDropdown(false)
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [])
+
   const getInitials = (name: string) => {
     if (!name) return "U"
     const parts = name.split(" ")
@@ -171,6 +238,7 @@ export function ClassManagement() {
       manager: "Company Manager",
       administrator: "Company Administrator",
       admin: "Company Administrator",
+      principal: "Company Manager",
     }
     return roleMap[apiRole.toLowerCase()] || "Company Learner"
   }
@@ -180,10 +248,66 @@ export function ClassManagement() {
     const roleMap: Record<User["role"], string> = {
       "Company Learner": "student",
       "Company Trainer": "teacher",
-      "Company Manager": "manager",
+      "Company Manager": "principal",
       "Company Administrator": "administrator",
     }
     return roleMap[uiRole] || "student"
+  }
+
+  const parseErrorMessage = (error: any): string => {
+    const errorMessage = error?.message || "An unexpected error occurred"
+    try {
+      const jsonMatch = errorMessage.match(/\{.*\}/)
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0])
+        if (parsed.message) return parsed.message
+        if (parsed.error) return parsed.error
+      }
+      if (errorMessage.includes("API Error")) {
+        const jsonMatch2 = errorMessage.match(/\{.*\}/)
+        if (jsonMatch2) {
+          const parsed = JSON.parse(jsonMatch2[0])
+          if (parsed.message) return parsed.message
+          if (parsed.error) return parsed.error
+        }
+        const statusMatch = errorMessage.match(/\((\d+)\)/)
+        if (statusMatch) {
+          const status = parseInt(statusMatch[1])
+          if (status === 409) return "This email already exists. Please use a different email address."
+          if (status === 400) return "Invalid request. Please check your input and try again."
+          if (status === 401) return "You are not authorized to perform this action."
+          if (status === 404) return "The requested resource was not found."
+          if (status === 500) return "Server error. Please try again later."
+        }
+      }
+    } catch {
+      if (errorMessage.includes("API Error")) {
+        const cleaned = errorMessage.replace(/^API Error \(\d+\):\s*/, "")
+        if (cleaned && cleaned !== errorMessage) return cleaned
+      }
+    }
+    return errorMessage
+  }
+
+  const isAdministrator = () => {
+    if (!authData?.user?.role) return false
+    const userRole = (authData.user.role || "").toLowerCase()
+    return userRole === "administrator" || userRole.includes("admin")
+  }
+
+  const getAllowedRoles = (): AssignableRole[] => {
+    if (!authData?.user?.role) return ["Company Learner"]
+    const userRole = (authData.user.role || "").toLowerCase()
+    if (userRole === "administrator" || userRole.includes("admin")) {
+      return ["Company Manager", "Company Trainer", "Company Learner"]
+    }
+    if (userRole === "principal" || userRole.includes("principal")) {
+      return ["Company Trainer", "Company Learner"]
+    }
+    if (userRole === "teacher" || userRole.includes("teacher")) {
+      return ["Company Learner"]
+    }
+    return ["Company Learner"]
   }
 
   // API function to fetch organizations list
@@ -234,7 +358,13 @@ export function ClassManagement() {
 
       if (!response.ok) {
         const errorText = await response.text()
-        throw new Error(`API Error (${response.status}): ${errorText}`)
+        try {
+          const errorJson = JSON.parse(errorText)
+          const errorMessage = errorJson.message || errorJson.error || errorJson.msg || "Failed to create user"
+          throw new Error(errorMessage)
+        } catch (parseError) {
+          throw new Error(errorText || `API Error (${response.status})`)
+        }
       }
 
       const data = await response.json()
@@ -638,6 +768,19 @@ export function ClassManagement() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [organizations.length])
 
+  // Update default role based on allowed roles when modal opens (only for new users)
+  useEffect(() => {
+    if (showAddUserModal && !editingUser) {
+      const allowedRoles = getAllowedRoles()
+      if (allowedRoles.length > 0) {
+        const currentRoleIsAllowed = allowedRoles.includes(formData.role as AssignableRole)
+        if (!currentRoleIsAllowed) {
+          setFormData((prev) => ({ ...prev, role: allowedRoles[0] as User["role"] }))
+        }
+      }
+    }
+  }, [showAddUserModal, editingUser])
+
   // Filter users by organization only (NOT by isActive status)
   // IMPORTANT: Deactivated users ARE shown - they are not filtered out
   // The API uses soft delete (deactivate) via delete.php and restore.php, not hard delete
@@ -668,7 +811,10 @@ export function ClassManagement() {
   // Handle add user
   const handleAddUser = async () => {
     if (!formData.firstName || !formData.lastName || !formData.email || !formData.organisation_id) {
-      alert("Please fill in all required fields including Organisation")
+      toast.error("Validation Error", {
+        description: "Please fill in all required fields including Organisation",
+        duration: 4000,
+      })
       return
     }
 
@@ -694,20 +840,31 @@ export function ClassManagement() {
       console.log("Create User API Response:", response)
 
       if (response.success === true) {
-        // Refresh users from API
+        if (formData.classes && formData.classes.trim()) {
+          const newClass = formData.classes.trim()
+          if (!availableClasses.includes(newClass)) {
+            setAvailableClasses([...availableClasses, newClass].sort())
+          }
+        }
         await loadUsers()
-
         resetForm()
         setShowAddUserModal(false)
         setShowAddUserForm(false)
-        alert(`User "${formData.firstName} ${formData.lastName}" created successfully!`)
+        toast.success("User created successfully!", {
+          description: `"${formData.firstName} ${formData.lastName}" has been added.`,
+          duration: 3000,
+        })
       } else {
         throw new Error(response.message || "Failed to create user")
       }
     } catch (error: any) {
       console.error("Error creating user:", error)
-      setError(error.message || "Failed to create user. Please try again.")
-      alert(`Error: ${error.message || "Failed to create user. Please try again."}`)
+      const userFriendlyError = parseErrorMessage(error)
+      setError(userFriendlyError)
+      toast.error("Failed to create user", {
+        description: userFriendlyError,
+        duration: 5000,
+      })
     } finally {
       setIsLoading(false)
     }
@@ -716,21 +873,26 @@ export function ClassManagement() {
   // Handle edit user
   const handleEditUser = (user: User) => {
     const nameParts = user.name.split(" ")
-    // user.classes is already a string (comma-separated if multiple) from loadUsers mapping
-    // For editing, use the first class if multiple, or the single class
     const classesValue = user.classes && user.classes !== "None" && typeof user.classes === "string"
-      ? user.classes.split(",")[0].trim() // Take first class if comma-separated
+      ? user.classes.split(",")[0].trim()
       : (user.classes && typeof user.classes === "number" ? String(user.classes) : "")
+    
+    const allowedRoles = getAllowedRoles()
+    let roleToSet = user.role
+    if (!allowedRoles.includes(user.role as AssignableRole)) {
+      roleToSet = allowedRoles[0] as User["role"]
+    }
     
     setFormData({
       firstName: nameParts[0] || "",
       lastName: nameParts.slice(1).join(" ") || "",
       email: user.email,
-      role: user.role,
+      role: roleToSet,
       classes: classesValue,
       organization: user.organization,
       organisation_id: user.organisation_id?.toString() || "",
     })
+    setClassInputValue(classesValue)
     setEditingUser(user)
     setShowAddUserModal(true)
   }
@@ -738,13 +900,19 @@ export function ClassManagement() {
   // Handle update user
   const handleUpdateUser = async () => {
     if (!editingUser || !formData.firstName || !formData.lastName || !formData.email || !formData.organisation_id) {
-      alert("Please fill in all required fields including Organisation")
+      toast.error("Validation Error", {
+        description: "Please fill in all required fields including Organisation",
+        duration: 4000,
+      })
       return
     }
 
     const userId = parseInt(editingUser.id)
     if (isNaN(userId) || userId <= 0) {
-      alert("Invalid User ID. Please refresh the page and try again.")
+      toast.error("Invalid User ID", {
+        description: "Please refresh the page and try again.",
+        duration: 4000,
+      })
       return
     }
 
@@ -772,20 +940,31 @@ export function ClassManagement() {
       console.log("Update User API Response:", response)
 
       if (response.success === true) {
-        // Refresh users from API
+        if (formData.classes && formData.classes.trim()) {
+          const newClass = formData.classes.trim()
+          if (!availableClasses.includes(newClass)) {
+            setAvailableClasses([...availableClasses, newClass].sort())
+          }
+        }
         await loadUsers()
-
         resetForm()
         setEditingUser(null)
         setShowAddUserModal(false)
-        alert(`User "${formData.firstName} ${formData.lastName}" updated successfully!`)
+        toast.success("User updated successfully!", {
+          description: `"${formData.firstName} ${formData.lastName}" has been updated.`,
+          duration: 3000,
+        })
       } else {
         throw new Error(response.message || "Failed to update user")
       }
     } catch (error: any) {
       console.error("Error updating user:", error)
-      setError(error.message || "Failed to update user. Please try again.")
-      alert(`Error: ${error.message || "Failed to update user. Please try again."}`)
+      const userFriendlyError = parseErrorMessage(error)
+      setError(userFriendlyError)
+      toast.error("Failed to update user", {
+        description: userFriendlyError,
+        duration: 5000,
+      })
     } finally {
       setIsUpdating(false)
     }
@@ -803,7 +982,10 @@ export function ClassManagement() {
     // Use user_id if available (from API), otherwise parse from id
     const userId = userToToggle.user_id || parseInt(userToToggle.id)
     if (isNaN(userId) || userId <= 0) {
-      alert("Invalid User ID. Please refresh the page and try again.")
+      toast.error("Invalid User ID", {
+        description: "Please refresh the page and try again.",
+        duration: 4000,
+      })
       return
     }
 
@@ -856,10 +1038,10 @@ export function ClassManagement() {
       setUserToToggle(null)
       setShowStatusDialog(false)
 
-      const successMessage = currentStatus 
-        ? `User "${userToToggle.name}" has been deactivated successfully!`
-        : `User "${userToToggle.name}" has been activated successfully!`
-      alert(successMessage)
+      toast.success(currentStatus ? "User deactivated" : "User activated", {
+        description: `"${userToToggle.name}" has been ${currentStatus ? "deactivated" : "activated"} successfully!`,
+        duration: 3000,
+      })
     } catch (error: any) {
       console.error("Error toggling user status:", error)
       const action = currentStatus ? "deactivate" : "activate"
@@ -869,38 +1051,32 @@ export function ClassManagement() {
       const errorLower = errorMessage.toLowerCase()
       
       // Handle specific error cases with better, user-friendly messages based on the action
+      const userFriendlyError = parseErrorMessage(error)
       if (errorLower.includes("already active")) {
-        // This error can occur if we tried to activate but user is already active
         if (!currentStatus) {
-          errorMessage = "Unable to activate: This user is already active in the system. The status displayed may be incorrect. Refreshing the user list to show the correct status."
+          errorMessage = "This user is already active. The status displayed may be incorrect. Refreshing the user list."
         } else {
-          errorMessage = "Unable to deactivate: This user is already active. This may indicate a data synchronization issue. Refreshing the user list."
+          errorMessage = "This user is already active. This may indicate a data synchronization issue. Refreshing the user list."
         }
         await loadUsers()
-        alert(errorMessage)
+        toast.warning("Status Update", { description: errorMessage, duration: 5000 })
       } else if (errorLower.includes("already inactive") || errorLower.includes("already deactivated") || errorLower.includes("already deleted")) {
-        // User is already inactive/deactivated
-        errorMessage = `Unable to ${action}: This user is already ${!currentStatus ? "deactivated" : "deactivated"}. Refreshing the user list to show the correct status.`
+        errorMessage = `This user is already ${!currentStatus ? "deactivated" : "deactivated"}. Refreshing the user list.`
         await loadUsers()
-        alert(errorMessage)
+        toast.warning("Status Update", { description: errorMessage, duration: 5000 })
       } else if (errorLower.includes("not found") || errorLower.includes("does not exist") || errorLower.includes("invalid user")) {
         errorMessage = "User not found. The user may have been deleted. Refreshing the user list."
         await loadUsers()
-        alert(errorMessage)
-      } else if (errorLower.includes("not found") || errorLower.includes("does not exist") || errorLower.includes("invalid user")) {
-        errorMessage = "User not found. The user may have been deleted. Refreshing the user list."
-        await loadUsers()
-        alert(errorMessage)
+        toast.error("User Not Found", { description: errorMessage, duration: 5000 })
       } else if (errorLower.includes("permission") || errorLower.includes("unauthorized") || errorLower.includes("forbidden")) {
         errorMessage = "You do not have permission to perform this action. Please contact your administrator."
-        alert(errorMessage)
+        toast.error("Permission Denied", { description: errorMessage, duration: 5000 })
       } else if (errorLower.includes("network") || errorLower.includes("fetch")) {
         errorMessage = "Network error. Please check your internet connection and try again."
-        alert(errorMessage)
+        toast.error("Network Error", { description: errorMessage, duration: 5000 })
       } else {
-        // Generic error - show the actual error message with context
-        alert(`Failed to ${action} user "${userToToggle?.name || 'this user'}":\n\n${errorMessage}\n\nThe user list will be refreshed.`)
-      await loadUsers()
+        toast.error(`Failed to ${action} user`, { description: userFriendlyError, duration: 5000 })
+        await loadUsers()
       }
       
       // Close dialog and reset state
@@ -912,7 +1088,10 @@ export function ClassManagement() {
   // Handle bulk delete (deactivate)
   const handleBulkDelete = async () => {
     if (selectedUsers.size === 0) {
-      alert("Please select users to deactivate")
+      toast.error("No Users Selected", {
+        description: "Please select users to deactivate",
+        duration: 4000,
+      })
       return
     }
 
@@ -922,11 +1101,9 @@ export function ClassManagement() {
     }
 
     try {
-      // Deactivate all selected users (only if they are currently active)
       const deactivatePromises = Array.from(selectedUsers).map(async (userId) => {
         const user = users.find((u) => u.id === userId)
         if (user && user.isActive === true) {
-          // Use user_id if available (from API), otherwise parse from id
           const userIdNum = user.user_id || parseInt(userId)
           if (!isNaN(userIdNum) && userIdNum > 0) {
             await deactivateUser(userIdNum)
@@ -935,14 +1112,19 @@ export function ClassManagement() {
       })
 
       await Promise.all(deactivatePromises)
-
-      // Refresh users from API
       await loadUsers()
       setSelectedUsers(new Set())
-      alert(`${selectedCount} user(s) deactivated successfully!`)
+      toast.success("Users Deactivated", {
+        description: `${selectedCount} user(s) deactivated successfully!`,
+        duration: 3000,
+      })
     } catch (error: any) {
       console.error("Error bulk deactivating users:", error)
-      alert(`Error: ${error.message || "Failed to deactivate users. Please try again."}`)
+      const userFriendlyError = parseErrorMessage(error)
+      toast.error("Failed to Deactivate Users", {
+        description: userFriendlyError,
+        duration: 5000,
+      })
       await loadUsers()
     }
   }
@@ -957,6 +1139,8 @@ export function ClassManagement() {
       organization: "",
       organisation_id: "",
     })
+    setClassInputValue("")
+    setShowClassDropdown(false)
     setEditingUser(null)
     setError(null)
   }
@@ -967,19 +1151,73 @@ export function ClassManagement() {
   }
 
   return (
+    <>
+      <style>
+        {`
+          @media (max-width: 768px) {
+            .class-sidebar {
+              position: fixed !important;
+              left: ${sidebarCollapsed ? "-280px" : "0"} !important;
+              z-index: 1000 !important;
+              height: 100vh !important;
+              overflow-y: auto !important;
+            }
+            .class-main-content {
+              margin-left: 0 !important;
+              width: 100% !important;
+            }
+            .class-overlay {
+              display: ${sidebarCollapsed ? "none" : "block"} !important;
+            }
+          }
+          @media (max-width: 640px) {
+            .class-card {
+              padding: 16px !important;
+            }
+            .class-title {
+              font-size: 18px !important;
+            }
+            .class-button-group {
+              flex-direction: column !important;
+              width: 100% !important;
+            }
+            .class-button-group button {
+              width: 100% !important;
+            }
+            .class-table-container {
+              overflow-x: auto !important;
+            }
+            .class-table {
+              min-width: 600px !important;
+            }
+          }
+        `}
+      </style>
+      <div
+        className="class-overlay"
+        onClick={() => setSidebarCollapsed(true)}
+        style={{
+          display: isMobile && !sidebarCollapsed ? "block" : "none",
+          position: "fixed",
+          inset: 0,
+          backgroundColor: "rgba(0, 0, 0, 0.5)",
+          zIndex: 999,
+        }}
+      />
     <div style={{ display: "flex", minHeight: "100vh", backgroundColor: "#1E40AF" }}>
       {/* Sidebar */}
       <div
+        className="class-sidebar"
         style={{
           width: sidebarCollapsed ? "80px" : "280px",
           backgroundColor: "#1E3A8A",
           minHeight: "100vh",
           display: "flex",
           flexDirection: "column",
-          transition: "width 0.3s ease",
-          position: "fixed",
+          transition: "width 0.3s ease, left 0.3s ease",
+          position: isMobile ? "fixed" : "fixed",
           top: 0,
-          left: 0,
+          left: isMobile ? (sidebarCollapsed ? "-280px" : "0") : "0",
           zIndex: 100,
         }}
       >
@@ -1041,7 +1279,18 @@ export function ClassManagement() {
             overflowY: "auto",
           }}
         >
-          {menuItems.map((item) => {
+          {menuItems.filter((item) => {
+            const userRole = (authData?.user?.role || "").toLowerCase()
+            if (item.id === "license-management") {
+              return userRole === "administrator" || userRole.includes("admin")
+            }
+            if (item.id === "class-management") {
+              return userRole === "principal" || userRole.includes("principal") ||
+                userRole === "teacher" || userRole.includes("teacher") ||
+                userRole === "administrator" || userRole.includes("admin")
+            }
+            return true
+          }).map((item) => {
             const Icon = item.icon
             const isActive = item.active || window.location.pathname === item.route
             return (
@@ -1189,6 +1438,7 @@ export function ClassManagement() {
 
       {/* Main Content */}
       <div
+        className="class-main-content"
         style={{
           flex: 1,
           display: "flex",
@@ -1211,6 +1461,23 @@ export function ClassManagement() {
             gap: "16px",
           }}
         >
+          {isMobile && (
+            <button
+              onClick={() => setSidebarCollapsed(false)}
+              style={{
+                background: "transparent",
+                border: "none",
+                color: "#1E3A8A",
+                cursor: "pointer",
+                padding: "8px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Menu style={{ width: "24px", height: "24px" }} />
+            </button>
+          )}
           <h1
             style={{
               fontSize: "24px",
@@ -1222,6 +1489,7 @@ export function ClassManagement() {
             Class Management
           </h1>
           <div
+            className="class-button-group"
             style={{
               display: "flex",
               gap: "12px",
@@ -1316,6 +1584,7 @@ export function ClassManagement() {
 
           {/* Existing Users Section */}
           <div
+            className="class-card"
             style={{
               backgroundColor: "#FFFFFF",
               borderRadius: "16px",
@@ -1325,6 +1594,7 @@ export function ClassManagement() {
           >
             <div style={{ marginBottom: "24px" }}>
               <h2
+                className="class-title"
                 style={{
                   fontSize: "20px",
                   fontWeight: "bold",
@@ -1353,26 +1623,91 @@ export function ClassManagement() {
               >
                 Filter by Organization:
               </label>
-              <select
-                value={filterOrganization}
-                onChange={(e) => setFilterOrganization(e.target.value)}
-                style={{
-                  width: "100%",
-                  maxWidth: "300px",
-                  padding: "10px 12px",
-                  borderRadius: "8px",
-                  border: "1px solid rgba(30, 58, 138, 0.2)",
-                  fontSize: "14px",
-                  color: "#1E3A8A",
-                  backgroundColor: "#FFFFFF",
-                }}
-              >
-                {organizationsList.map((org) => (
-                  <option key={org} value={org === "All Organizations" ? "all" : org}>
-                    {org}
-                  </option>
-                ))}
-              </select>
+              <div data-dropdown style={{ position: "relative", width: "100%", maxWidth: "300px" }}>
+                <button
+                  type="button"
+                  onClick={() => setIsFilterOrgDropdownOpen(!isFilterOrgDropdownOpen)}
+                  style={{
+                    width: "100%",
+                    padding: "10px 12px",
+                    borderRadius: "8px",
+                    border: "1px solid rgba(30, 58, 138, 0.2)",
+                    fontSize: "14px",
+                    color: "#1E3A8A",
+                    backgroundColor: "#FFFFFF",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    cursor: "pointer",
+                  }}
+                >
+                  <span>{filterOrganization === "all" ? "All Organizations" : filterOrganization}</span>
+                  <ChevronDown style={{ width: "16px", height: "16px", flexShrink: 0 }} />
+                </button>
+                {isFilterOrgDropdownOpen && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "100%",
+                      left: 0,
+                      right: 0,
+                      marginTop: "4px",
+                      backgroundColor: "#FFFFFF",
+                      border: "1px solid rgba(30, 58, 138, 0.2)",
+                      borderRadius: "8px",
+                      boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                      maxHeight: "200px",
+                      overflow: "auto",
+                      zIndex: 50,
+                    }}
+                  >
+                    <input
+                      type="text"
+                      placeholder="Search organizations..."
+                      value={filterOrgSearchTerm}
+                      onChange={(e) => setFilterOrgSearchTerm(e.target.value)}
+                      onFocus={(e) => e.stopPropagation()}
+                      style={{
+                        width: "100%",
+                        padding: "8px 12px",
+                        border: "none",
+                        borderBottom: "1px solid rgba(30, 58, 138, 0.1)",
+                        fontSize: "14px",
+                        outline: "none",
+                      }}
+                    />
+                    {organizationsList
+                      .filter((org) =>
+                        (org === "All Organizations" ? "all" : org)
+                          .toLowerCase()
+                          .includes(filterOrgSearchTerm.toLowerCase())
+                      )
+                      .map((org) => (
+                        <button
+                          key={org}
+                          type="button"
+                          onClick={() => {
+                            setFilterOrganization(org === "All Organizations" ? "all" : org)
+                            setIsFilterOrgDropdownOpen(false)
+                            setFilterOrgSearchTerm("")
+                          }}
+                          style={{
+                            width: "100%",
+                            padding: "10px 12px",
+                            textAlign: "left",
+                            border: "none",
+                            background: filterOrganization === (org === "All Organizations" ? "all" : org) ? "rgba(59, 130, 246, 0.1)" : "transparent",
+                            cursor: "pointer",
+                            fontSize: "14px",
+                            color: "#1E3A8A",
+                          }}
+                        >
+                          {org}
+                        </button>
+                      ))}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Bulk Actions */}
@@ -1405,8 +1740,9 @@ export function ClassManagement() {
             )}
 
             {/* Users Table */}
-            <div style={{ overflowX: "auto" }}>
+            <div className="class-table-container" style={{ overflowX: "auto" }}>
               <table
+                className="class-table"
                 style={{
                   width: "100%",
                   borderCollapse: "collapse",
@@ -1740,24 +2076,87 @@ export function ClassManagement() {
               >
                 Role *
               </label>
-              <select
-                value={formData.role}
-                onChange={(e) => setFormData({ ...formData, role: e.target.value as User["role"] })}
-                style={{
-                  width: "100%",
-                  padding: "10px 12px",
-                  borderRadius: "8px",
-                  border: "1px solid rgba(30, 58, 138, 0.2)",
-                  fontSize: "14px",
-                  color: "#1E3A8A",
-                  backgroundColor: "#FFFFFF",
-                }}
-              >
-                <option value="Company Learner">Company Learner</option>
-                <option value="Company Trainer">Company Trainer</option>
-                <option value="Company Manager">Company Manager</option>
-                <option value="Company Administrator">Company Administrator</option>
-              </select>
+              <div data-dropdown style={{ position: "relative" }}>
+                <button
+                  type="button"
+                  onClick={() => setIsRoleDropdownOpen(!isRoleDropdownOpen)}
+                  style={{
+                    width: "100%",
+                    padding: "10px 12px",
+                    borderRadius: "8px",
+                    border: "1px solid rgba(30, 58, 138, 0.2)",
+                    fontSize: "14px",
+                    color: "#1E3A8A",
+                    backgroundColor: "#FFFFFF",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    cursor: "pointer",
+                  }}
+                >
+                  <span>{formData.role}</span>
+                  <ChevronDown style={{ width: "16px", height: "16px", flexShrink: 0 }} />
+                </button>
+                {isRoleDropdownOpen && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "100%",
+                      left: 0,
+                      right: 0,
+                      marginTop: "4px",
+                      backgroundColor: "#FFFFFF",
+                      border: "1px solid rgba(30, 58, 138, 0.2)",
+                      borderRadius: "8px",
+                      boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                      maxHeight: "200px",
+                      overflow: "auto",
+                      zIndex: 50,
+                    }}
+                  >
+                    <input
+                      type="text"
+                      placeholder="Search roles..."
+                      value={roleSearchTerm}
+                      onChange={(e) => setRoleSearchTerm(e.target.value)}
+                      onFocus={(e) => e.stopPropagation()}
+                      style={{
+                        width: "100%",
+                        padding: "8px 12px",
+                        border: "none",
+                        borderBottom: "1px solid rgba(30, 58, 138, 0.1)",
+                        fontSize: "14px",
+                        outline: "none",
+                      }}
+                    />
+                    {getAllowedRoles()
+                      .filter((r) => r.toLowerCase().includes(roleSearchTerm.toLowerCase()))
+                      .map((role) => (
+                        <button
+                          key={role}
+                          type="button"
+                          onClick={() => {
+                            setFormData({ ...formData, role: role as User["role"] })
+                            setIsRoleDropdownOpen(false)
+                            setRoleSearchTerm("")
+                          }}
+                          style={{
+                            width: "100%",
+                            padding: "10px 12px",
+                            textAlign: "left",
+                            border: "none",
+                            background: formData.role === role ? "rgba(59, 130, 246, 0.1)" : "transparent",
+                            cursor: "pointer",
+                            fontSize: "14px",
+                            color: "#1E3A8A",
+                          }}
+                        >
+                          {role}
+                        </button>
+                      ))}
+                  </div>
+                )}
+              </div>
             </div>
             <div>
               <label
@@ -1771,27 +2170,123 @@ export function ClassManagement() {
               >
                 Classes
               </label>
-              <select
-                value={formData.classes}
-                onChange={(e) => setFormData({ ...formData, classes: e.target.value })}
-                style={{
-                  width: "100%",
-                  padding: "10px 12px",
-                  borderRadius: "8px",
-                  border: "1px solid rgba(30, 58, 138, 0.2)",
-                  fontSize: "14px",
-                  color: "#1E3A8A",
-                  backgroundColor: "#FFFFFF",
-                  cursor: "pointer",
-                }}
-              >
-                <option value="">Select a class</option>
-                {availableClasses.map((className) => (
-                  <option key={className} value={className}>
-                    {className}
-                  </option>
-                ))}
-              </select>
+              <div data-dropdown style={{ position: "relative" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    border: "1px solid rgba(30, 58, 138, 0.2)",
+                    borderRadius: "8px",
+                    backgroundColor: "#FFFFFF",
+                    overflow: "hidden",
+                  }}
+                >
+                  <input
+                    type="text"
+                    value={showClassDropdown ? classInputValue : formData.classes || classInputValue}
+                    onChange={(e) => {
+                      setClassInputValue(e.target.value)
+                      setShowClassDropdown(true)
+                      if (availableClasses.includes(e.target.value)) {
+                        setFormData({ ...formData, classes: e.target.value })
+                      } else {
+                        setFormData({ ...formData, classes: e.target.value })
+                      }
+                    }}
+                    onFocus={() => setShowClassDropdown(true)}
+                    placeholder="Select or type to create new class"
+                    style={{
+                      flex: 1,
+                      padding: "10px 12px",
+                      border: "none",
+                      fontSize: "14px",
+                      color: "#1E3A8A",
+                      outline: "none",
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowClassDropdown(!showClassDropdown)}
+                    style={{
+                      padding: "8px",
+                      background: "transparent",
+                      border: "none",
+                      cursor: "pointer",
+                      color: "#1E3A8A",
+                    }}
+                  >
+                    <ChevronDown style={{ width: "16px", height: "16px" }} />
+                  </button>
+                </div>
+                {showClassDropdown && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "100%",
+                      left: 0,
+                      right: 0,
+                      marginTop: "4px",
+                      backgroundColor: "#FFFFFF",
+                      border: "1px solid rgba(30, 58, 138, 0.2)",
+                      borderRadius: "8px",
+                      boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                      maxHeight: "200px",
+                      overflow: "auto",
+                      zIndex: 50,
+                    }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormData({ ...formData, classes: classInputValue || "New Class" })
+                        setClassInputValue(classInputValue || "New Class")
+                        setShowClassDropdown(false)
+                      }}
+                      style={{
+                        width: "100%",
+                        padding: "10px 12px",
+                        textAlign: "left",
+                        border: "none",
+                        background: "transparent",
+                        cursor: "pointer",
+                        fontSize: "14px",
+                        color: "#3B82F6",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                      }}
+                    >
+                      <Plus style={{ width: "16px", height: "16px" }} />
+                      Create new class "{classInputValue || "New Class"}"
+                    </button>
+                    {availableClasses
+                      .filter((c) => c.toLowerCase().includes(classInputValue.toLowerCase()))
+                      .map((className) => (
+                        <button
+                          key={className}
+                          type="button"
+                          onClick={() => {
+                            setFormData({ ...formData, classes: className })
+                            setClassInputValue(className)
+                            setShowClassDropdown(false)
+                          }}
+                          style={{
+                            width: "100%",
+                            padding: "10px 12px",
+                            textAlign: "left",
+                            border: "none",
+                            background: formData.classes === className ? "rgba(59, 130, 246, 0.1)" : "transparent",
+                            cursor: "pointer",
+                            fontSize: "14px",
+                            color: "#1E3A8A",
+                          }}
+                        >
+                          {className}
+                        </button>
+                      ))}
+                  </div>
+                )}
+              </div>
             </div>
             <div>
               <label
@@ -1805,33 +2300,93 @@ export function ClassManagement() {
               >
                 Organization *
               </label>
-              <select
-                value={formData.organisation_id}
-                onChange={(e) => {
-                  const selectedOrg = organizations.find((o) => o.id.toString() === e.target.value)
-                  setFormData({
-                    ...formData,
-                    organisation_id: e.target.value,
-                    organization: selectedOrg?.organisation || "",
-                  })
-                }}
-                style={{
-                  width: "100%",
-                  padding: "10px 12px",
-                  borderRadius: "8px",
-                  border: "1px solid rgba(30, 58, 138, 0.2)",
-                  fontSize: "14px",
-                  color: "#1E3A8A",
-                  backgroundColor: "#FFFFFF",
-                }}
-              >
-                <option value="">Select Organization</option>
-                {organizations.map((org) => (
-                  <option key={org.id} value={org.id.toString()}>
-                    {org.organisation}
-                  </option>
-                ))}
-              </select>
+              <div data-dropdown style={{ position: "relative" }}>
+                <button
+                  type="button"
+                  onClick={() => setIsOrgDropdownOpen(!isOrgDropdownOpen)}
+                  style={{
+                    width: "100%",
+                    padding: "10px 12px",
+                    borderRadius: "8px",
+                    border: "1px solid rgba(30, 58, 138, 0.2)",
+                    fontSize: "14px",
+                    color: "#1E3A8A",
+                    backgroundColor: "#FFFFFF",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    cursor: "pointer",
+                  }}
+                >
+                  <span>{formData.organization || "Select Organization"}</span>
+                  <ChevronDown style={{ width: "16px", height: "16px", flexShrink: 0 }} />
+                </button>
+                {isOrgDropdownOpen && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "100%",
+                      left: 0,
+                      right: 0,
+                      marginTop: "4px",
+                      backgroundColor: "#FFFFFF",
+                      border: "1px solid rgba(30, 58, 138, 0.2)",
+                      borderRadius: "8px",
+                      boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                      maxHeight: "200px",
+                      overflow: "auto",
+                      zIndex: 50,
+                    }}
+                  >
+                    <input
+                      type="text"
+                      placeholder="Search organizations..."
+                      value={orgSearchTerm}
+                      onChange={(e) => setOrgSearchTerm(e.target.value)}
+                      onFocus={(e) => e.stopPropagation()}
+                      style={{
+                        width: "100%",
+                        padding: "8px 12px",
+                        border: "none",
+                        borderBottom: "1px solid rgba(30, 58, 138, 0.1)",
+                        fontSize: "14px",
+                        outline: "none",
+                      }}
+                    />
+                    {organizations
+                      .filter((org) =>
+                        org.organisation.toLowerCase().includes(orgSearchTerm.toLowerCase())
+                      )
+                      .map((org) => (
+                        <button
+                          key={org.id}
+                          type="button"
+                          onClick={() => {
+                            setFormData({
+                              ...formData,
+                              organisation_id: org.id.toString(),
+                              organization: org.organisation,
+                            })
+                            setIsOrgDropdownOpen(false)
+                            setOrgSearchTerm("")
+                          }}
+                          style={{
+                            width: "100%",
+                            padding: "10px 12px",
+                            textAlign: "left",
+                            border: "none",
+                            background: formData.organisation_id === org.id.toString() ? "rgba(59, 130, 246, 0.1)" : "transparent",
+                            cursor: "pointer",
+                            fontSize: "14px",
+                            color: "#1E3A8A",
+                          }}
+                        >
+                          {org.organisation}
+                        </button>
+                      ))}
+                  </div>
+                )}
+              </div>
             </div>
             {error && (
               <p style={{ color: "#DC2626", fontSize: "14px", margin: 0 }}>
@@ -1951,8 +2506,9 @@ export function ClassManagement() {
             </Button>
             <Button
               onClick={() => {
-                // Handle CSV upload
-                alert("CSV upload functionality will be implemented")
+                toast.info("Coming Soon", {
+                  description: "CSV upload functionality will be implemented soon.",
+                })
                 setShowUploadCSVDialog(false)
               }}
               style={{
@@ -1991,32 +2547,117 @@ export function ClassManagement() {
               >
                 Filter by Organization:
               </label>
-              <select
-                value={assignClassForm.filterOrganization}
-                onChange={(e) => {
-                  setAssignClassForm({
-                    ...assignClassForm,
-                    filterOrganization: e.target.value,
-                    selectedUserId: "", // Reset user selection when organization changes
-                  })
-                }}
-                style={{
-                  width: "100%",
-                  padding: "10px 12px",
-                  borderRadius: "8px",
-                  border: "1px solid rgba(30, 58, 138, 0.2)",
-                  fontSize: "14px",
-                  color: "#1E3A8A",
-                  backgroundColor: "#FFFFFF",
-                }}
-              >
-                <option value="all">All Organizations</option>
-                {organizations.map((org) => (
-                  <option key={org.id} value={org.organisation}>
-                    {org.organisation}
-                  </option>
-                ))}
-              </select>
+              <div data-dropdown style={{ position: "relative" }}>
+                <button
+                  type="button"
+                  onClick={() => setIsAssignOrgDropdownOpen(!isAssignOrgDropdownOpen)}
+                  style={{
+                    width: "100%",
+                    padding: "10px 12px",
+                    borderRadius: "8px",
+                    border: "1px solid rgba(30, 58, 138, 0.2)",
+                    fontSize: "14px",
+                    color: "#1E3A8A",
+                    backgroundColor: "#FFFFFF",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    cursor: "pointer",
+                  }}
+                >
+                  <span>{assignClassForm.filterOrganization === "all" ? "All Organizations" : assignClassForm.filterOrganization}</span>
+                  <ChevronDown style={{ width: "16px", height: "16px", flexShrink: 0 }} />
+                </button>
+                {isAssignOrgDropdownOpen && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "100%",
+                      left: 0,
+                      right: 0,
+                      marginTop: "4px",
+                      backgroundColor: "#FFFFFF",
+                      border: "1px solid rgba(30, 58, 138, 0.2)",
+                      borderRadius: "8px",
+                      boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                      maxHeight: "200px",
+                      overflow: "auto",
+                      zIndex: 50,
+                    }}
+                  >
+                    <input
+                      type="text"
+                      placeholder="Search organizations..."
+                      value={assignOrgSearchTerm}
+                      onChange={(e) => setAssignOrgSearchTerm(e.target.value)}
+                      onFocus={(e) => e.stopPropagation()}
+                      style={{
+                        width: "100%",
+                        padding: "8px 12px",
+                        border: "none",
+                        borderBottom: "1px solid rgba(30, 58, 138, 0.1)",
+                        fontSize: "14px",
+                        outline: "none",
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAssignClassForm({
+                          ...assignClassForm,
+                          filterOrganization: "all",
+                          selectedUserId: "",
+                        })
+                        setIsAssignOrgDropdownOpen(false)
+                        setAssignOrgSearchTerm("")
+                      }}
+                      style={{
+                        width: "100%",
+                        padding: "10px 12px",
+                        textAlign: "left",
+                        border: "none",
+                        background: assignClassForm.filterOrganization === "all" ? "rgba(59, 130, 246, 0.1)" : "transparent",
+                        cursor: "pointer",
+                        fontSize: "14px",
+                        color: "#1E3A8A",
+                      }}
+                    >
+                      All Organizations
+                    </button>
+                    {organizations
+                      .filter((org) =>
+                        org.organisation.toLowerCase().includes(assignOrgSearchTerm.toLowerCase())
+                      )
+                      .map((org) => (
+                        <button
+                          key={org.id}
+                          type="button"
+                          onClick={() => {
+                            setAssignClassForm({
+                              ...assignClassForm,
+                              filterOrganization: org.organisation,
+                              selectedUserId: "",
+                            })
+                            setIsAssignOrgDropdownOpen(false)
+                            setAssignOrgSearchTerm("")
+                          }}
+                          style={{
+                            width: "100%",
+                            padding: "10px 12px",
+                            textAlign: "left",
+                            border: "none",
+                            background: assignClassForm.filterOrganization === org.organisation ? "rgba(59, 130, 246, 0.1)" : "transparent",
+                            cursor: "pointer",
+                            fontSize: "14px",
+                            color: "#1E3A8A",
+                          }}
+                        >
+                          {org.organisation}
+                        </button>
+                      ))}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Select User */}
@@ -2032,33 +2673,95 @@ export function ClassManagement() {
               >
                 Select User
               </label>
-              <select
-                value={assignClassForm.selectedUserId}
-                onChange={(e) => {
-                  setAssignClassForm({ ...assignClassForm, selectedUserId: e.target.value })
-                }}
-                style={{
-                  width: "100%",
-                  padding: "10px 12px",
-                  borderRadius: "8px",
-                  border: "1px solid rgba(30, 58, 138, 0.2)",
-                  fontSize: "14px",
-                  color: "#1E3A8A",
-                  backgroundColor: "#FFFFFF",
-                }}
-              >
-                <option value="">Select a user</option>
-                {users
-                  .filter((user) => {
-                    if (assignClassForm.filterOrganization === "all") return true
-                    return user.organization === assignClassForm.filterOrganization
-                  })
-                  .map((user) => (
-                    <option key={user.id} value={user.id}>
-                      {user.name} ({user.email})
-                    </option>
-                  ))}
-              </select>
+              <div data-dropdown style={{ position: "relative" }}>
+                <button
+                  type="button"
+                  onClick={() => setIsUserDropdownOpen(!isUserDropdownOpen)}
+                  style={{
+                    width: "100%",
+                    padding: "10px 12px",
+                    borderRadius: "8px",
+                    border: "1px solid rgba(30, 58, 138, 0.2)",
+                    fontSize: "14px",
+                    color: "#1E3A8A",
+                    backgroundColor: "#FFFFFF",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    cursor: "pointer",
+                  }}
+                >
+                  <span>
+                    {assignClassForm.selectedUserId
+                      ? users.find((u) => u.id === assignClassForm.selectedUserId)?.name || "Select a user"
+                      : "Select a user"}
+                  </span>
+                  <ChevronDown style={{ width: "16px", height: "16px", flexShrink: 0 }} />
+                </button>
+                {isUserDropdownOpen && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "100%",
+                      left: 0,
+                      right: 0,
+                      marginTop: "4px",
+                      backgroundColor: "#FFFFFF",
+                      border: "1px solid rgba(30, 58, 138, 0.2)",
+                      borderRadius: "8px",
+                      boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                      maxHeight: "200px",
+                      overflow: "auto",
+                      zIndex: 50,
+                    }}
+                  >
+                    <input
+                      type="text"
+                      placeholder="Search users..."
+                      value={userSearchTerm}
+                      onChange={(e) => setUserSearchTerm(e.target.value)}
+                      onFocus={(e) => e.stopPropagation()}
+                      style={{
+                        width: "100%",
+                        padding: "8px 12px",
+                        border: "none",
+                        borderBottom: "1px solid rgba(30, 58, 138, 0.1)",
+                        fontSize: "14px",
+                        outline: "none",
+                      }}
+                    />
+                    {users
+                      .filter((user) => {
+                        if (assignClassForm.filterOrganization !== "all" && user.organization !== assignClassForm.filterOrganization) return false
+                        const search = userSearchTerm.toLowerCase()
+                        return !search || user.name.toLowerCase().includes(search) || user.email.toLowerCase().includes(search)
+                      })
+                      .map((user) => (
+                        <button
+                          key={user.id}
+                          type="button"
+                          onClick={() => {
+                            setAssignClassForm({ ...assignClassForm, selectedUserId: user.id })
+                            setIsUserDropdownOpen(false)
+                            setUserSearchTerm("")
+                          }}
+                          style={{
+                            width: "100%",
+                            padding: "10px 12px",
+                            textAlign: "left",
+                            border: "none",
+                            background: assignClassForm.selectedUserId === user.id ? "rgba(59, 130, 246, 0.1)" : "transparent",
+                            cursor: "pointer",
+                            fontSize: "14px",
+                            color: "#1E3A8A",
+                          }}
+                        >
+                          {user.name} ({user.email})
+                        </button>
+                      ))}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Classes (typable dropdown) */}
@@ -2157,7 +2860,7 @@ export function ClassManagement() {
             <Button
               onClick={() => {
                 if (!assignClassForm.selectedUserId || !assignClassForm.classes) {
-                  alert("Please select a user and enter classes")
+                  toast.error("Please select a user and enter classes")
                   return
                 }
                 // Handle class assignment
@@ -2190,5 +2893,6 @@ export function ClassManagement() {
         </DialogContent>
       </Dialog>
     </div>
+    </>
   )
 }

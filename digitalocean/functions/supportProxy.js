@@ -150,6 +150,102 @@ async function createJiraBug(payload) {
   return issueKey;
 }
 
+/**
+ * Escape user input for safe HTML (prevent XSS). Never log or expose secrets.
+ */
+function escapeHtml(str) {
+  if (str == null || typeof str !== 'string') return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/**
+ * Build HTML body for support notification email (same structure as emailService.js).
+ */
+function buildSupportEmailHtml({ issueKey, summary, description, userEmail, environment, errors }) {
+  const e = escapeHtml;
+  const jiraDomain = process.env.JIRA_DOMAIN || '';
+  const jiraLink = jiraDomain && issueKey ? `https://${e(jiraDomain)}/browse/${e(issueKey)}` : '';
+  return `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Support ticket: ${e(issueKey)}</title></head>
+<body style="font-family: -apple-system, sans-serif; line-height: 1.5; color: #1e293b; max-width: 640px; margin: 0 auto; padding: 24px;">
+  <h1 style="font-size: 1.25rem;">New support ticket created</h1>
+  <p><strong>Jira ticket:</strong> ${e(issueKey)}</p>
+  <p><strong>Summary:</strong> ${e(summary)}</p>
+  ${userEmail ? `<p><strong>User email:</strong> ${e(userEmail)}</p>` : ''}
+  ${jiraLink ? `<p><a href="${jiraLink}">Open in Jira →</a></p>` : ''}
+  <h2 style="font-size: 1rem;">Steps to reproduce / description</h2>
+  <pre style="background: #f8fafc; padding: 12px; border-radius: 6px; white-space: pre-wrap;">${e(description || '(none)')}</pre>
+  ${environment ? `<h2 style="font-size: 1rem;">Browser / environment</h2><pre style="background: #f8fafc; padding: 12px; white-space: pre-wrap;">${e(environment)}</pre>` : ''}
+  ${errors ? `<h2 style="font-size: 1rem;">Auto-captured errors</h2><pre style="background: #fef2f2; padding: 12px; white-space: pre-wrap;">${e(errors)}</pre>` : ''}
+</body>
+</html>`.trim();
+}
+
+/**
+ * Parse SUPPORT_NOTIFY_EMAILS (comma, semicolon, or newline separated) for recipients.
+ * Trims whitespace and keeps only valid-looking emails.
+ */
+function getNotifyEmails() {
+  const raw = String(process.env.SUPPORT_NOTIFY_EMAILS || '').trim();
+  if (!raw) return [];
+  return raw
+    .split(/[\s,;]+/)
+    .map((e) => String(e).trim().toLowerCase())
+    .filter((e) => e && e.includes('@') && e.length > 5);
+}
+
+/**
+ * Send support notification via SendGrid API (https): FROM support@... TO notify list.
+ * Failure is logged; never throws. Uses env: SENDGRID_API_KEY, SUPPORT_EMAIL, SUPPORT_NOTIFY_EMAILS, JIRA_DOMAIN.
+ */
+async function sendSupportEmail({ issueKey, summary, description, userEmail, environment, errors }) {
+  const apiKey = (process.env.SENDGRID_API_KEY || '').trim();
+  const fromEmail = (process.env.SUPPORT_EMAIL || 'support@exeleratetechnology.com').trim();
+  const toEmails = getNotifyEmails();
+  if (!apiKey) {
+    console.warn('[supportProxy] SENDGRID_API_KEY not set; skipping support email');
+    return;
+  }
+  if (toEmails.length === 0) {
+    console.warn('[supportProxy] SUPPORT_NOTIFY_EMAILS empty or invalid (use comma-separated emails); skipping');
+    return;
+  }
+  const html = buildSupportEmailHtml({ issueKey, summary, description, userEmail, environment, errors });
+  const subject = `[Support] ${issueKey} - ${String(summary).slice(0, 60)}`;
+  const payload = JSON.stringify({
+    personalizations: [{ to: toEmails.map((email) => ({ email })) }],
+    from: { email: fromEmail, name: 'Support' },
+    subject,
+    content: [{ type: 'text/html', value: html }],
+  });
+  try {
+    const res = await httpsRequest('https://api.sendgrid.com/v3/mail/send', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(payload, 'utf8'),
+      },
+      body: payload,
+    });
+    if (res.statusCode >= 200 && res.statusCode < 300) {
+      console.log('[supportProxy] Support email sent to', toEmails.length, 'recipient(s)');
+    } else {
+      // Log full error body so you can see SendGrid message (e.g. sender not verified)
+      console.error('[supportProxy] SendGrid failed:', res.statusCode, res.body || '');
+    }
+  } catch (err) {
+    console.error('[supportProxy] SendGrid error:', err.message || err);
+  }
+}
+
 export async function main(event) {
   const method = event.http?.method || event.method || 'POST';
   const rawBody = event.http?.body ?? event.body;
@@ -241,6 +337,16 @@ export async function main(event) {
     }
 
     const issueKey = await createJiraBug({ summary, description, attachments });
+
+    // Send support notification email after Jira success; failure must not break response.
+    await sendSupportEmail({
+      issueKey,
+      summary,
+      description,
+      userEmail: userEmail || undefined,
+      environment: technicalInfoText || undefined,
+      errors: capturedErrorsText || undefined,
+    }).catch((err) => console.error('[supportProxy] Email error:', err.message));
 
     const jiraUrl = `https://${process.env.JIRA_DOMAIN}/browse/${issueKey}`;
     console.log(`[Support] Created ${issueKey} for ${userEmail || 'anonymous'}. ${jiraUrl}`);

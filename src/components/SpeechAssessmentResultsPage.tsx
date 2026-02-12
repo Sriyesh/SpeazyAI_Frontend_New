@@ -76,6 +76,11 @@ export function SpeechAssessmentResultsPage() {
         return
       }
 
+      console.log("[Save Result] apiResponse (Confidence API result) keys:", Object.keys(apiResponse))
+      console.log("[Save Result] apiResponse.reading:", apiResponse.reading)
+      console.log("[Save Result] apiResponse.metadata:", apiResponse.metadata)
+      console.log("[Save Result] Full apiResponse:", apiResponse)
+
       // Determine if this is from custom-content, academic-samples, or famous-speeches
       const isCustomContent = backRoute?.includes("/custom-content") || lessonId
       const hasChapter = chapter && chapter.id
@@ -124,6 +129,18 @@ export function SpeechAssessmentResultsPage() {
         const mockCefr = englishProficiencyScores.mock_cefr || apiResponse.overall?.mock_cefr
         const mockPte = englishProficiencyScores.mock_pte || apiResponse.overall?.mock_pte
 
+        // Resolve reading from multiple possible response paths (API may nest or wrap it)
+        const rawReading = apiResponse.reading
+          ?? apiResponse.reading_metrics
+          ?? apiResponse.data?.reading
+          ?? apiResponse.result?.reading
+          ?? {}
+        const r = rawReading
+        const completionVal = r.completion ?? r.completion_percent
+        const accuracyVal = r.accuracy ?? r.accuracy_percent
+        const completionNum = completionVal != null ? (Number(completionVal) <= 1 ? Number(completionVal) : Number(completionVal) / 100) : 0
+        const accuracyNum = accuracyVal != null ? (Number(accuracyVal) <= 1 ? Number(accuracyVal) : Number(accuracyVal) / 100) : 0
+
         const payload = {
           module_type: moduleType,
           module_key: moduleKey,
@@ -153,23 +170,18 @@ export function SpeechAssessmentResultsPage() {
               }
             },
             reading: {
-              reading_total_time: apiResponse.reading?.total_time ?? apiResponse.reading?.reading_time ?? 0,
-              words_read: apiResponse.reading?.words_read ?? 0,
-              unique_words_read: apiResponse.reading?.unique_words_read ?? 0,
-              correct_words_read: apiResponse.reading?.correct_words_read ?? 0,
-              words_per_minute: apiResponse.reading?.speed_wpm_correct ?? apiResponse.reading?.speed_wpm ?? 0,
-              completion_percent: apiResponse.reading?.completion 
-                ? (apiResponse.reading.completion * 100) 
-                : 0,
-              accuracy_percent: apiResponse.reading?.accuracy 
-                ? (apiResponse.reading.accuracy * 100) 
-                : 0,
-              non_reading_time: apiResponse.reading?.non_reading_time ?? 0,
-              // Legacy fields for backward compatibility
-              total_time: apiResponse.reading?.total_time ?? apiResponse.reading?.reading_time ?? 0,
-              speed_wpm_correct: apiResponse.reading?.speed_wpm_correct ?? apiResponse.reading?.speed_wpm ?? 0,
-              completion: apiResponse.reading?.completion ?? 0,
-              accuracy: apiResponse.reading?.accuracy ?? 0
+              reading_total_time: r.total_time ?? r.reading_time ?? 0,
+              words_read: r.words_read ?? 0,
+              unique_words_read: r.unique_words_read ?? 0,
+              correct_words_read: r.correct_words_read ?? 0,
+              words_per_minute: r.speed_wpm_correct ?? r.speed_wpm ?? 0,
+              completion_percent: completionNum * 100,
+              accuracy_percent: accuracyNum * 100,
+              non_reading_time: r.non_reading_time ?? 0,
+              total_time: r.total_time ?? r.reading_time ?? 0,
+              speed_wpm_correct: r.speed_wpm_correct ?? r.speed_wpm ?? 0,
+              completion: completionNum,
+              accuracy: accuracyNum
             },
             metadata: {
               predicted_text: apiResponse.metadata?.predicted_text ?? "",
@@ -179,6 +191,8 @@ export function SpeechAssessmentResultsPage() {
         }
 
         console.log("Saving result to database with payload:", JSON.stringify(payload, null, 2))
+        console.log("[Save Result] payload.result.reading:", payload.result?.reading)
+        console.log("[Save Result] payload.metadata:", payload.metadata)
 
         const response = await fetch("https://api.exeleratetechnology.com/api/speaking/save-result.php", {
           method: "POST",
