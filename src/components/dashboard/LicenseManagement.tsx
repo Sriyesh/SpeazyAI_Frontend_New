@@ -61,11 +61,18 @@ export function LicenseManagement() {
   const [showStatusDialog, setShowStatusDialog] = useState(false)
   const [showRegisterModal, setShowRegisterModal] = useState(false)
   const [showUpdateModal, setShowUpdateModal] = useState(false)
+  const [showAddPrincipalModal, setShowAddPrincipalModal] = useState(false)
+  const [newlyRegisteredOrg, setNewlyRegisteredOrg] = useState<{ organisation_id: number; organisation_name: string } | null>(null)
+  const [addPrincipalForm, setAddPrincipalForm] = useState({ firstName: "", lastName: "", email: "" })
+  const [addPrincipalLoading, setAddPrincipalLoading] = useState(false)
+  const [addPrincipalError, setAddPrincipalError] = useState<string | null>(null)
   const [editingLicense, setEditingLicense] = useState<License | null>(null)
   const [licenseToToggle, setLicenseToToggle] = useState<License | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const { authData, logout, token } = useAuth()
+  const apiBase = getExelerateApiBase() + "/api"
+  const API_TOKEN = token || (authData as any)?.token || ""
 
   // Register form state
   const [registerFormData, setRegisterFormData] = useState({
@@ -552,6 +559,72 @@ export function LicenseManagement() {
     }
   }
 
+  // Create user API (for Add Principal after register org)
+  const createUser = async (userData: {
+    first_name: string
+    last_name: string
+    email: string
+    role: string
+    organisation_id: number
+    class?: string[] | string
+  }) => {
+    const API_URL = `${apiBase}/users/create.php`
+    const response = await fetch(API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${API_TOKEN}`,
+      },
+      body: JSON.stringify(userData),
+    })
+    if (!response.ok) {
+      const errorText = await response.text()
+      try {
+        const err = JSON.parse(errorText)
+        throw new Error(err.message || err.error || err.msg || "Failed to create user")
+      } catch (e: any) {
+        if (e.message) throw e
+        throw new Error(errorText || `API Error (${response.status})`)
+      }
+    }
+    return response.json()
+  }
+
+  const handleAddPrincipalSubmit = async () => {
+    if (!newlyRegisteredOrg) return
+    if (!addPrincipalForm.firstName?.trim() || !addPrincipalForm.lastName?.trim() || !addPrincipalForm.email?.trim()) {
+      setAddPrincipalError("Please fill in First Name, Last Name and Email.")
+      return
+    }
+    setAddPrincipalLoading(true)
+    setAddPrincipalError(null)
+    try {
+      const res = await createUser({
+        first_name: addPrincipalForm.firstName.trim(),
+        last_name: addPrincipalForm.lastName.trim(),
+        email: addPrincipalForm.email.trim(),
+        role: "principal",
+        organisation_id: newlyRegisteredOrg.organisation_id,
+      })
+      if (res.success) {
+        setShowAddPrincipalModal(false)
+        setNewlyRegisteredOrg(null)
+        setAddPrincipalForm({ firstName: "", lastName: "", email: "" })
+        toast.success("Principal added successfully!", {
+          description: `${addPrincipalForm.firstName} ${addPrincipalForm.lastName} has been added to ${newlyRegisteredOrg.organisation_name}.`,
+          duration: 3000,
+        })
+      } else {
+        throw new Error(res.message || "Failed to create user")
+      }
+    } catch (e: any) {
+      setAddPrincipalError(e?.message || "Failed to add principal. Please try again.")
+      toast.error("Failed to add principal", { description: e?.message, duration: 4000 })
+    } finally {
+      setAddPrincipalLoading(false)
+    }
+  }
+
   // Handle register organisation
   const handleRegisterOrganisation = async () => {
     // Validate required fields
@@ -591,24 +664,26 @@ export function LicenseManagement() {
 
       // Check if API returned success (based on your Postman response)
       if (response.success === true && response.data?.organisation_id) {
+        const orgId = response.data.organisation_id
+        const orgName = registerFormData.organizationName
         // Calculate days left for local state
         const daysLeft = calculateDaysLeft(registerFormData.expiryDate)
 
         // Add to local licenses list using the organisation_id from API response
         const newLicense: License = {
-          id: response.data.organisation_id.toString(),
-          organization: registerFormData.organizationName,
-          licenseId: response.data.organisation_id.toString(), // Use the ID from API response
-          type: "Education", // Always Education
+          id: orgId.toString(),
+          organization: orgName,
+          licenseId: orgId.toString(),
+          type: "Education",
           license: registerFormData.licenseType,
           assigned: parseInt(registerFormData.assignedLicenses),
           available: parseInt(registerFormData.assignedLicenses),
           expiry: registerFormData.expiryDate,
           daysLeft: daysLeft,
-          isActive: true, // New organizations are active by default
+          isActive: true,
         }
 
-        // Reset form first
+        // Reset register form and close modal
         setRegisterFormData({
           organizationName: "",
           address: "",
@@ -617,17 +692,21 @@ export function LicenseManagement() {
           startDate: "",
           expiryDate: "",
         })
-
-        // Close modal
         setShowRegisterModal(false)
-        
-        // Refresh the list from API to get the latest data (including the newly created one)
+        setError(null)
+
         await loadOrganizations()
-        
+
         toast.success("Organisation registered successfully!", {
-          description: `"${registerFormData.organizationName}" (ID: ${response.data.organisation_id})`,
+          description: `"${orgName}" (ID: ${orgId})`,
           duration: 3000,
         })
+
+        // Open Add Principal popup for the newly registered organisation
+        setNewlyRegisteredOrg({ organisation_id: orgId, organisation_name: orgName })
+        setAddPrincipalForm({ firstName: "", lastName: "", email: "" })
+        setAddPrincipalError(null)
+        setShowAddPrincipalModal(true)
       } else {
         throw new Error(response.message || "Failed to create organization")
       }
@@ -1741,6 +1820,111 @@ export function LicenseManagement() {
             >
               {isLoading ? "Registering..." : "Register Organisation"}
             </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Add Principal to new organisation Modal */}
+      <AlertDialog
+        open={showAddPrincipalModal}
+        onOpenChange={(open) => {
+          setShowAddPrincipalModal(open)
+          if (!open) {
+            setNewlyRegisteredOrg(null)
+            setAddPrincipalForm({ firstName: "", lastName: "", email: "" })
+            setAddPrincipalError(null)
+          }
+        }}
+      >
+        <AlertDialogContent style={{ backgroundColor: "#FFFFFF", borderRadius: "16px", maxWidth: "480px" }}>
+          <AlertDialogHeader>
+            <AlertDialogTitle style={{ fontSize: "20px", fontWeight: "bold", color: "#1E3A8A" }}>
+              Add Principal
+            </AlertDialogTitle>
+            <AlertDialogDescription style={{ fontSize: "14px", color: "rgba(30, 58, 138, 0.8)" }}>
+              Add a Principal user to <strong>{newlyRegisteredOrg?.organisation_name ?? "this organisation"}</strong>. They will have access to manage this organisation.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div style={{ display: "flex", flexDirection: "column", gap: "16px", padding: "16px 0" }}>
+            <div>
+              <label style={{ display: "block", fontSize: "14px", fontWeight: "500", color: "#1E3A8A", marginBottom: "6px" }}>First Name *</label>
+              <input
+                type="text"
+                value={addPrincipalForm.firstName}
+                onChange={(e) => setAddPrincipalForm((f) => ({ ...f, firstName: e.target.value }))}
+                placeholder="First name"
+                style={{
+                  width: "100%",
+                  padding: "10px 12px",
+                  borderRadius: "8px",
+                  border: "1px solid rgba(30, 58, 138, 0.2)",
+                  fontSize: "14px",
+                  color: "#1E3A8A",
+                }}
+              />
+            </div>
+            <div>
+              <label style={{ display: "block", fontSize: "14px", fontWeight: "500", color: "#1E3A8A", marginBottom: "6px" }}>Last Name *</label>
+              <input
+                type="text"
+                value={addPrincipalForm.lastName}
+                onChange={(e) => setAddPrincipalForm((f) => ({ ...f, lastName: e.target.value }))}
+                placeholder="Last name"
+                style={{
+                  width: "100%",
+                  padding: "10px 12px",
+                  borderRadius: "8px",
+                  border: "1px solid rgba(30, 58, 138, 0.2)",
+                  fontSize: "14px",
+                  color: "#1E3A8A",
+                }}
+              />
+            </div>
+            <div>
+              <label style={{ display: "block", fontSize: "14px", fontWeight: "500", color: "#1E3A8A", marginBottom: "6px" }}>Email *</label>
+              <input
+                type="email"
+                value={addPrincipalForm.email}
+                onChange={(e) => setAddPrincipalForm((f) => ({ ...f, email: e.target.value }))}
+                placeholder="principal@example.com"
+                style={{
+                  width: "100%",
+                  padding: "10px 12px",
+                  borderRadius: "8px",
+                  border: "1px solid rgba(30, 58, 138, 0.2)",
+                  fontSize: "14px",
+                  color: "#1E3A8A",
+                }}
+              />
+            </div>
+            {addPrincipalError && (
+              <p style={{ color: "#DC2626", fontSize: "14px", margin: 0 }}>{addPrincipalError}</p>
+            )}
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              onClick={() => {
+                setShowAddPrincipalModal(false)
+                setNewlyRegisteredOrg(null)
+                setAddPrincipalForm({ firstName: "", lastName: "", email: "" })
+                setAddPrincipalError(null)
+              }}
+              style={{ borderColor: "#1E3A8A", color: "#1E3A8A" }}
+            >
+              Skip
+            </AlertDialogCancel>
+            <Button
+              type="button"
+              onClick={handleAddPrincipalSubmit}
+              disabled={addPrincipalLoading}
+              style={{
+                backgroundColor: addPrincipalLoading ? "#9CA3AF" : "#1E3A8A",
+                color: "#FFFFFF",
+                cursor: addPrincipalLoading ? "not-allowed" : "pointer",
+              }}
+            >
+              {addPrincipalLoading ? "Adding..." : "Add Principal"}
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

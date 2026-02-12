@@ -14,6 +14,8 @@ import {
   FileText,
   LogOut,
   ChevronLeft,
+  ChevronUp,
+  ChevronRight,
   Plus,
   Edit,
   Upload,
@@ -45,18 +47,18 @@ import { getExelerateApiBase } from "../../config/apiConfig"
 
 interface User {
   id: string
-  user_id?: number // API user_id for API calls
+  user_id?: number
   name: string
   email: string
-  role: "Company Learner" | "Company Trainer" | "Company Manager" | "Company Administrator"
+  role: "Student" | "Teacher" | "Principal" | "Administrator"
   classes: string | number
   organization: string
-  organisation_id?: number // API organisation_id
-  isActive?: boolean // Status: active or inactive
+  organisation_id?: number
+  isActive?: boolean
 }
 
-// Type for available roles that can be assigned
-type AssignableRole = "Company Learner" | "Company Trainer" | "Company Manager"
+// Roles that can be assigned in Add/Edit User (Admin: all 3; Principal: Teacher, Student; Teacher: Student only)
+type AssignableRole = "Student" | "Teacher" | "Principal"
 
 interface Organisation {
   id: number
@@ -69,6 +71,13 @@ export function ClassManagement() {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set())
   const [filterOrganization, setFilterOrganization] = useState<string>("all")
+  const [page, setPage] = useState(1)
+  const [perPage, setPerPage] = useState(20)
+  const [total, setTotal] = useState(0)
+  const [totalPages, setTotalPages] = useState(1)
+  const [sortBy, setSortBy] = useState<keyof User | "">("")
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc")
+  const [searchInput, setSearchInput] = useState("")
   const [showAddUserForm, setShowAddUserForm] = useState(false)
   const [showAddUserModal, setShowAddUserModal] = useState(false)
   const [showStatusDialog, setShowStatusDialog] = useState(false)
@@ -90,7 +99,7 @@ export function ClassManagement() {
     firstName: "",
     lastName: "",
     email: "",
-    role: "Company Learner" as User["role"],
+    role: "Student" as User["role"],
     classes: "",
     organization: "",
     organisation_id: "",
@@ -124,49 +133,7 @@ export function ClassManagement() {
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false)
   const [userSearchTerm, setUserSearchTerm] = useState("")
 
-  // Sample users data
-  const [users, setUsers] = useState<User[]>([
-    {
-      id: "1",
-      name: "Abhirami B R",
-      email: "abhiramibr2011@gmail.com",
-      role: "Company Learner",
-      classes: "9",
-      organization: "CSI WF CENTRAL SCHOOL  Karakonam",
-    },
-    {
-      id: "2",
-      name: "Sajith Pillai",
-      email: "xeleratelearningindia@outlook.com",
-      role: "Company Trainer",
-      classes: "1A",
-      organization: "ABC School",
-    },
-    {
-      id: "3",
-      name: "Reshma",
-      email: "reshma@example.com",
-      role: "Company Manager",
-      classes: "2B",
-      organization: "XYZ School",
-    },
-    {
-      id: "4",
-      name: "John Doe",
-      email: "john.doe@example.com",
-      role: "Company Learner",
-      classes: "None",
-      organization: "Green Valley School",
-    },
-    {
-      id: "5",
-      name: "Jane Smith",
-      email: "jane.smith@example.com",
-      role: "Company Administrator",
-      classes: "7",
-      organization: "Sunshine Academy",
-    },
-  ])
+  const [users, setUsers] = useState<User[]>([])
 
   const menuItems = [
     { id: "english-skill-ai", label: "English Skill AI", icon: Mic2, route: "/skills-home" },
@@ -230,26 +197,26 @@ export function ClassManagement() {
     return name[0].toUpperCase()
   }
 
-  // Map API role to UI role
+  // Map API role to UI role (API uses student, teacher, principal, administrator)
   const mapApiRoleToUIRole = (apiRole: string): User["role"] => {
     const roleMap: Record<string, User["role"]> = {
-      student: "Company Learner",
-      teacher: "Company Trainer",
-      manager: "Company Manager",
-      administrator: "Company Administrator",
-      admin: "Company Administrator",
-      principal: "Company Manager",
+      student: "Student",
+      teacher: "Teacher",
+      manager: "Principal",
+      administrator: "Administrator",
+      admin: "Administrator",
+      principal: "Principal",
     }
-    return roleMap[apiRole.toLowerCase()] || "Company Learner"
+    return roleMap[apiRole.toLowerCase()] || "Student"
   }
 
   // Map UI role to API role
   const mapUIRoleToApiRole = (uiRole: User["role"]): string => {
-    const roleMap: Record<User["role"], string> = {
-      "Company Learner": "student",
-      "Company Trainer": "teacher",
-      "Company Manager": "principal",
-      "Company Administrator": "administrator",
+    const roleMap: Record<string, string> = {
+      Student: "student",
+      Teacher: "teacher",
+      Principal: "principal",
+      Administrator: "administrator",
     }
     return roleMap[uiRole] || "student"
   }
@@ -295,19 +262,26 @@ export function ClassManagement() {
     return userRole === "administrator" || userRole.includes("admin")
   }
 
+  // Admin: Student, Teacher, Principal. Principal: Teacher, Student. Teacher: Student only.
   const getAllowedRoles = (): AssignableRole[] => {
-    if (!authData?.user?.role) return ["Company Learner"]
+    if (!authData?.user?.role) return ["Student"]
     const userRole = (authData.user.role || "").toLowerCase()
     if (userRole === "administrator" || userRole.includes("admin")) {
-      return ["Company Manager", "Company Trainer", "Company Learner"]
+      return ["Student", "Teacher", "Principal"]
     }
     if (userRole === "principal" || userRole.includes("principal")) {
-      return ["Company Trainer", "Company Learner"]
+      return ["Teacher", "Student"]
     }
     if (userRole === "teacher" || userRole.includes("teacher")) {
-      return ["Company Learner"]
+      return ["Student"]
     }
-    return ["Company Learner"]
+    return ["Student"]
+  }
+
+  const isPrincipal = () => {
+    if (!authData?.user?.role) return false
+    const userRole = (authData.user.role || "").toLowerCase()
+    return userRole === "principal" || userRole.includes("principal")
   }
 
   // API function to fetch organizations list
@@ -375,9 +349,24 @@ export function ClassManagement() {
     }
   }
 
-  // API function to fetch users list
-  const fetchUsers = async () => {
-    const API_URL = `${apiBase}/users/list.php`
+  // API function to fetch users list with pagination (GET users/list.php?page=1&per_page=20&search=&role=&is_active=&organisation_id=)
+  const fetchUsers = async (params: {
+    page?: number
+    per_page?: number
+    search?: string
+    role?: string | null
+    is_active?: boolean | null
+    organisation_id?: number | null
+  } = {}) => {
+    const sp = new URLSearchParams()
+    if (params.page != null) sp.set("page", String(params.page))
+    if (params.per_page != null) sp.set("per_page", String(params.per_page))
+    if (params.search != null && params.search.trim()) sp.set("search", params.search.trim())
+    if (params.role != null && params.role.trim()) sp.set("role", params.role.trim())
+    if (params.is_active != null) sp.set("is_active", params.is_active ? "1" : "0")
+    if (params.organisation_id != null && params.organisation_id > 0) sp.set("organisation_id", String(params.organisation_id))
+    const query = sp.toString()
+    const API_URL = `${apiBase}/users/list.php${query ? `?${query}` : ""}`
 
     try {
       const response = await fetch(API_URL, {
@@ -398,6 +387,11 @@ export function ClassManagement() {
       console.error("Error fetching users:", error)
       throw error
     }
+  }
+
+  const isTeacherOrPrincipal = () => {
+    const role = (authData?.user?.role || "").toLowerCase()
+    return role === "teacher" || role === "principal" || role.includes("teacher") || role.includes("principal")
   }
 
   // API function to update user
@@ -576,31 +570,44 @@ export function ClassManagement() {
     }
   }
 
-  // Load users from API
-  const loadUsers = async () => {
+  // Load users from API (paginated)
+  const loadUsers = async (pageNum?: number) => {
+    const currentPage = pageNum ?? page
     try {
-      const response = await fetchUsers()
-      console.log("Fetched users from API:", response)
-
+      setIsLoading(true)
+      setError(null)
+      // For admin with org filter: resolve organisation_id from filter name
+      let organisationId: number | null = null
+      if (!isTeacherOrPrincipal() && filterOrganization !== "all") {
+        const org = organizations.find((o) => o.organisation === filterOrganization)
+        if (org?.id) organisationId = Number(org.id)
+      }
+      const response = await fetchUsers({
+        page: currentPage,
+        per_page: perPage,
+        search: searchInput.trim() || undefined,
+        role: null,
+        is_active: null,
+        organisation_id: organisationId,
+      })
       if (response && response.success === true && Array.isArray(response.data)) {
-        // Extract unique classes from all users (classes are in array format like ["10-A", "9-B"])
+        const pag = response.pagination
+        if (pag) {
+          setPage(pag.page ?? currentPage)
+          setTotal(pag.total ?? 0)
+          setTotalPages(Math.max(1, pag.total_pages ?? 1))
+          if (pag.per_page) setPerPage(pag.per_page)
+        }
         const allClasses = new Set<string>()
         response.data.forEach((user: any) => {
           const userClasses = user.class || []
           if (Array.isArray(userClasses)) {
             userClasses.forEach((className: any) => {
-              if (className && String(className).trim()) {
-                allClasses.add(String(className).trim())
-              }
+              if (className && String(className).trim()) allClasses.add(String(className).trim())
             })
-          } else if (userClasses && String(userClasses).trim()) {
-            allClasses.add(String(userClasses).trim())
-          }
+          } else if (userClasses && String(userClasses).trim()) allClasses.add(String(userClasses).trim())
         })
-        const uniqueClasses = Array.from(allClasses).sort()
-        setAvailableClasses(uniqueClasses)
-        console.log("Available classes from API:", uniqueClasses)
-        
+        setAvailableClasses(Array.from(allClasses).sort())
         const fetchedUsers: User[] = response.data.map((user: any) => {
           // Find organization name from organisations list
           // Handle ID matching - convert both to numbers for comparison
@@ -731,42 +738,38 @@ export function ClassManagement() {
           }
         })
 
-        if (fetchedUsers.length > 0) {
-          // Merge API response with existing deactivated users
-          // API might not return deactivated users, so we preserve them in state
-          setUsers(prevUsers => {
-            const apiUserIds = new Set(fetchedUsers.map(u => u.id))
-            const existingDeactivatedUsers = prevUsers.filter(u => !apiUserIds.has(u.id) && u.isActive === false)
-            const mergedUsers = [...fetchedUsers, ...existingDeactivatedUsers]
-            console.log(`Loaded ${fetchedUsers.length} users from API, preserved ${existingDeactivatedUsers.length} deactivated users`)
-            return mergedUsers
-          })
-        } else {
-          // If API returns empty, preserve existing deactivated users
-          setUsers(prevUsers => prevUsers.filter(u => u.isActive === false))
+        setUsers(fetchedUsers)
+      } else {
+        setUsers([])
+        if (response && response.pagination) {
+          const pag = response.pagination
+          setTotal(pag.total ?? 0)
+          setTotalPages(Math.max(1, pag.total_pages ?? 1))
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error loading users:", error)
-      // Keep using sample data if API fails
+      setError(error?.message || "Failed to load users")
+      setUsers([])
+    } finally {
+      setIsLoading(false)
     }
   }
 
-  // Load data on component mount
   useEffect(() => {
-    loadOrganizations().then(() => {
-      // Load users after organizations are loaded
-      loadUsers()
-    })
+    loadOrganizations()
   }, [])
 
-  // Reload users when organizations are loaded
   useEffect(() => {
-    if (organizations.length > 0) {
-      loadUsers()
-    }
+    setPage(1)
+    loadUsers(1)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [organizations.length])
+  }, [filterOrganization, searchInput])
+
+  useEffect(() => {
+    loadUsers()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, perPage])
 
   // Update default role based on allowed roles when modal opens (only for new users)
   useEffect(() => {
@@ -781,13 +784,45 @@ export function ClassManagement() {
     }
   }, [showAddUserModal, editingUser])
 
-  // Filter users by organization only (NOT by isActive status)
-  // IMPORTANT: Deactivated users ARE shown - they are not filtered out
-  // The API uses soft delete (deactivate) via delete.php and restore.php, not hard delete
-  const filteredUsers = users.filter((user) => {
-    if (filterOrganization === "all") return true
-    return user.organization === filterOrganization
-  })
+  // Current page users (API returns filtered by organisation_id when admin selects an org)
+  const filteredUsers = users
+
+  // Sort current page (client-side)
+  const sortedUsers = React.useMemo(() => {
+    if (!sortBy) return [...filteredUsers]
+    const key = sortBy as keyof User
+    return [...filteredUsers].sort((a, b) => {
+      let aVal: any = a[key]
+      let bVal: any = b[key]
+      if (key === "classes" || key === "organization") {
+        aVal = String(aVal ?? "")
+        bVal = String(bVal ?? "")
+        return sortOrder === "asc" ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal)
+      }
+      if (key === "name" || key === "email" || key === "role") {
+        aVal = String(aVal ?? "")
+        bVal = String(bVal ?? "")
+        return sortOrder === "asc" ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal)
+      }
+      if (key === "isActive") {
+        aVal = aVal ? 1 : 0
+        bVal = bVal ? 1 : 0
+        return sortOrder === "asc" ? aVal - bVal : bVal - aVal
+      }
+      aVal = String(aVal ?? "")
+      bVal = String(bVal ?? "")
+      return sortOrder === "asc" ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal)
+    })
+  }, [filteredUsers, sortBy, sortOrder])
+
+  const handleSort = (column: keyof User) => {
+    if (sortBy === column) {
+      setSortOrder((o) => (o === "asc" ? "desc" : "asc"))
+    } else {
+      setSortBy(column)
+      setSortOrder("asc")
+    }
+  }
 
   // Handle checkbox selection
   const handleSelectUser = (userId: string) => {
@@ -1134,7 +1169,7 @@ export function ClassManagement() {
       firstName: "",
       lastName: "",
       email: "",
-      role: "Company Learner",
+      role: "Student",
       classes: "",
       organization: "",
       organisation_id: "",
@@ -1497,12 +1532,7 @@ export function ClassManagement() {
             }}
           >
             <Button
-              onClick={() => {
-                setShowAddUserForm(!showAddUserForm)
-                if (!showAddUserForm) {
-                  openAddUserModal()
-                }
-              }}
+              onClick={openAddUserModal}
               style={{
                 backgroundColor: "#3B82F6",
                 color: "#FFFFFF",
@@ -1522,6 +1552,7 @@ export function ClassManagement() {
               <Upload style={{ width: "16px", height: "16px", marginRight: "8px" }} />
               Upload CSV
             </Button>
+            {(isAdministrator() || isPrincipal()) && (
             <Button
               onClick={() => setShowAssignClassDialog(true)}
               variant="outline"
@@ -1533,55 +1564,12 @@ export function ClassManagement() {
               <Users style={{ width: "16px", height: "16px", marginRight: "8px" }} />
               Assign Class
             </Button>
+            )}
           </div>
         </div>
 
         {/* Main Content Area */}
         <div style={{ padding: "32px", flex: 1, backgroundColor: "#1E40AF" }}>
-          {/* Add User Section */}
-          {showAddUserForm && (
-            <div
-              style={{
-                backgroundColor: "#FFFFFF",
-                borderRadius: "16px",
-                padding: "24px",
-                marginBottom: "24px",
-                boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-              }}
-            >
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
-                <h2 style={{ fontSize: "20px", fontWeight: "bold", color: "#1E3A8A", margin: 0 }}>
-                  Add User
-                </h2>
-                <button
-                  onClick={() => {
-                    setShowAddUserForm(false)
-                    resetForm()
-                  }}
-                  style={{
-                    background: "transparent",
-                    border: "none",
-                    color: "#1E3A8A",
-                    cursor: "pointer",
-                    padding: "4px",
-                  }}
-                >
-                  <X style={{ width: "20px", height: "20px" }} />
-                </button>
-              </div>
-              <Button
-                onClick={openAddUserModal}
-                style={{
-                  backgroundColor: "#3B82F6",
-                  color: "#FFFFFF",
-                }}
-              >
-                <Plus style={{ width: "16px", height: "16px", marginRight: "8px" }} />
-                Add Another User
-              </Button>
-            </div>
-          )}
-
           {/* Existing Users Section */}
           <div
             className="class-card"
@@ -1610,105 +1598,140 @@ export function ClassManagement() {
               </p>
             </div>
 
-            {/* Filter Section */}
-            <div style={{ marginBottom: "24px" }}>
-              <label
-                style={{
-                  display: "block",
-                  fontSize: "14px",
-                  fontWeight: "500",
-                  color: "#1E3A8A",
-                  marginBottom: "8px",
-                }}
-              >
-                Filter by Organization:
-              </label>
-              <div data-dropdown style={{ position: "relative", width: "100%", maxWidth: "300px" }}>
-                <button
-                  type="button"
-                  onClick={() => setIsFilterOrgDropdownOpen(!isFilterOrgDropdownOpen)}
+            {/* Filter Section - hidden for Teacher and Principal */}
+            {!isTeacherOrPrincipal() && (
+            <div style={{ marginBottom: "24px", display: "flex", flexWrap: "wrap", gap: "16px", alignItems: "flex-end" }}>
+              <div>
+                <label style={{ display: "block", fontSize: "14px", fontWeight: "500", color: "#1E3A8A", marginBottom: "8px" }}>
+                  Filter by Organization:
+                </label>
+                <div data-dropdown style={{ position: "relative", width: "100%", maxWidth: "300px" }}>
+                  <button
+                    type="button"
+                    onClick={() => setIsFilterOrgDropdownOpen(!isFilterOrgDropdownOpen)}
+                    style={{
+                      width: "100%",
+                      padding: "10px 12px",
+                      borderRadius: "8px",
+                      border: "1px solid rgba(30, 58, 138, 0.2)",
+                      fontSize: "14px",
+                      color: "#1E3A8A",
+                      backgroundColor: "#FFFFFF",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <span>{filterOrganization === "all" ? "All Organizations" : filterOrganization}</span>
+                    <ChevronDown style={{ width: "16px", height: "16px", flexShrink: 0 }} />
+                  </button>
+                  {isFilterOrgDropdownOpen && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: "100%",
+                        left: 0,
+                        right: 0,
+                        marginTop: "4px",
+                        backgroundColor: "#FFFFFF",
+                        border: "1px solid rgba(30, 58, 138, 0.2)",
+                        borderRadius: "8px",
+                        boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                        maxHeight: "200px",
+                        overflow: "auto",
+                        zIndex: 50,
+                      }}
+                    >
+                      <input
+                        type="text"
+                        placeholder="Search organizations..."
+                        value={filterOrgSearchTerm}
+                        onChange={(e) => setFilterOrgSearchTerm(e.target.value)}
+                        onFocus={(e) => e.stopPropagation()}
+                        style={{
+                          width: "100%",
+                          padding: "8px 12px",
+                          border: "none",
+                          borderBottom: "1px solid rgba(30, 58, 138, 0.1)",
+                          fontSize: "14px",
+                          outline: "none",
+                        }}
+                      />
+                      {organizationsList
+                        .filter((org) =>
+                          (org === "All Organizations" ? "all" : org).toLowerCase().includes(filterOrgSearchTerm.toLowerCase())
+                        )
+                        .map((org) => (
+                          <button
+                            key={org}
+                            type="button"
+                            onClick={() => {
+                              setFilterOrganization(org === "All Organizations" ? "all" : org)
+                              setIsFilterOrgDropdownOpen(false)
+                              setFilterOrgSearchTerm("")
+                            }}
+                            style={{
+                              width: "100%",
+                              padding: "10px 12px",
+                              textAlign: "left",
+                              border: "none",
+                              background: filterOrganization === (org === "All Organizations" ? "all" : org) ? "rgba(59, 130, 246, 0.1)" : "transparent",
+                              cursor: "pointer",
+                              fontSize: "14px",
+                              color: "#1E3A8A",
+                            }}
+                          >
+                            {org}
+                          </button>
+                        ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div>
+                <label style={{ display: "block", fontSize: "14px", fontWeight: "500", color: "#1E3A8A", marginBottom: "8px" }}>
+                  Search:
+                </label>
+                <input
+                  type="text"
+                  placeholder="Search by name or email..."
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
                   style={{
-                    width: "100%",
                     padding: "10px 12px",
                     borderRadius: "8px",
                     border: "1px solid rgba(30, 58, 138, 0.2)",
                     fontSize: "14px",
                     color: "#1E3A8A",
-                    backgroundColor: "#FFFFFF",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    cursor: "pointer",
+                    minWidth: "200px",
                   }}
-                >
-                  <span>{filterOrganization === "all" ? "All Organizations" : filterOrganization}</span>
-                  <ChevronDown style={{ width: "16px", height: "16px", flexShrink: 0 }} />
-                </button>
-                {isFilterOrgDropdownOpen && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: "100%",
-                      left: 0,
-                      right: 0,
-                      marginTop: "4px",
-                      backgroundColor: "#FFFFFF",
-                      border: "1px solid rgba(30, 58, 138, 0.2)",
-                      borderRadius: "8px",
-                      boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-                      maxHeight: "200px",
-                      overflow: "auto",
-                      zIndex: 50,
-                    }}
-                  >
-                    <input
-                      type="text"
-                      placeholder="Search organizations..."
-                      value={filterOrgSearchTerm}
-                      onChange={(e) => setFilterOrgSearchTerm(e.target.value)}
-                      onFocus={(e) => e.stopPropagation()}
-                      style={{
-                        width: "100%",
-                        padding: "8px 12px",
-                        border: "none",
-                        borderBottom: "1px solid rgba(30, 58, 138, 0.1)",
-                        fontSize: "14px",
-                        outline: "none",
-                      }}
-                    />
-                    {organizationsList
-                      .filter((org) =>
-                        (org === "All Organizations" ? "all" : org)
-                          .toLowerCase()
-                          .includes(filterOrgSearchTerm.toLowerCase())
-                      )
-                      .map((org) => (
-                        <button
-                          key={org}
-                          type="button"
-                          onClick={() => {
-                            setFilterOrganization(org === "All Organizations" ? "all" : org)
-                            setIsFilterOrgDropdownOpen(false)
-                            setFilterOrgSearchTerm("")
-                          }}
-                          style={{
-                            width: "100%",
-                            padding: "10px 12px",
-                            textAlign: "left",
-                            border: "none",
-                            background: filterOrganization === (org === "All Organizations" ? "all" : org) ? "rgba(59, 130, 246, 0.1)" : "transparent",
-                            cursor: "pointer",
-                            fontSize: "14px",
-                            color: "#1E3A8A",
-                          }}
-                        >
-                          {org}
-                        </button>
-                      ))}
-                  </div>
-                )}
+                />
               </div>
             </div>
+            )}
+
+            {/* Search for Teacher/Principal (no org filter) */}
+            {isTeacherOrPrincipal() && (
+            <div style={{ marginBottom: "24px" }}>
+              <label style={{ display: "block", fontSize: "14px", fontWeight: "500", color: "#1E3A8A", marginBottom: "8px" }}>Search:</label>
+              <input
+                type="text"
+                placeholder="Search by name or email..."
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                style={{
+                  padding: "10px 12px",
+                  borderRadius: "8px",
+                  border: "1px solid rgba(30, 58, 138, 0.2)",
+                  fontSize: "14px",
+                  color: "#1E3A8A",
+                  maxWidth: "300px",
+                  width: "100%",
+                }}
+              />
+            </div>
+            )}
 
             {/* Bulk Actions */}
             {selectedUsers.size > 0 && (
@@ -1739,6 +1762,12 @@ export function ClassManagement() {
               </div>
             )}
 
+            {error && (
+              <div style={{ marginBottom: "16px", padding: "12px", backgroundColor: "#FEE2E2", borderRadius: "8px", color: "#DC2626", fontSize: "14px" }}>
+                {error}
+              </div>
+            )}
+
             {/* Users Table */}
             <div className="class-table-container" style={{ overflowX: "auto" }}>
               <table
@@ -1759,103 +1788,59 @@ export function ClassManagement() {
                     <th style={{ padding: "12px", textAlign: "left", width: "40px" }}>
                       <input
                         type="checkbox"
-                        checked={selectedUsers.size === filteredUsers.length && filteredUsers.length > 0}
+                        checked={selectedUsers.size === sortedUsers.length && sortedUsers.length > 0}
                         onChange={handleSelectAll}
-                        style={{
-                          width: "18px",
-                          height: "18px",
-                          cursor: "pointer",
-                        }}
+                        style={{ width: "18px", height: "18px", cursor: "pointer" }}
                       />
                     </th>
-                    <th
-                      style={{
-                        padding: "12px",
-                        textAlign: "left",
-                        fontSize: "14px",
-                        fontWeight: "600",
-                        color: "#1E3A8A",
-                      }}
-                    >
-                      NAME
-                    </th>
-                    <th
-                      style={{
-                        padding: "12px",
-                        textAlign: "left",
-                        fontSize: "14px",
-                        fontWeight: "600",
-                        color: "#1E3A8A",
-                      }}
-                    >
-                      EMAIL
-                    </th>
-                    <th
-                      style={{
-                        padding: "12px",
-                        textAlign: "left",
-                        fontSize: "14px",
-                        fontWeight: "600",
-                        color: "#1E3A8A",
-                      }}
-                    >
-                      ROLE
-                    </th>
-                    <th
-                      style={{
-                        padding: "12px",
-                        textAlign: "left",
-                        fontSize: "14px",
-                        fontWeight: "600",
-                        color: "#1E3A8A",
-                      }}
-                    >
-                      CLASSES
-                    </th>
-                    <th
-                      style={{
-                        padding: "12px",
-                        textAlign: "left",
-                        fontSize: "14px",
-                        fontWeight: "600",
-                        color: "#1E3A8A",
-                      }}
-                    >
-                      ORGANIZATION
-                    </th>
-                    <th
-                      style={{
-                        padding: "12px",
-                        textAlign: "left",
-                        fontSize: "14px",
-                        fontWeight: "600",
-                        color: "#1E3A8A",
-                      }}
-                    >
-                      STATUS
-                    </th>
-                    <th
-                      style={{
-                        padding: "12px",
-                        textAlign: "center",
-                        fontSize: "14px",
-                        fontWeight: "600",
-                        color: "#1E3A8A",
-                      }}
-                    >
+                    {[
+                      { key: "name" as const, label: "NAME" },
+                      { key: "email" as const, label: "EMAIL" },
+                      { key: "role" as const, label: "ROLE" },
+                      { key: "classes" as const, label: "CLASSES" },
+                      { key: "organization" as const, label: "ORGANIZATION" },
+                      { key: "isActive" as const, label: "STATUS" },
+                    ].map(({ key, label }) => (
+                      <th
+                        key={key}
+                        onClick={() => handleSort(key)}
+                        style={{
+                          padding: "12px",
+                          textAlign: key === "organization" || key === "isActive" ? "left" : "left",
+                          fontSize: "14px",
+                          fontWeight: "600",
+                          color: "#1E3A8A",
+                          cursor: "pointer",
+                          userSelect: "none",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                          {label}
+                          {sortBy === key && (sortOrder === "asc" ? <ChevronUp size={16} /> : <ChevronDown size={16} />)}
+                        </span>
+                      </th>
+                    ))}
+                    <th style={{ padding: "12px", textAlign: "center", fontSize: "14px", fontWeight: "600", color: "#1E3A8A" }}>
                       ACTIONS
                     </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredUsers.length === 0 ? (
+                  {isLoading ? (
+                    <tr>
+                      <td colSpan={8} style={{ padding: "40px", textAlign: "center", color: "rgba(30, 58, 138, 0.6)" }}>
+                        Loading...
+                      </td>
+                    </tr>
+                  ) : sortedUsers.length === 0 ? (
                     <tr>
                       <td colSpan={8} style={{ padding: "40px", textAlign: "center", color: "rgba(30, 58, 138, 0.6)" }}>
                         No users found
                       </td>
                     </tr>
                   ) : (
-                    filteredUsers.map((user) => {
+                    sortedUsers.map((user) => {
                       // Explicitly check if isActive is true (not defaulting to true)
                       // If isActive is undefined/null/false, treat as inactive/deactivated
                       const isActive = user.isActive === true
@@ -1961,6 +1946,47 @@ export function ClassManagement() {
                   )}
                 </tbody>
               </table>
+            </div>
+
+            {/* Pagination */}
+            <div
+              style={{
+                marginTop: "20px",
+                display: "flex",
+                flexWrap: "wrap",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: "16px",
+              }}
+            >
+              <div style={{ fontSize: "14px", color: "rgba(30, 58, 138, 0.8)" }}>
+                Showing {total === 0 ? 0 : (page - 1) * perPage + 1}–{Math.min(page * perPage, total)} of {total} users
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page <= 1 || isLoading}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  style={{ borderColor: "#1E3A8A", color: "#1E3A8A" }}
+                >
+                  <ChevronLeft style={{ width: "16px", height: "16px" }} />
+                  Previous
+                </Button>
+                <span style={{ fontSize: "14px", color: "#1E3A8A", fontWeight: "500", minWidth: "80px", textAlign: "center" }}>
+                  Page {page} of {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page >= totalPages || isLoading}
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  style={{ borderColor: "#1E3A8A", color: "#1E3A8A" }}
+                >
+                  Next
+                  <ChevronRight style={{ width: "16px", height: "16px" }} />
+                </Button>
+              </div>
             </div>
           </div>
         </div>
